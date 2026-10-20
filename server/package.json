@@ -1,0 +1,4 @@
+{
+  "//": "server/ 아래 로컬 자막 API(Vite 플러그인)는 ES 모듈로 로드한다.",
+  "type": "module"
+}
