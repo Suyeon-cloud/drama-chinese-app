@@ -1,8 +1,8 @@
-// 2~15주차 기본 강의자료. (1주차는 lessons.ts의 《以家人之名》 第3集 영상 강의)
+// 2~15주차 강의자료 초안(준비 중). (1주차는 lessons.ts의 《以家人之名》 第3集 영상 강의)
 //
 // - 각 주차는 드라마 속 상황을 바탕으로 재구성한 대사(원문), 핵심 표현, 어휘·문법, 문화렌즈, 복습 퀴즈로 이루어진다.
 // - 영상은 비워 두었다. 교수자가 ‘강의자료 만들기’에서 YouTube 주소를 넣고 원문 시간을 맞추면
-//   1주차처럼 영상 위에 자막·표현 카드가 나타난다. 영상이 없을 때 학습자는 대본·표현·퀴즈로 학습한다.
+//   1주차처럼 영상 위에 자막·표현 카드가 나타난다. 대사는 영상에 맞게 고친 뒤 ‘공개’로 바꾼다.
 // - 1~8주차는 중국어 → 한국어(중국 드라마), 9~15주차는 한국어 → 중국어(한국 드라마)이다.
 
 import { defaultDirectionForWeek } from "./course";
@@ -52,7 +52,8 @@ const buildLesson = (w: WeekSpec): Lesson => {
     description: w.description,
     direction,
     level: w.level,
-    status: "published",
+    // 영상이 정해지기 전의 초안이므로 학습자에게는 공개하지 않는다. (관리자가 영상을 연결한 뒤 공개)
+    status: "draft",
     video: { youtubeUrl: "", youtubeId: "", startTime: 0, endTime: 0 },
     source: { dramaTitle: w.drama, episode: "상황 재구성 대사" },
     script: {
