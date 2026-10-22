@@ -1,5 +1,6 @@
 import { episodes } from "./index";
 import { yijiarenzhimingEp3 } from "./episodes/yijiarenzhiming-ep3";
+import { WEEKLY_LESSONS } from "./weeklyLessons";
 import type {
   CultureLens,
   CultureLensCue,
@@ -32,7 +33,7 @@ const lessonFromEpisode = (
   updatedAt: SEED_TIME,
 });
 
-/** 저장된 강의자료가 없을 때 사용하는 기본 예시 자료 */
+/** 기본 강의자료 (15주). 서버 DB에 처음 한 번 들어간다. */
 export const SEED_LESSONS: Lesson[] = [
   {
     ...lessonFromEpisode(yijiarenzhimingEp3, {
@@ -46,6 +47,7 @@ export const SEED_LESSONS: Lesson[] = [
     // 영상에 박혀 있는 중국어 자막을 가리는 위치 (실제 영상으로 확인한 값)
     captionMask: { enabled: true, top: 78.5, height: 14, width: 70 },
   },
+  ...WEEKLY_LESSONS,
 ];
 
 const EMPTY_CONTENT: LessonContent = { cues: [], summary: [], quiz: [] };

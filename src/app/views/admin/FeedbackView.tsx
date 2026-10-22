@@ -16,7 +16,7 @@ import { feedbackStore } from "../../store";
 import { useAllProgress, useFeedbackDrafts, useLearners, useLessons } from "../../store/hooks";
 import { createId, nowIso } from "../../store/localJson";
 import type { FeedbackDraft, FeedbackStatus, LearnerProfile, LessonProgress } from "../../store/models";
-import { LocalScopeNote, PageIntro } from "./AdminShared";
+import { PageIntro } from "./AdminShared";
 
 const STATUS_TEXT: Record<FeedbackStatus, string> = {
   draft: "작성 중",
@@ -157,7 +157,6 @@ export const FeedbackView: React.FC = () => {
         title="피드백"
         desc="학습 결과를 바탕으로 피드백을 작성하고, 확인한 뒤 Gmail로 보내요."
       />
-      <LocalScopeNote />
 
       <div className="feedback-grid">
         <section className="card">

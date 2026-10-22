@@ -1,12 +1,8 @@
-import { COURSE_WEEK_COUNT } from "../../content/course";
-import { createLocalCollection } from "./localCollection";
-import { createEmitter, nowIso, readJson, writeJson } from "./localJson";
+import { api } from "../lib/api";
 import type { CourseInfo, Enrollment } from "./models";
+import { createRemoteEmitter } from "./remote";
 
-/**
- * 수업 정보 저장소. 지금은 한 학기 수업 1개를 다룬다.
- * 로컬 구현에서는 이 브라우저에만 저장되므로, 다른 기기에서 같은 참여 코드를 찾을 수 없다.
- */
+/** 수업 정보 저장소 (서버). 지금은 한 학기 수업 1개를 다룬다. */
 export interface CourseStore {
   /** 현재 수업 (없으면 참여 코드를 만들어 생성) */
   current(): Promise<CourseInfo>;
@@ -21,52 +17,31 @@ export interface EnrollmentStore {
   subscribe(listener: () => void): () => void;
 }
 
-const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-const createCourseCode = () =>
-  Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join("");
-
 export const normalizeCourseCode = (code: string) => code.trim().toUpperCase();
 
-export const createLocalCourseStore = (): CourseStore => {
-  const KEY = "zhuiju.course.v1";
-  const emitter = createEmitter(KEY);
-  const read = () => readJson<CourseInfo | null>(KEY, null);
+export const createRemoteCourseStore = (): CourseStore => {
+  const emitter = createRemoteEmitter();
+  const current = () => api<CourseInfo>("/course");
   return {
-    current: async () => {
-      const existing = read();
-      if (existing) return existing;
-      const course: CourseInfo = {
-        code: createCourseCode(),
-        title: `드라마로 배우는 중국어 (${COURSE_WEEK_COUNT}주)`,
-        createdAt: nowIso(),
-      };
-      writeJson(KEY, course);
-      emitter.emit();
-      return course;
-    },
+    current,
     findByCode: async (code) => {
-      const course = read();
+      const course = await current().catch(() => null);
       return course && course.code === normalizeCourseCode(code) ? course : null;
     },
     subscribe: emitter.subscribe,
   };
 };
 
-export const createLocalEnrollmentStore = (): EnrollmentStore => {
-  const col = createLocalCollection<Enrollment>(
-    "zhuiju.enrollments.v1",
-    (e) => `${e.courseCode}::${e.userId}`,
-  );
+export const createRemoteEnrollmentStore = (): EnrollmentStore => {
+  const emitter = createRemoteEmitter();
   return {
-    listByCourse: async (courseCode) => col.all().filter((e) => e.courseCode === courseCode),
+    listByCourse: (courseCode) =>
+      api<Enrollment[]>(`/enrollments?course=${encodeURIComponent(courseCode)}`).catch(() => [] as Enrollment[]),
     enroll: async (e) => {
-      const existing = col.find(`${e.courseCode}::${e.userId}`);
-      if (existing) return existing;
-      const enrollment = { ...e, joinedAt: nowIso() };
-      col.put(enrollment);
-      return enrollment;
+      const saved = await api<Enrollment>("/enrollments", { method: "POST", body: { courseCode: e.courseCode } });
+      emitter.emit();
+      return saved;
     },
-    subscribe: col.subscribe,
+    subscribe: emitter.subscribe,
   };
 };

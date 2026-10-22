@@ -100,7 +100,7 @@ export const Topbar: React.FC<{ active: ViewKey }> = ({ active }) => {
         hidden={user?.role === "instructor"}
         onSubmit={(e) => {
           e.preventDefault();
-          go("situations", q.trim() ? { q: q.trim() } : undefined);
+          go("weeks", q.trim() ? { tab: "situations", q: q.trim() } : { tab: "situations" });
         }}
       >
         <Icon name="search" size={18} />

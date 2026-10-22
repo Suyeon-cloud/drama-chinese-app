@@ -25,13 +25,14 @@ export type ViewDef = { key: ViewKey; ko: string; requiresLogin?: boolean; admin
 
 export const VIEWS: ViewDef[] = [
   { key: "home", ko: "홈" },
-  { key: "weeks", ko: "주차별 학습" },
+  { key: "weeks", ko: "주차·상황 학습" },
   { key: "lesson", ko: "주차별 학습", requiresLogin: true },
-  { key: "situations", ko: "상황별 장면", requiresLogin: true },
+  // 상황별 장면은 ‘주차·상황별 학습’ 화면에 합쳐졌다. (이전 링크 호환용)
+  { key: "situations", ko: "주차·상황 학습" },
   { key: "culture", ko: "한중문화", requiresLogin: true },
-  { key: "mine", ko: "나의 학습", requiresLogin: true },
+  { key: "mine", ko: "내 대시보드", requiresLogin: true },
   { key: "join", ko: "수업 참여" },
-  { key: "admin", ko: "대시보드", adminOnly: true },
+  { key: "admin", ko: "관리 대시보드", adminOnly: true },
   { key: "admin-course", ko: "수업 관리", adminOnly: true },
   { key: "admin-editor", ko: "강의자료 만들기", adminOnly: true },
   { key: "admin-learners", ko: "학습자 관리", adminOnly: true },
@@ -40,7 +41,7 @@ export const VIEWS: ViewDef[] = [
   { key: "admin-instructors", ko: "교수자 관리", adminOnly: true },
 ];
 
-const LEARNER_MENU: ViewKey[] = ["home", "weeks", "situations", "culture", "mine"];
+const LEARNER_MENU: ViewKey[] = ["home", "weeks", "culture", "mine"];
 const ADMIN_MENU: ViewKey[] = [
   "admin",
   "admin-course",
@@ -58,7 +59,7 @@ export const menuFor = (role: UserRole | null): ViewDef[] =>
   (role === "instructor" ? ADMIN_MENU : LEARNER_MENU).map(getView);
 
 /** 메뉴에 없는 화면이 어느 메뉴에 속하는지 (활성 표시용) */
-export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = { lesson: "weeks" };
+export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = { lesson: "weeks", situations: "weeks" };
 
 /** 1차 판본 링크(#/drama?…) 호환 */
 const ALIASES: Record<string, ViewKey> = { drama: "lesson" };

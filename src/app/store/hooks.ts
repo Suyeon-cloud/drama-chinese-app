@@ -28,9 +28,12 @@ const useStoreQuery = <T>(
   useEffect(() => {
     let alive = true;
     const run = () => {
-      void load().then((v) => {
-        if (alive) setValue(v);
-      });
+      load().then(
+        (v) => {
+          if (alive) setValue(v);
+        },
+        (err: unknown) => console.warn("데이터를 불러오지 못했어요.", err),
+      );
     };
     run();
     const unsubscribe = subscribe(run);

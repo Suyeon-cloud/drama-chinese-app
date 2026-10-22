@@ -7,9 +7,9 @@
 // - 발송 계정(토큰의 Google 계정)이 로그인한 교수자 이메일과 다르면 발송하지 않는다.
 
 import { loadGoogleIdentity, type GoogleTokenClient, type GoogleTokenResponse } from "./googleIdentity";
+import { getGoogleClientId } from "../lib/runtimeConfig";
 import { normalizeEmail } from "./roles";
 
-const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "").trim();
 export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 // email: 발송 계정 확인용 (로그인 때 이미 허용한 기본 scope라 추가 동의가 생기지 않는다)
 const SCOPES = `email ${GMAIL_SEND_SCOPE}`;
@@ -40,7 +40,7 @@ export class GmailError extends Error {
 }
 
 export const GMAIL_ERROR_MESSAGE: Record<GmailErrorCode, string> = {
-  "not-configured": "Google 설정(VITE_GOOGLE_CLIENT_ID)이 없어 Gmail로 보낼 수 없어요.",
+  "not-configured": "Google 설정(GOOGLE_CLIENT_ID)이 없어 Gmail로 보낼 수 없어요.",
   "script-failed": "Google 서비스를 불러오지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
   "popup-blocked": "Gmail 권한 팝업이 차단되었어요. 브라우저에서 팝업을 허용한 뒤 다시 눌러 주세요.",
   cancelled: "Gmail 권한 요청이 취소되었어요. 메일은 보내지 않았어요.",
@@ -89,7 +89,7 @@ const getClient = async (): Promise<GoogleTokenClient> => {
   if (client) return client;
   const google = await loadGoogleIdentity();
   client = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
+    client_id: getGoogleClientId(),
     scope: SCOPES,
     include_granted_scopes: true,
     callback: (r) => settle((p) => p.resolve(r)),
@@ -121,7 +121,8 @@ const acceptToken = async (r: GoogleTokenResponse, expectedEmail: string): Promi
   } catch {
     // 아래에서 계정 불일치로 처리
   }
-  if (!email || email !== normalizeEmail(expectedEmail)) {
+  // 관리자 계정(아이디·비밀번호 로그인)에 발송 이메일이 없으면 고른 Google 계정으로 보낸다.
+  if (!email || (expectedEmail && email !== normalizeEmail(expectedEmail))) {
     revokeToken(token);
     throw new GmailError("account-mismatch");
   }
@@ -131,11 +132,13 @@ const acceptToken = async (r: GoogleTokenResponse, expectedEmail: string): Promi
 };
 
 export const gmailService = {
-  configured: CLIENT_ID !== "",
+  get configured() {
+    return getGoogleClientId() !== "";
+  },
 
   /** 화면에 들어올 때 미리 준비 (버튼 클릭 시 팝업이 바로 열리도록) */
   prepare() {
-    if (CLIENT_ID) void getClient().catch(() => undefined);
+    if (getGoogleClientId()) void getClient().catch(() => undefined);
   },
 
   /**
@@ -143,16 +146,16 @@ export const gmailService = {
    * 같은 교수자의 유효한 토큰이 메모리에 있으면 그대로 쓴다.
    */
   authorize(expectedEmail: string): Promise<GmailAuth> {
-    if (!CLIENT_ID) return Promise.reject(new GmailError("not-configured"));
+    if (!getGoogleClientId()) return Promise.reject(new GmailError("not-configured"));
     const email = normalizeEmail(expectedEmail);
-    if (cached && cached.email === email && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
+    if (cached && (!email || cached.email === email) && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
       return Promise.resolve(cached);
     }
     gmailService.clear();
     const response = new Promise<GoogleTokenResponse>((resolve, reject) => {
       settle((p) => p.reject(new GmailError("cancelled"))); // 이전 요청 정리
       pending = { resolve, reject };
-      const request = (c: GoogleTokenClient) => c.requestAccessToken({ prompt: "", hint: email });
+      const request = (c: GoogleTokenClient) => c.requestAccessToken(email ? { prompt: "", hint: email } : { prompt: "select_account" });
       if (client) request(client);
       else
         getClient()

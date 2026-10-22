@@ -7,8 +7,8 @@ import { navigate } from "../router";
 
 const ALL = "전체";
 
-export const SituationsView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
-  const query = params.get("q") ?? "";
+/** 상황별 장면 (‘주차·상황별 학습’ 화면의 한 탭) */
+export const SituationsSection: React.FC<{ query: string }> = ({ query }) => {
   const [tag, setTag] = useState<string>(ALL);
   const [rolePlay, setRolePlay] = useState<RolePlay | null>(null);
 
@@ -32,11 +32,8 @@ export const SituationsView: React.FC<{ params: URLSearchParams }> = ({ params }
   });
 
   return (
-    <div className="page">
-      <div className="page-intro">
-        <h2>상황별 장면</h2>
-        <p className="muted">비슷한 상황의 장면을 찾아보고, 역할극으로 직접 말해보세요.</p>
-      </div>
+    <>
+      <p className="muted tab-intro">비슷한 상황의 장면을 찾아보고, 역할극으로 직접 말해보세요.</p>
 
       <div className="tag-bar" role="toolbar" aria-label="상황 태그">
         {tags.map((t) => (
@@ -49,7 +46,7 @@ export const SituationsView: React.FC<{ params: URLSearchParams }> = ({ params }
       {query ? (
         <p className="search-note">
           “{query}” 검색 결과 {filtered.length}개{" "}
-          <button className="link-btn" onClick={() => navigate("situations")}>
+          <button className="link-btn" onClick={() => navigate("weeks", { tab: "situations" })}>
             검색 지우기
           </button>
         </p>
@@ -112,6 +109,6 @@ export const SituationsView: React.FC<{ params: URLSearchParams }> = ({ params }
       )}
 
       {rolePlay ? <RolePlayPanel rolePlay={rolePlay} onClose={() => setRolePlay(null)} /> : null}
-    </div>
+    </>
   );
 };

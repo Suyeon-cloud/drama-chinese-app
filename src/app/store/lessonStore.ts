@@ -1,9 +1,8 @@
-import { SEED_LESSONS } from "../../content/lessons";
 import type { Lesson } from "../../content/types";
-import { createLocalCollection } from "./localCollection";
-import { nowIso } from "./localJson";
+import { api } from "../lib/api";
+import { createRemoteEmitter } from "./remote";
 
-/** 강의자료 저장소. 원격 DB 연결 시 같은 인터페이스로 구현을 교체한다. */
+/** 강의자료 저장소 (서버). 학습자·비로그인은 공개된 강의자료만 받는다. */
 export interface LessonStore {
   list(): Promise<Lesson[]>;
   get(id: string): Promise<Lesson | null>;
@@ -12,19 +11,24 @@ export interface LessonStore {
   subscribe(listener: () => void): () => void;
 }
 
-/** 저장된 강의자료가 없으면 SEED_LESSONS(기본 예시 자료)를 보여준다. */
-export const createLocalLessonStore = (): LessonStore => {
-  const col = createLocalCollection<Lesson>("zhuiju.lessons.v1", (l) => l.id, () => SEED_LESSONS);
+export const createRemoteLessonStore = (): LessonStore => {
+  const emitter = createRemoteEmitter();
+  const list = async () =>
+    (await api<Lesson[]>("/lessons")).sort(
+      (a, b) => a.week - b.week || a.createdAt.localeCompare(b.createdAt),
+    );
   return {
-    list: async () =>
-      col.all().sort((a, b) => a.week - b.week || a.createdAt.localeCompare(b.createdAt)),
-    get: async (id) => col.find(id),
+    list,
+    get: async (id) => (await list()).find((l) => l.id === id) ?? null,
     save: async (lesson) => {
-      const saved = { ...lesson, updatedAt: nowIso() };
-      col.put(saved);
+      const saved = await api<Lesson>(`/lessons/${encodeURIComponent(lesson.id)}`, { method: "PUT", body: lesson });
+      emitter.emit();
       return saved;
     },
-    remove: async (id) => col.remove(id),
-    subscribe: col.subscribe,
+    remove: async (id) => {
+      await api(`/lessons/${encodeURIComponent(id)}`, { method: "DELETE" });
+      emitter.emit();
+    },
+    subscribe: emitter.subscribe,
   };
 };

@@ -1,8 +1,8 @@
-import { createLocalCollection } from "./localCollection";
-import { nowIso } from "./localJson";
+import { api } from "../lib/api";
 import type { FeedbackDraft } from "./models";
+import { createRemoteEmitter } from "./remote";
 
-/** 피드백 초안 저장소. Gmail 발송 기능은 다음 단계에서 이 데이터를 사용해 연결한다. */
+/** 피드백 초안 저장소 (서버, 관리자 전용) */
 export interface FeedbackStore {
   list(): Promise<FeedbackDraft[]>;
   save(draft: FeedbackDraft): Promise<FeedbackDraft>;
@@ -10,16 +10,23 @@ export interface FeedbackStore {
   subscribe(listener: () => void): () => void;
 }
 
-export const createLocalFeedbackStore = (): FeedbackStore => {
-  const col = createLocalCollection<FeedbackDraft>("zhuiju.feedback.v1", (f) => f.id);
+export const createRemoteFeedbackStore = (): FeedbackStore => {
+  const emitter = createRemoteEmitter();
   return {
-    list: async () => col.all().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    list: async () =>
+      (await api<FeedbackDraft[]>("/feedback")).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     save: async (draft) => {
-      const saved = { ...draft, updatedAt: nowIso() };
-      col.put(saved);
+      const saved = await api<FeedbackDraft>(`/feedback/${encodeURIComponent(draft.id)}`, {
+        method: "PUT",
+        body: draft,
+      });
+      emitter.emit();
       return saved;
     },
-    remove: async (id) => col.remove(id),
-    subscribe: col.subscribe,
+    remove: async (id) => {
+      await api(`/feedback/${encodeURIComponent(id)}`, { method: "DELETE" });
+      emitter.emit();
+    },
+    subscribe: emitter.subscribe,
   };
 };

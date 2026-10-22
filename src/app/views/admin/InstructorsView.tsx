@@ -3,7 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { isValidEmail, normalizeEmail } from "../../auth/roles";
 import { useToast } from "../../components/Toast";
 import { formatDateTime } from "../../lib/format";
-import { INSTRUCTOR_SCOPE_NOTE, instructorStore } from "../../store";
+import { instructorStore } from "../../store";
 import { useInstructors } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
 
@@ -27,7 +27,7 @@ export const InstructorsView: React.FC = () => {
       setError("이미 등록된 교수자예요.");
       return;
     }
-    await instructorStore.add(value, user.email);
+    await instructorStore.add(value);
     setEmail("");
     setError(null);
     toast.show(`${value}을(를) 교수자로 등록했어요.`, "success");
@@ -39,7 +39,6 @@ export const InstructorsView: React.FC = () => {
         title="교수자 관리"
         desc="교수자로 등록된 Google 이메일로 로그인하면 교수자 화면이 열려요. 그 외 계정은 학습자로 로그인돼요."
       />
-      <p className="scope-note">ℹ️ {INSTRUCTOR_SCOPE_NOTE}</p>
 
       <section className="card">
         <h3 className="card-title">교수자 추가</h3>

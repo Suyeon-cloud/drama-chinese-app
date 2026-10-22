@@ -1,12 +1,13 @@
 import React from "react";
 import { COURSE_WEEK_COUNT, STATUS_TONE, WEEKS, defaultDirectionForWeek } from "../../../content/course";
 import type { Lesson, LessonStatus } from "../../../content/types";
+import { openMemberPopup } from "../../auth/memberPopup";
 import { navigate, type ViewKey } from "../../router";
 import { useAllProgress, useFeedbackDrafts, useLearners, useLessons } from "../../store/hooks";
-import { LocalScopeNote, PageIntro } from "./AdminShared";
+import { PageIntro } from "./AdminShared";
 
 const SHORTCUTS: { label: string; text: string; to: ViewKey }[] = [
-  { label: "학습자 관리", text: "로그인한 학습자 목록", to: "admin-learners" },
+  { label: "학습자 관리", text: "참여 링크 · 학습자별 요약", to: "admin-learners" },
   { label: "학습 현황", text: "출석 · 주차 · 재생률 · 퀴즈", to: "admin-progress" },
   { label: "피드백", text: "학습 결과 기반 피드백 작성", to: "admin-feedback" },
 ];
@@ -36,14 +37,18 @@ export const AdminDashboardView: React.FC = () => {
     { icon: "📅", label: "강의자료가 있는 주차", value: `${plannedWeeks} / ${COURSE_WEEK_COUNT}주`, tone: "sky" },
     { icon: "✅", label: "공개 강의자료", value: `${count("published")}개`, tone: "mint" },
     { icon: "🛠", label: "준비 중 · 준비 완료", value: `${count("draft") + count("ready")}개`, tone: "cream" },
-    { icon: "👥", label: "학습자", value: `${learners?.length ?? 0}명`, tone: "lavender" },
+    { icon: "👥", label: "회원 (승인 완료)", value: `${learners?.filter((l) => l.status === "approved").length ?? 0}명`, tone: "lavender" },
+    { icon: "⏳", label: "승인 대기 회원", value: `${learners?.filter((l) => l.status === "pending").length ?? 0}명`, tone: "pink" },
     { icon: "🎬", label: "학습 시작 기록", value: `${progress?.filter((p) => p.startedAt).length ?? 0}건`, tone: "sky" },
     { icon: "✉️", label: "피드백 초안", value: `${drafts?.length ?? 0}건`, tone: "pink" },
   ];
 
   return (
     <div className="page">
-      <PageIntro title="교수자 대시보드" desc="15주 수업 구성과 학습자 현황을 한눈에 확인해요.">
+      <PageIntro title="관리 대시보드" desc="15주 수업 구성과 회원·학습 현황을 한눈에 확인해요.">
+        <button className="btn btn-soft btn-sm" onClick={openMemberPopup}>
+          👥 회원 현황
+        </button>
         <button className="btn btn-primary btn-sm" onClick={() => navigate("admin-editor")}>
           + 강의자료 만들기
         </button>
@@ -77,7 +82,7 @@ export const AdminDashboardView: React.FC = () => {
                 title={`${w}주차`}
               >
                 <b>{w}</b>
-                <small>{defaultDirectionForWeek(w) === "zh-ko" ? "中→韩" : "韩→中"}</small>
+                <small>{defaultDirectionForWeek(w) === "zh-ko" ? "중→한" : "한→중"}</small>
               </button>
             );
           })}
@@ -96,7 +101,6 @@ export const AdminDashboardView: React.FC = () => {
           </button>
         ))}
       </div>
-      <LocalScopeNote />
     </div>
   );
 };

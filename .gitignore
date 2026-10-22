@@ -6,3 +6,7 @@ dist
 # Ignore the output video from Git but not videos you import into src/.
 out
 dist-app
+dist-server
+
+# 서버 데이터 (회원·학습 기록)
+data

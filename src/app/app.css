@@ -1089,3 +1089,65 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ───────── 관리자 로그인 · 회원 가입/승인 · 회원 현황 ───────── */
+.auth-buttons { display: flex; align-items: center; gap: 8px; }
+.admin-icon-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px;
+  border-radius: 999px; background: var(--lavender); color: var(--lavender-ink); font-weight: 700;
+  border: 1px solid transparent; white-space: nowrap; transition: box-shadow 0.2s;
+}
+.admin-icon-btn:hover { box-shadow: var(--shadow-hover); }
+.login-gate .admin-icon-btn { margin-top: 8px; }
+.admin-login, .profile-modal, .pending-modal { display: flex; flex-direction: column; gap: 12px; }
+.admin-login { width: min(420px, 100%); }
+.admin-login h2, .profile-modal h2, .pending-modal h2, .member-modal h2 { font-size: 22px; font-weight: 800; }
+.admin-login-mark { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--lavender); color: var(--lavender-ink); }
+.profile-modal { width: min(620px, 100%); }
+.profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pending-modal { width: min(440px, 100%); align-items: center; text-align: center; }
+.gate-backdrop { z-index: 200; background: rgba(31, 53, 80, 0.45); }
+.row-end { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.row-center { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.member-modal { width: min(1180px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.member-table table { min-width: 980px; }
+.member-table td { vertical-align: middle; }
+.member-table th, .member-table td { white-space: nowrap; }
+.member-edit { background: var(--sky-50); box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
+.block { display: block; }
+.pink-ink { color: var(--pink-ink); }
+
+/* ───────── 주차·상황별 학습 탭 ───────── */
+.learn-tabs { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.learn-tab {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 20px;
+  border-radius: 18px; background: #fff; border: 2px solid var(--line); min-width: 180px; text-align: left;
+}
+.learn-tab b { font-size: 16px; }
+.learn-tab small { color: var(--muted); font-size: 12.5px; }
+.learn-tab.active { border-color: var(--sky-400); background: var(--sky-50); color: var(--sky-700); }
+.tab-intro { margin-bottom: 12px; }
+.thumb-placeholder { display: grid; place-items: center; width: 100%; height: 100%; font-size: 36px; background: linear-gradient(135deg, var(--sky-100), var(--lavender)); }
+
+/* ───────── 영상 없는 주차 학습 ───────── */
+.text-lesson { display: flex; flex-direction: column; gap: 18px; }
+.text-lesson h2 { font-size: 24px; font-weight: 800; margin-top: 8px; }
+.text-lesson .scope-note { margin-top: 10px; }
+.text-lesson-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.text-lesson .script-list li { padding: 8px; }
+.text-lesson .script-text b { font-size: 17px; }
+
+/* ───────── 학습자 대시보드 ───────── */
+.summary-cards.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.my-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.my-hello .pill { margin-left: auto; }
+.week-dot:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 900px) {
+  .profile-fields, .text-lesson-grid, .my-grid.two { grid-template-columns: minmax(0, 1fr); }
+  .summary-cards.five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .admin-icon-btn span { display: none; }
+  .admin-icon-btn { padding: 0 12px; }
+}

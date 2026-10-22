@@ -1,4 +1,5 @@
-// 학습 기록·학습자·피드백 데이터 모델. 원격 DB를 연결해도 이 형태를 그대로 사용한다.
+// 학습 기록·회원·피드백 데이터 모델. 브라우저와 서버(server/)가 같은 형태를 사용한다.
+import type { UserRole } from "../auth/roles";
 
 export type QuizResult = {
   correct: number;
@@ -29,16 +30,54 @@ export type LessonProgress = {
   lastStudiedAt: string | null;
 };
 
-/** 로그인한 학습자 프로필 (학습자 관리용) */
-export type LearnerProfile = {
-  id: string;
+/** 회원 승인 상태: pending(승인 대기) → approved(승인 완료). 승인 전에는 화면을 사용할 수 없다. */
+export type MemberStatus = "pending" | "approved";
+
+/** 구글 로그인 후 회원이 직접 입력하는 정보 */
+export type MemberProfileInput = {
+  /** 성명 */
   name: string;
+  /** 대학 */
+  university: string;
+  /** 학과 */
+  department: string;
+  /** 학년 */
+  grade: string;
+  /** 학번 */
+  studentId: string;
+  /** 연락용 이메일 (기본값: 구글 이메일) */
   email: string;
+  /** 휴대폰 번호 */
+  phone: string;
+};
+
+/** 회원(학습자) — 서버 DB에 저장된다. */
+export type LearnerProfile = MemberProfileInput & {
+  /** Google 계정 고유 ID (sub) */
+  id: string;
+  /** 로그인한 Google 계정 이메일 */
+  googleEmail: string;
   avatarColor: string;
   /** Google 프로필 이미지 URL */
   picture?: string | null;
+  status: MemberStatus;
+  /** 회원정보 입력을 마쳤는지 */
+  profileCompleted: boolean;
+  /** 가입일 (처음 구글 로그인한 시각) */
   firstSeenAt: string;
+  /** 최종 접속일 */
   lastSeenAt: string;
+  approvedAt: string | null;
+};
+
+export const EMPTY_PROFILE: MemberProfileInput = {
+  name: "",
+  university: "",
+  department: "",
+  grade: "",
+  studentId: "",
+  email: "",
+  phone: "",
 };
 
 /** draft: 작성 중, approved: 관리자 확인 완료, sent: 발송 완료 */
@@ -64,7 +103,7 @@ export type FeedbackDraft = {
   externalMessageId: string | null;
 };
 
-/** env: VITE_INITIAL_INSTRUCTOR_EMAIL(해제 불가), local: 교수자 관리 화면에서 등록 */
+/** env: INITIAL_INSTRUCTOR_EMAIL 환경변수(해제 불가), local: 교수자 관리 화면에서 등록 */
 export type InstructorRecord = {
   email: string;
   source: "env" | "local";
@@ -85,4 +124,24 @@ export type Enrollment = {
   name: string;
   email: string;
   joinedAt: string;
+};
+
+/** 서버 세션의 로그인 사용자 (GET /api/auth/me). 관리자는 provider "admin", 회원은 "google". */
+export type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  picture: string | null;
+  avatarColor: string;
+  provider: "google" | "admin";
+  role: UserRole;
+  /** 학습자 회원 정보 (관리자·교수자는 null) */
+  member: LearnerProfile | null;
+};
+
+/** GET /api/config — 배포 환경변수에서 읽는 공개 설정 */
+export type PublicConfig = {
+  googleClientId: string;
+  /** ADMIN_ID·ADMIN_PASSWORD가 설정되어 관리자 로그인이 가능한지 */
+  adminLoginEnabled: boolean;
 };

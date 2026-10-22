@@ -1,10 +1,14 @@
 import { Player } from "@remotion/player";
 import React from "react";
 import { featuredEpisode, formatTime, heroChips, todayExpression, youtubeThumbnail } from "../../content";
-import { learningStats, recentScenes } from "../../content/myLearning";
+import { recentScenes } from "../../content/myLearning";
 import { HeroMotion } from "../../motion/HeroMotion";
+import { useAuth } from "../auth/AuthContext";
 import { Icon } from "../components/Icon";
 import { useGuardedNavigate } from "../auth/LoginPrompt";
+import { computeMyStats } from "../learning/useMyStats";
+import { formatPercent } from "../lib/format";
+import { useLessons, useUserProgress } from "../store/hooks";
 
 const FEATURES = [
   {
@@ -19,7 +23,8 @@ const FEATURES = [
     title: "상황으로 연습하기",
     text: "비슷한 상황의 장면을 찾아보고 역할극으로 연습해요.",
     tone: "pink",
-    to: "situations",
+    to: "weeks",
+    params: { tab: "situations" },
   },
   {
     emoji: "🔍",
@@ -30,38 +35,35 @@ const FEATURES = [
   },
 ] as const;
 
-export const StatTiles: React.FC = () => (
-  <div className="stat-tiles">
-    <div className="stat-tile sky">
-      <span className="stat-icon">🎬</span>
-      <span>
-        <small>학습한 장면</small>
-        <b>{learningStats.scenesThisWeek}개</b>
-      </span>
+/** 나의 학습 통계 (실제 학습 기록). 로그인 전에는 안내만 보여준다. */
+export const StatTiles: React.FC = () => {
+  const { user } = useAuth();
+  const lessons = useLessons();
+  const progress = useUserProgress(user?.role === "learner" ? user.id : null);
+  if (!user || user.role !== "learner") {
+    return <p className="muted small">로그인하면 나의 학습 통계가 여기에 표시돼요.</p>;
+  }
+  const s = computeMyStats(lessons ?? [], progress ?? []);
+  const tiles = [
+    { icon: "✅", label: "완료한 주차", value: `${s.completedCount} / ${s.totalWeeks}주`, tone: "sky" },
+    { icon: "🎬", label: "평균 진행률", value: formatPercent(s.avgProgress), tone: "pink" },
+    { icon: "📝", label: "퀴즈 정답률", value: s.quizRate === null ? "—" : formatPercent(s.quizRate), tone: "cream" },
+    { icon: "🔥", label: "연속 학습", value: `${s.streak}일째`, tone: "mint" },
+  ];
+  return (
+    <div className="stat-tiles">
+      {tiles.map((t) => (
+        <div key={t.label} className={`stat-tile ${t.tone}`}>
+          <span className="stat-icon">{t.icon}</span>
+          <span>
+            <small>{t.label}</small>
+            <b>{t.value}</b>
+          </span>
+        </div>
+      ))}
     </div>
-    <div className="stat-tile pink">
-      <span className="stat-icon">🎙</span>
-      <span>
-        <small>역할극 완료</small>
-        <b>{learningStats.rolePlaysDone}회</b>
-      </span>
-    </div>
-    <div className="stat-tile cream">
-      <span className="stat-icon">🏷</span>
-      <span>
-        <small>가장 많이 연습한 태그</small>
-        <b>#{learningStats.topTag}</b>
-      </span>
-    </div>
-    <div className="stat-tile mint">
-      <span className="stat-icon">🔥</span>
-      <span>
-        <small>연속 학습</small>
-        <b>{learningStats.streakDays}일째</b>
-      </span>
-    </div>
-  </div>
-);
+  );
+};
 
 export const HomeView: React.FC = () => {
   // 수업 콘텐츠로 가는 링크는 로그인 전이면 “로그인 후 이용하세요.” 안내
@@ -103,7 +105,7 @@ export const HomeView: React.FC = () => {
 
         <section className="feature-row">
           {FEATURES.map((f) => (
-            <button key={f.title} className={`feature card tone-${f.tone}`} onClick={() => go(f.to)}>
+            <button key={f.title} className={`feature card tone-${f.tone}`} onClick={() => go(f.to, "params" in f ? f.params : undefined)}>
               <span className="feature-icon">{f.emoji}</span>
               <span className="feature-body">
                 <b>{f.title}</b>
@@ -118,7 +120,7 @@ export const HomeView: React.FC = () => {
 
         <section className="card">
           <div className="card-head">
-            <h3 className="card-title">최근 학습한 장면</h3>
+            <h3 className="card-title">추천 장면</h3>
             <button className="more" onClick={() => go("mine")}>
               더보기 ›
             </button>
@@ -189,7 +191,7 @@ export const HomeView: React.FC = () => {
 
         <section className="card">
           <div className="card-head">
-            <h3 className="card-title">학습 통계 (이번 주)</h3>
+            <h3 className="card-title">나의 학습 통계</h3>
             <button className="more" onClick={() => go("mine")}>
               더보기 ›
             </button>

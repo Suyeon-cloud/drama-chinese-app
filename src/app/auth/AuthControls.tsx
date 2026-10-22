@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
+import { AdminLoginButton } from "./AdminLogin";
 import { useAuth } from "./AuthContext";
+import { openMemberPopup } from "./memberPopup";
 import { ROLE_LABEL } from "./roles";
 
 export const GoogleMark: React.FC = () => (
@@ -69,14 +71,21 @@ export const AuthControls: React.FC = () => {
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  if (!user) return <GoogleSignInButton />;
+  // 로그인 전: 관리자 아이콘(Google과 별개) + Google 로그인
+  if (!user)
+    return (
+      <div className="auth-buttons">
+        <AdminLoginButton />
+        <GoogleSignInButton />
+      </div>
+    );
 
   return (
     <div className="profile" ref={ref}>
       <button className="profile-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <Avatar name={user.name} color={user.avatarColor} src={user.picture} />
         <span className="profile-text">
-          <small>안녕하세요,</small>
+          <small>{user.provider === "admin" ? "관리자 모드" : "안녕하세요,"}</small>
           <b>{user.name}님! 💙</b>
         </span>
         <span className="chev" aria-hidden>
@@ -88,8 +97,31 @@ export const AuthControls: React.FC = () => {
           <div className="profile-menu-head">
             <b>{user.name}</b>
             <small>{user.email}</small>
-            <span className={`role-tag ${user.role}`}>{ROLE_LABEL[user.role]}</span>
+            <span className={`role-tag ${user.role}`}>
+              {user.provider === "admin" ? "관리자" : ROLE_LABEL[user.role]}
+            </span>
           </div>
+          {user.role === "instructor" ? (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                openMemberPopup();
+              }}
+            >
+              회원 현황
+            </button>
+          ) : (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                navigate("mine");
+              }}
+            >
+              내 대시보드
+            </button>
+          )}
           <button
             role="menuitem"
             onClick={() => {

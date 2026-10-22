@@ -3,7 +3,7 @@ import { COURSE_PHASES } from "../../content/course";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { navigate } from "../router";
-import { JOIN_SCOPE_NOTE, courseStore, enrollmentStore } from "../store";
+import { courseStore, enrollmentStore } from "../store";
 import { normalizeCourseCode } from "../store/courseStore";
 import { useEnrollments } from "../store/hooks";
 import type { CourseInfo } from "../store/models";
@@ -11,7 +11,7 @@ import type { CourseInfo } from "../store/models";
 /**
  * 학생 참여 링크(#/join/{courseCode}) 화면.
  * 로그인하지 않았으면 Google 로그인을 요청하고, 로그인 후 학습자로 수업에 참여한다.
- * 로컬 프로토타입이므로 수업 정보가 저장된 이 브라우저에서만 참여 코드를 찾을 수 있다.
+ * 승인된 학습자만 학습할 수 있으므로, 참여 후 관리자 승인을 기다린다.
  */
 export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const code = normalizeCourseCode(params.get("code") ?? "");
@@ -38,9 +38,8 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
           <span className="gate-emoji">🔗</span>
           <h2>수업을 찾을 수 없어요</h2>
           <p className="muted">
-            참여 코드 <b>{code || "(없음)"}</b>에 해당하는 수업 정보가 이 브라우저에 없어요.
+            참여 코드 <b>{code || "(없음)"}</b>에 해당하는 수업이 없어요. 링크를 다시 확인해 주세요.
           </p>
-          <p className="scope-note">ℹ️ {JOIN_SCOPE_NOTE}</p>
           <button className="btn btn-soft" onClick={() => navigate("home")}>
             홈으로
           </button>
@@ -100,7 +99,6 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
             </button>
           </>
         )}
-        <p className="scope-note">ℹ️ {JOIN_SCOPE_NOTE}</p>
       </div>
     </div>
   );

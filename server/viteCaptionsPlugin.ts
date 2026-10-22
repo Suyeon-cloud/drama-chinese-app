@@ -60,7 +60,7 @@ const handler: Connect.NextHandleFunction = (req, res, next) => {
     });
 };
 
-const safeHandler: Connect.NextHandleFunction = (req, res, next) => {
+export const youtubeCaptionsHandler: Connect.NextHandleFunction = (req, res, next) => {
   try {
     handler(req, res, next);
   } catch (err) {
@@ -72,9 +72,9 @@ const safeHandler: Connect.NextHandleFunction = (req, res, next) => {
 export const youtubeCaptionsPlugin = (): Plugin => ({
   name: "zhuiju-youtube-captions",
   configureServer(server) {
-    server.middlewares.use("/api/youtube", safeHandler);
+    server.middlewares.use("/api/youtube", youtubeCaptionsHandler);
   },
   configurePreviewServer(server) {
-    server.middlewares.use("/api/youtube", safeHandler);
+    server.middlewares.use("/api/youtube", youtubeCaptionsHandler);
   },
 });

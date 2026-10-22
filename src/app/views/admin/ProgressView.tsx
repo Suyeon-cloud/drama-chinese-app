@@ -6,7 +6,7 @@ import { formatDateTime, formatPercent } from "../../lib/format";
 import { navigate } from "../../router";
 import { useAllProgress, useLearners, useLessons } from "../../store/hooks";
 import type { LessonProgress } from "../../store/models";
-import { LocalScopeNote, PageIntro } from "./AdminShared";
+import { PageIntro } from "./AdminShared";
 
 /** 주차 칸 표시: 완료 > 학습 중(진행률) > 기록 없음 */
 const WeekCell: React.FC<{ records: LessonProgress[] }> = ({ records }) => {
@@ -37,7 +37,6 @@ export const ProgressView: React.FC<{ params: URLSearchParams }> = ({ params }) 
   return (
     <div className="page">
       <PageIntro title="학습 현황" desc="학습자별 출석(학습 시작), 주차 진도, 영상 재생 정도, 퀴즈 결과를 확인해요." />
-      <LocalScopeNote />
 
       <section className="card data-table">
         <h3 className="card-title">주차별 진도</h3>

@@ -20,6 +20,7 @@ import { navigate } from "../router";
 import { useLessons } from "../store/hooks";
 import { isPlainSynced, playbackCues } from "../lib/subtitles";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
+import { TextLessonView } from "./TextLessonView";
 
 /** ?lesson=ID → ?ep=에피소드ID(1차 판본 링크) → 공개된 첫 강의자료 */
 const pickLesson = (lessons: Lesson[], params: URLSearchParams): Lesson | null => {
@@ -53,6 +54,8 @@ export const DramaLearningView: React.FC<{ params: URLSearchParams }> = ({ param
       </div>
     );
   }
+  // 영상이 아직 없는 주차는 대본·표현·퀴즈로 학습한다.
+  if (!lesson.video.youtubeId) return <TextLessonView lesson={lesson} />;
   return <LessonPlayer key={lesson.id} lesson={lesson} params={params} />;
 };
 
@@ -429,7 +432,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               🎉
             </span>
             <div>
-              <h2>今日学习完成！</h2>
+              <h2>오늘의 학습 완료!</h2>
               <p>오늘의 드라마 학습을 완료했어요.</p>
             </div>
             <button className="btn btn-soft" onClick={() => jump(video.startTime)}>

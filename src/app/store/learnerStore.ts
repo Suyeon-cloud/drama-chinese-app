@@ -1,26 +1,29 @@
-import { createLocalCollection } from "./localCollection";
-import { nowIso } from "./localJson";
+import { api } from "../lib/api";
 import type { LearnerProfile } from "./models";
+import { createRemoteEmitter } from "./remote";
 
-/** 학습자 목록 저장소. 로컬 구현에서는 이 브라우저에서 로그인한 학습자만 기록된다. */
+/** 회원(학습자) 저장소 (서버, 관리자 전용). 가입·최종 접속은 서버가 로그인할 때 기록한다. */
 export interface LearnerStore {
   list(): Promise<LearnerProfile[]>;
-  /** 로그인 시 호출: 없으면 등록, 있으면 최근 접속 시각 갱신 */
-  touch(
-    profile: Pick<LearnerProfile, "id" | "name" | "email" | "avatarColor" | "picture">,
-  ): Promise<void>;
+  /** 회원정보 수정·승인 상태 변경 */
+  update(id: string, patch: Partial<LearnerProfile>): Promise<LearnerProfile>;
+  remove(id: string): Promise<void>;
   subscribe(listener: () => void): () => void;
 }
 
-export const createLocalLearnerStore = (): LearnerStore => {
-  const col = createLocalCollection<LearnerProfile>("zhuiju.learners.v1", (l) => l.id);
+export const createRemoteLearnerStore = (): LearnerStore => {
+  const emitter = createRemoteEmitter();
   return {
-    list: async () => col.all(),
-    touch: async (profile) => {
-      const prev = col.find(profile.id);
-      const now = nowIso();
-      col.put({ ...profile, firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now });
+    list: () => api<LearnerProfile[]>("/members"),
+    update: async (id, patch) => {
+      const saved = await api<LearnerProfile>(`/members/${encodeURIComponent(id)}`, { method: "PATCH", body: patch });
+      emitter.emit();
+      return saved;
     },
-    subscribe: col.subscribe,
+    remove: async (id) => {
+      await api(`/members/${encodeURIComponent(id)}`, { method: "DELETE" });
+      emitter.emit();
+    },
+    subscribe: emitter.subscribe,
   };
 };
