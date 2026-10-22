@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { closeMemberPopup, useMemberPopupOpen } from "../../auth/memberPopup";
 import { ProfileFields } from "../../auth/MemberGate";
 import { useAuth } from "../../auth/AuthContext";
@@ -67,6 +67,12 @@ const MemberTable: React.FC = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<LearnerProfile | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeMemberPopup();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const run = async (id: string, work: () => Promise<unknown>, done: string) => {
     setBusy(id);

@@ -12,4 +12,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [youtubeCaptionsPlugin(), appApiPlugin(loadEnv(mode, process.cwd(), ""))],
   server: { port: 5173, strictPort: true },
   build: { outDir: "dist-app" },
+  // 음성 인식(Whisper) Web Worker는 ES 모듈로 빌드한다.
+  worker: { format: "es" },
 }));

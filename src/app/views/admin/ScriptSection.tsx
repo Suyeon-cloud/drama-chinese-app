@@ -14,6 +14,7 @@ import {
   type CaptionFailure,
 } from "../../lib/captionsApi";
 import type { CaptionLang, CaptionTrackSummary } from "../../lib/captionTypes";
+import { SpeechToSubtitle } from "./SpeechToSubtitle";
 import { mergeTrack, parsePlainText, parseSrt, scriptStatus, type CueLang } from "../../lib/subtitles";
 import { nowIso } from "../../store/localJson";
 import type { CaptionLookup } from "./useCaptionLookup";
@@ -109,7 +110,10 @@ export const ScriptSection: React.FC<{
   onChange: (cues: SubtitleCue[], origin: ScriptOrigin, source?: ScriptSource) => void;
   plain: PlainScript | null;
   onPlainChange: (plain: PlainScript | null) => void;
-}> = ({ cues, origin, direction, youtubeId, lookup, onChange, plain, onPlainChange }) => {
+  /** 학습 구간 (음성으로 자막 만들기에서 구간만 잘라 인식할 때) */
+  segmentStart: number;
+  segmentEnd: number | null;
+}> = ({ cues, origin, direction, youtubeId, lookup, onChange, plain, onPlainChange, segmentStart, segmentEnd }) => {
   const sourceLang = sourceLangFor(direction);
   const targetLang: CaptionLang = sourceLang === "zh" ? "ko" : "zh";
   const sourceName = LANG_NAME[sourceLang];
@@ -342,12 +346,31 @@ export const ScriptSection: React.FC<{
             현재 {sourceName} 원문 출처:{" "}
             {sourceOrigin.provider === "youtube"
               ? `YouTube ${sourceOrigin.kind === "asr" ? "자동 생성 자막" : "수동 자막"} (${sourceOrigin.languageCode})`
-              : `SRT ${sourceOrigin.fileName ? `파일 ${sourceOrigin.fileName}` : "붙여넣기"}`}
+              : sourceOrigin.provider === "speech"
+                ? `음성 인식 (${sourceOrigin.fileName ?? "파일"}) · 검수 필요`
+                : `SRT ${sourceOrigin.fileName ? `파일 ${sourceOrigin.fileName}` : "붙여넣기"}`}
             {sourceOrigin.edited ? " · 교수자 수정됨" : ""}
             {sourceOrigin.provider === "youtube" && sourceOrigin.kind === "asr" ? " · 정확도 확인 필요" : ""}
           </p>
         ) : null}
       </div>
+
+      {/* 자막이 없는 영상: 파일의 음성을 인식해 원문 자막 만들기 */}
+      <SpeechToSubtitle
+        lang={sourceLang}
+        langLabel={langLabel(sourceLang)}
+        segmentStart={segmentStart}
+        segmentEnd={segmentEnd}
+        onCues={(parsed, fileName) => {
+          onChange(
+            mergeTrack(cues, parsed, sourceLang),
+            { ...origin, [sourceLang]: { provider: "speech", fileName, fetchedAt: nowIso() } },
+            "srt",
+          );
+          setHighlightSrt(false);
+          onPlainChange(null); // 타임코드 원문 자막이 원문 텍스트를 대체한다.
+        }}
+      />
 
       {/* SRT 업로드/붙여넣기 (자동 가져오기 실패 시 대체 경로) */}
       <div className={`script-import ${highlightSrt ? "highlight" : ""}`} ref={srtRef}>

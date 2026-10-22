@@ -625,6 +625,8 @@ const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; jus
           setForm((f) => ({ ...f, cues, origin, scriptSource: source ?? f.scriptSource }))
         }
         plain={form.plain}
+        segmentStart={startSec ?? 0}
+        segmentEnd={endSec}
         onPlainChange={(plain) =>
           setForm((f) => ({
             ...f,

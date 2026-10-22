@@ -180,7 +180,8 @@ export type PlainScript = {
 
 /** 자막 트랙 한 언어(zh/ko)의 출처 */
 export type ScriptTrackOrigin = {
-  provider: "youtube" | "srt";
+  /** speech: 영상·음성 파일을 브라우저에서 음성 인식(Whisper)해 만든 자막 */
+  provider: "youtube" | "srt" | "speech";
   /** YouTube 자막 언어 코드 (예: zh-Hans, ko) */
   languageCode?: string;
   /** YouTube: manual(업로더 자막) / asr(자동 생성 자막) */

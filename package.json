@@ -6,6 +6,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "@remotion/cli": "4.0.532",
     "@remotion/player": "4.0.532",
     "@remotion/tailwind-v4": "4.0.532",
