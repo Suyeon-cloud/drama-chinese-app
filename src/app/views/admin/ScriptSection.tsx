@@ -17,6 +17,8 @@ import type { CaptionLang, CaptionTrackSummary } from "../../lib/captionTypes";
 import { SpeechToSubtitle } from "./SpeechToSubtitle";
 import { mergeTrack, parsePlainText, parseSrt, scriptStatus, type CueLang } from "../../lib/subtitles";
 import { nowIso } from "../../store/localJson";
+import { TimeInput } from "./ScriptSyncPanel";
+import { TranslatePanel } from "./TranslatePanel";
 import type { CaptionLookup } from "./useCaptionLookup";
 
 export type ScriptOrigin = NonNullable<LessonScript["origin"]>;
@@ -113,7 +115,23 @@ export const ScriptSection: React.FC<{
   /** 학습 구간 (음성으로 자막 만들기에서 구간만 잘라 인식할 때) */
   segmentStart: number;
   segmentEnd: number | null;
-}> = ({ cues, origin, direction, youtubeId, lookup, onChange, plain, onPlainChange, segmentStart, segmentEnd }) => {
+  /** AI 번역 프롬프트에 넣을 강의 정보 */
+  title: string;
+  dramaTitle: string;
+}> = ({
+  cues,
+  origin,
+  direction,
+  youtubeId,
+  lookup,
+  onChange,
+  plain,
+  onPlainChange,
+  segmentStart,
+  segmentEnd,
+  title,
+  dramaTitle,
+}) => {
   const sourceLang = sourceLangFor(direction);
   const targetLang: CaptionLang = sourceLang === "zh" ? "ko" : "zh";
   const sourceName = LANG_NAME[sourceLang];
@@ -245,10 +263,54 @@ export const ScriptSection: React.FC<{
     setText("");
   };
 
+  /** 직접 고친 언어의 자막 출처에 ‘수정됨’ 표시를 남긴다. */
+  const markEdited = (langs: CueLang[]) => {
+    let next = origin;
+    for (const l of langs) {
+      const o = origin[l];
+      if (o && !o.edited) next = { ...next, [l]: { ...o, edited: true } };
+    }
+    return next;
+  };
+
   const editCue = (index: number, lang: CueLang, value: string) => {
     const next = cues.map((c, i) => (i === index ? { ...c, [lang]: value || undefined } : c));
-    const o = origin[lang];
-    onChange(next, o && !o.edited ? { ...origin, [lang]: { ...o, edited: true } } : origin);
+    onChange(next, markEdited([lang]));
+  };
+
+  // 시간을 바꾸면 시작 시각 순서로 다시 정렬한다. (입력 칸을 벗어날 때 반영)
+  const editTime = (index: number, field: "start" | "end", value: number | null) => {
+    if (value === null) return;
+    const next = cues
+      .map((c, i) => (i === index ? { ...c, [field]: value } : c))
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    onChange(next, markEdited([sourceLang, targetLang]));
+  };
+
+  /** index 다음에 빈 자막을 넣는다. (-1이면 맨 앞) 앞 자막이 끝나는 시각부터 최대 2초, 다음 자막 시작 전까지. */
+  const insertCue = (index: number) => {
+    const prev = cues[index];
+    const nextCue = cues[index + 1];
+    const start = prev ? prev.end : 0;
+    const end = Math.max(start + 0.5, Math.min(start + 2, nextCue ? nextCue.start : start + 2));
+    const next = [...cues.slice(0, index + 1), { start, end }, ...cues.slice(index + 1)];
+    onChange(next, markEdited([sourceLang, targetLang]));
+    if (!showAll && index + 1 >= PREVIEW_LIMIT) setShowAll(true);
+  };
+
+  const [removed, setRemoved] = useState<{ cue: SubtitleCue; index: number } | null>(null);
+  const removeCue = (index: number) => {
+    setRemoved({ cue: cues[index], index });
+    onChange(
+      cues.filter((_, i) => i !== index),
+      markEdited([sourceLang, targetLang]),
+    );
+  };
+  const undoRemove = () => {
+    if (!removed) return;
+    const next = [...cues.slice(0, removed.index), removed.cue, ...cues.slice(removed.index)];
+    onChange(next, origin);
+    setRemoved(null);
   };
 
   const sourceOrigin = origin[sourceLang];
@@ -493,11 +555,22 @@ export const ScriptSection: React.FC<{
         </p>
         {cues.length > 0 ? (
           <p className="muted small">
-            아래 표: 타임코드 자막 {cues.length}개 · 칸을 눌러 문장을 직접 수정할 수 있어요.
+            아래 표: 타임코드 자막 {cues.length}개 · 시간과 문장을 눌러 직접 고치고, 줄마다 자막을 추가·삭제할 수 있어요.
+            시간은 분:초.소수 형식(예: 01:23.5)이에요.
           </p>
         ) : plainSource ? (
           <p className="muted small">
             원문 텍스트는 시간 정보 없이 저장돼요. 문장 확인·수정과 시간 지정은 3단계 ‘자막 시간 맞추기’에서 할 수 있어요.
+          </p>
+        ) : null}
+        {removed ? (
+          <p className="row-start small">
+            <span>
+              {formatTime(removed.cue.start)} 자막을 삭제했어요.
+            </span>
+            <button type="button" className="link-btn" onClick={undoRemove}>
+              되돌리기
+            </button>
           </p>
         ) : null}
         {cues.length > 0 ? (
@@ -507,13 +580,20 @@ export const ScriptSection: React.FC<{
                 <th>시간</th>
                 <th>{langLabel(sourceLang)}</th>
                 <th>{langLabel(targetLang)}</th>
+                <th>
+                  <button type="button" className="link-btn" onClick={() => insertCue(-1)} title="맨 앞에 자막 추가">
+                    + 맨 앞
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c, i) => (
-                <tr key={`${c.start}-${i}`}>
-                  <td className="tabular">
-                    {formatTime(c.start)}–{formatTime(c.end)}
+                <tr key={i} className={c.end <= c.start ? "cue-bad-time" : undefined}>
+                  <td className="tabular cue-time">
+                    <TimeInput value={c.start} onCommit={(v) => editTime(i, "start", v)} label={`${i + 1}번 시작`} />
+                    <span aria-hidden>–</span>
+                    <TimeInput value={c.end} onCommit={(v) => editTime(i, "end", v)} label={`${i + 1}번 끝`} />
                   </td>
                   {([sourceLang, targetLang] as CueLang[]).map((l) => (
                     <td key={l} className={l === "zh" ? "zh" : ""}>
@@ -526,6 +606,19 @@ export const ScriptSection: React.FC<{
                       />
                     </td>
                   ))}
+                  <td className="cue-actions">
+                    <button type="button" className="link-btn" onClick={() => insertCue(i)} title="이 자막 아래에 새 자막 추가">
+                      + 아래 추가
+                    </button>
+                    <button
+                      type="button"
+                      className="link-btn danger"
+                      onClick={() => removeCue(i)}
+                      aria-label={`${formatTime(c.start)} 자막 삭제`}
+                    >
+                      삭제
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -537,6 +630,20 @@ export const ScriptSection: React.FC<{
           </button>
         ) : null}
       </div>
+
+      {cues.some((c) => c[sourceLang]?.trim()) ? (
+        <TranslatePanel
+          cues={cues}
+          direction={direction}
+          sourceLang={sourceLang}
+          targetLang={targetLang}
+          title={title}
+          dramaTitle={dramaTitle}
+          onApply={(next) =>
+            onChange(next, { ...origin, [targetLang]: { provider: "ai", fetchedAt: nowIso() } })
+          }
+        />
+      ) : null}
     </section>
   );
 };

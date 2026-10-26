@@ -21,6 +21,7 @@ import type {
 } from "../src/app/store/models";
 import type { Lesson } from "../src/content/types";
 import type { Db } from "./db";
+import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 
 export type ApiEnv = {
   googleClientId: string;
@@ -30,6 +31,8 @@ export type ApiEnv = {
   adminEmail: string;
   initialInstructorEmail: string;
   sessionSecret: string;
+  /** (선택) Anthropic API 키. 관리자가 화면에서 연결한 키가 있으면 그 키를 먼저 쓴다. */
+  anthropicApiKey: string;
 };
 
 /** process.env(또는 Vite loadEnv 결과)에서 설정을 읽는다. VITE_ 이름도 함께 받는다. */
@@ -40,12 +43,14 @@ export const readApiEnv = (env: Record<string, string | undefined>): ApiEnv => (
   adminEmail: normalizeEmail(env.ADMIN_EMAIL || ""),
   initialInstructorEmail: normalizeEmail(env.INITIAL_INSTRUCTOR_EMAIL || env.VITE_INITIAL_INSTRUCTOR_EMAIL || ""),
   sessionSecret: env.SESSION_SECRET || "",
+  anthropicApiKey: (env.ANTHROPIC_API_KEY || "").trim(),
 });
 
 const COOKIE = "zhuiju_sid";
 const SESSION_DAYS = 30;
 
-type Session = { k: "admin" } | { k: "google"; id: string; email: string };
+/** name: Google 계정 이름 (교수자 표시용. 회원은 회원정보의 성명을 쓴다) */
+type Session = { k: "admin" } | { k: "google"; id: string; email: string; name?: string };
 
 const AVATAR_COLORS = ["#A9D6F5", "#F6D3DF", "#C9EBDD", "#DCD5F7", "#FBE3B5"];
 const avatarColorFor = (email: string) => {
@@ -142,7 +147,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (instructorEmails().includes(s.email)) {
       return {
         id: s.id,
-        name: s.email.split("@")[0],
+        name: s.name || s.email.split("@")[0],
         email: s.email,
         picture: null,
         avatarColor: avatarColorFor(s.email),
@@ -176,7 +181,12 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   const requireAdmin = (req: Authed, res: Response, next: NextFunction) =>
     isAdmin(req) ? next() : res.status(req.user ? 403 : 401).json({ error: "관리자만 사용할 수 있어요." });
-  const requireLogin = (req: Authed, res: Response, next: NextFunction) =>
+  /** 관리자 아이디·비밀번호 로그인(관리자 모드)만. Google 교수자는 안 된다. */
+  const requireAdminMode = (req: Authed, res: Response, next: NextFunction) =>
+    req.user?.provider === "admin"
+      ? next()
+      : res.status(req.user ? 403 : 401).json({ error: "관리자 모드에서만 사용할 수 있어요." });
+  const requireLogin =(req: Authed, res: Response, next: NextFunction) =>
     req.user ? next() : res.status(401).json({ error: "로그인이 필요해요." });
 
   const api = express.Router();
@@ -238,7 +248,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
         return res.status(403).json({ error: "이메일이 확인된 Google 계정으로만 로그인할 수 있어요." });
       }
       const email = normalizeEmail(info.email);
-      const session: Session = { k: "google", id: info.sub, email };
+      const session: Session = { k: "google", id: info.sub, email, name: info.name?.trim().slice(0, 100) || undefined };
 
       // 교수자 이메일이 아니면 회원으로 등록 (처음이면 승인 대기)
       if (!instructorEmails().includes(email)) {
@@ -399,13 +409,13 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 교수자 이메일 (관리자) ───────── */
 
-  api.get("/instructors", requireAdmin, (_req, res) => {
+  api.get("/instructors", requireAdminMode, (_req, res) => {
     const initial = env.initialInstructorEmail;
     const local = Object.values(db.data.instructors).filter((r) => r.email !== initial);
     res.json(initial ? [{ email: initial, source: "env", addedBy: null, addedAt: null }, ...local] : local);
   });
 
-  api.post("/instructors", requireAdmin, (req: Authed, res) => {
+  api.post("/instructors", requireAdminMode, (req: Authed, res) => {
     const email = normalizeEmail(typeof req.body?.email === "string" ? req.body.email : "");
     if (!isValidEmail(email)) return res.status(400).json({ error: "올바른 이메일 주소를 입력해 주세요." });
     if (email !== env.initialInstructorEmail && !db.data.instructors[email]) {
@@ -420,10 +430,56 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json({ ok: true });
   });
 
-  api.delete("/instructors/:email", requireAdmin, (req, res) => {
+  api.delete("/instructors/:email", requireAdminMode, (req, res) => {
     delete db.data.instructors[normalizeEmail(req.params.email)];
     db.save();
     res.json({ ok: true });
+  });
+
+  /* ───────── AI 학습 콘텐츠 생성 (본인 API 키 연결) ───────── */
+
+  const aiKey = () => db.data.anthropicApiKey || env.anthropicApiKey;
+
+  api.get("/ai/status", requireAdmin, (_req, res) => {
+    const key = aiKey();
+    res.json({
+      connected: !!key,
+      source: db.data.anthropicApiKey ? "app" : env.anthropicApiKey ? "env" : null,
+      hint: key ? `…${key.slice(-4)}` : null,
+      model: AI_MODEL,
+    });
+  });
+
+  // 키 연결·해제는 관리자 모드에서만. 키 값은 저장만 하고 다시 내려보내지 않는다.
+  api.put("/ai/key", requireAdminMode, async (req, res) => {
+    const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+    if (!apiKey.startsWith("sk-ant-")) return res.status(400).json({ error: "Anthropic API 키는 sk-ant- 로 시작해요." });
+    try {
+      await checkAnthropicKey(apiKey);
+    } catch (err) {
+      return res.status(400).json({ error: aiErrorMessage(err) });
+    }
+    db.data.anthropicApiKey = apiKey;
+    db.save();
+    res.json({ ok: true });
+  });
+
+  api.delete("/ai/key", requireAdminMode, (_req, res) => {
+    delete db.data.anthropicApiKey;
+    db.save();
+    res.json({ ok: true });
+  });
+
+  api.post("/ai/draft", requireAdmin, async (req, res) => {
+    const key = aiKey();
+    if (!key) return res.status(400).json({ error: "연결된 API 키가 없어요. 관리자 모드에서 먼저 연결해 주세요." });
+    const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+    if (!prompt.trim() || prompt.length > 200_000) return res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
+    try {
+      res.json(await generateDraftText(key, prompt));
+    } catch (err) {
+      res.status(502).json({ error: aiErrorMessage(err) });
+    }
   });
 
   /* ───────── 수업 · 참여 ───────── */

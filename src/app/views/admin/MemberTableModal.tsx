@@ -67,6 +67,8 @@ const MemberTable: React.FC = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<LearnerProfile | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // window.confirm은 미리보기 브라우저 등에서 막혀 바로 false가 되므로, 표 안에서 한 번 더 묻는다.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeMemberPopup();
@@ -188,16 +190,35 @@ const MemberTable: React.FC = () => {
                         </button>
                       </td>
                       <td>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          disabled={busy === m.id}
-                          onClick={() => {
-                            if (!window.confirm(`${m.name || m.googleEmail} 회원을 삭제할까요? 학습 기록도 함께 지워져요.`)) return;
-                            void run(m.id, () => learnerStore.remove(m.id), "회원을 삭제했어요.");
-                          }}
-                        >
-                          삭제
-                        </button>
+                        {confirmDelete === m.id ? (
+                          <span className="row-start">
+                            <span className="small" title="학습 기록도 함께 지워져요.">
+                              삭제할까요?
+                            </span>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              disabled={busy === m.id}
+                              onClick={() => {
+                                setConfirmDelete(null);
+                                void run(m.id, () => learnerStore.remove(m.id), "회원을 삭제했어요.");
+                              }}
+                            >
+                              삭제
+                            </button>
+                            <button className="btn btn-soft btn-sm" onClick={() => setConfirmDelete(null)}>
+                              취소
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={busy === m.id}
+                            title={`${m.name || m.googleEmail} 회원을 삭제해요. 학습 기록도 함께 지워져요.`}
+                            onClick={() => setConfirmDelete(m.id)}
+                          >
+                            삭제
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

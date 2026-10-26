@@ -1,5 +1,6 @@
 import { episodes } from "./index";
 import { yijiarenzhimingEp3 } from "./episodes/yijiarenzhiming-ep3";
+import { SAVED_LESSONS } from "./savedLessons";
 import { WEEKLY_LESSONS } from "./weeklyLessons";
 import type {
   CultureLens,
@@ -33,8 +34,8 @@ const lessonFromEpisode = (
   updatedAt: SEED_TIME,
 });
 
-/** 기본 강의자료 (15주). 서버 DB에 처음 한 번 들어간다. */
-export const SEED_LESSONS: Lesson[] = [
+/** 코드에 들어 있는 기본 강의자료 (15주) */
+const BUILT_IN_LESSONS: Lesson[] = [
   // 이전 1주차(전체 회차 120~626초). 새 1주차 클립(lesson-week01)의 대본을 채워 공개하기 전까지 학습자용으로 둔다.
   // 상황별 장면 · 문화 메뉴의 ‘장면 다시 보기’도 이 영상을 쓴다.
   {
@@ -43,13 +44,22 @@ export const SEED_LESSONS: Lesson[] = [
       week: 1,
       title: "가족의 일상 속 실생활 표현",
       direction: "zh-ko",
-      level: "intermediate",
+      level: "hsk4",
       status: "published",
     }),
     // 영상에 박혀 있는 중국어 자막을 가리는 위치 (실제 영상으로 확인한 값)
     captionMask: { enabled: true, top: 78.5, height: 14, width: 70 },
   },
   ...WEEKLY_LESSONS,
+];
+
+/**
+ * 기본 강의자료. 서버 DB에 처음 한 번 들어간다.
+ * 웹앱에서 만들어 내보낸 강의자료(savedLessons.ts)가 같은 id의 기본값을 대신하고, 새로 만든 강의자료는 뒤에 붙는다.
+ */
+export const SEED_LESSONS: Lesson[] = [
+  ...BUILT_IN_LESSONS.map((l) => SAVED_LESSONS.find((s) => s.id === l.id) ?? l),
+  ...SAVED_LESSONS.filter((s) => !BUILT_IN_LESSONS.some((l) => l.id === s.id)),
 ];
 
 const EMPTY_CONTENT: LessonContent = { cues: [], summary: [], quiz: [] };

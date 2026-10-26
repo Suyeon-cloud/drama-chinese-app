@@ -216,7 +216,7 @@ img { max-width: 100%; display: block; }
 
 .pill {
   display: inline-flex; align-items: center; gap: 6px; width: fit-content;
-  font-size: 12.5px; font-weight: 700; padding: 4px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
 }
 .pill-sky { background: var(--sky-100); color: var(--sky-700); }
 .pill-lavender { background: var(--lavender); color: var(--lavender-ink); }
@@ -726,12 +726,14 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .shortcut:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 
 .course-table { display: flex; flex-direction: column; }
-.course-row { display: grid; grid-template-columns: 70px minmax(0, 2fr) 130px 70px 90px minmax(180px, 1.2fr); gap: 12px; align-items: center; padding: 10px 6px; border-top: 1px solid var(--line); }
+.course-row { display: grid; grid-template-columns: 70px minmax(0, 2fr) 130px 120px 90px minmax(180px, 1.2fr); gap: 12px; align-items: center; padding: 10px 6px; border-top: 1px solid var(--line); }
 .course-head { font-size: 12.5px; font-weight: 700; color: var(--muted); border-top: 0; padding-top: 0; }
 .course-row.empty-row { background: var(--sky-50); border-radius: 12px; border-top-color: transparent; margin-top: 4px; }
 .course-title { display: flex; flex-direction: column; min-width: 0; }
 .course-title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .course-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.week-move { height: 36px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--sky-700); cursor: pointer; }
+.week-move:disabled { opacity: 0.6; cursor: default; }
 
 .pipeline { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .pipeline li { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
@@ -1052,7 +1054,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .sidebar { display: none; }
-  .main { padding: 10px 16px 96px; }
+  .main { padding: 10px 16px calc(112px + env(safe-area-inset-bottom, 0px)); }
   .mobile-logo { display: block; }
   .topbar-title h1 { display: none; }
   .search { display: none; }
@@ -1065,6 +1067,8 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   }
   .mobile-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 16px; color: var(--muted); font-size: 11px; font-family: "Noto Sans SC", var(--font); font-weight: 700; }
   .mobile-nav button.active { background: var(--sky-100); color: var(--sky-700); }
+  /* 메뉴가 많으면 낱말 중간이 아니라 띄어쓰기에서 줄을 바꾼다 (학습자 관/리 → 학습자/관리) */
+  .mobile-nav button span { word-break: keep-all; text-align: center; line-height: 1.25; }
   .feature-row { grid-template-columns: minmax(0, 1fr); }
   .hero { grid-template-columns: minmax(0, 1fr); padding: 26px 22px; }
   .hero-motion { max-width: 420px; justify-self: center; width: 100%; }
@@ -1151,9 +1155,28 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .admin-icon-btn span { display: none; }
   .admin-icon-btn { padding: 0 12px; }
 }
+/* 로그인 전 좁은 화면: 관리자·Google 버튼과 로고 글자가 겹치지 않게 로고는 아이콘만 남긴다. */
+@media (max-width: 430px) {
+  .topbar:has(.auth-buttons) .mobile-logo .logo-text { display: none; }
+}
 
 /* ───────── 음성으로 자막 만들기 ───────── */
 .stt { padding: 14px; border-radius: 16px; border: 2px dashed var(--lavender-ink); background: var(--lavender); margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
 .stt-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .stt-field { min-width: 240px; flex: 1; }
 .stt .check { display: flex; gap: 6px; align-items: center; font-size: 13.5px; font-weight: 500; }
+
+/* ───────── 생성형 AI로 내용 채우기 ───────── */
+.ai-draft { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--lavender); display: flex; flex-direction: column; gap: 12px; }
+.ai-draft h4 { font-size: 15px; font-weight: 800; color: var(--lavender-ink); }
+.ai-step { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: #fff; }
+.ai-step textarea, .ai-prompt { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.ai-prompt { padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--sky-50); resize: vertical; }
+.ai-key-form { display: flex; flex-direction: column; gap: 8px; }
+
+/* 2단계 자막 표: 시간 수정 · 추가 · 삭제 */
+.script-preview .cue-time { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.script-preview .cue-time .sync-time { width: 74px; }
+.script-preview .cue-actions { white-space: nowrap; }
+.script-preview .cue-actions .link-btn + .link-btn { margin-left: 10px; }
+.script-preview tr.cue-bad-time td { background: var(--pink); }

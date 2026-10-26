@@ -5,6 +5,8 @@ import {
   matchSourceStart,
   type TimelineLine,
 } from "../../../content/lessons";
+import { getLevel } from "../../../content/levels";
+import { pickLinesForLevel, spread } from "../../lib/draftPick";
 import { toPinyin, usePinyinReady } from "../../lib/pinyin";
 import type {
   DraftLens,
@@ -16,6 +18,7 @@ import type {
 } from "../../../content/types";
 import { formatClock } from "../../lib/subtitles";
 import { createId, nowIso } from "../../store/localJson";
+import { AiDraftPanel } from "./AiDraftPanel";
 import { TimeInput } from "./ScriptSyncPanel";
 
 type Timing = { timeline: TimelineLine[]; segmentStart: number; segmentEnd: number | null };
@@ -62,13 +65,6 @@ const TimingField: React.FC<
 
 const OPTION_COUNT = 4;
 
-/** 목록에서 고르게 count개를 고른다. (순서 유지) */
-const spread = (lines: string[], count: number) => {
-  if (lines.length <= count) return lines;
-  const step = lines.length / count;
-  return Array.from({ length: count }, (_, i) => lines[Math.floor(i * step)]);
-};
-
 const note = (source = ""): DraftNote => ({ id: createId("note"), source, note: "" });
 const lens = (source = ""): DraftLens => ({ id: createId("lens"), title: "", source, text: "" });
 const quiz = (question = ""): DraftQuiz => ({
@@ -80,21 +76,23 @@ const quiz = (question = ""): DraftQuiz => ({
 });
 
 /**
- * 규칙·템플릿 기반 초안: 원문 문장을 고르게 골라 표현·어휘·문화렌즈·퀴즈 칸에 배치한다.
+ * 규칙·템플릿 기반 초안: 학습 수준(HSK)에 맞는 길이의 원문 문장을 골라 표현·어휘·문화렌즈·퀴즈 칸에 배치한다.
+ * 낮은 급수는 짧은 대사, 높은 급수는 긴 대사에서 고르고, 항목 수도 급수에 따라 달라진다. (levels.ts의 draft)
  * 번역·설명·정답 등 의미 정보는 만들지 않고 교수자가 채우도록 비워 둔다.
  */
-const buildDraft = (lines: string[], direction: LearningDirection): LessonDraft => {
-  const expr = spread(lines, 5);
-  const rest = lines.filter((l) => !expr.includes(l));
-  const grammar = spread(rest, 3);
+const buildDraft = (lines: string[], direction: LearningDirection, levelId: string): LessonDraft => {
+  const plan = getLevel(levelId).draft;
+  const { expressions: expr, grammar } = pickLinesForLevel(lines, plan);
   const now = nowIso();
   const question = (s: string) =>
     direction === "zh-ko" ? `「${s}」의 뜻으로 알맞은 것은?` : `「${s}」를 중국어로 바르게 표현한 것은?`;
+  const lensSources = spread(expr, plan.lenses);
   return {
     expressions: expr.map((s) => note(s)),
     grammar: grammar.length ? grammar.map((s) => note(s)) : [note()],
-    lenses: [lens(lines[0] ?? "")],
-    quiz: expr.slice(0, 3).map((s) => quiz(question(s))),
+    lenses: lensSources.length ? lensSources.map((s) => lens(s)) : [lens(lines[0] ?? "")],
+    quiz: expr.slice(0, plan.quiz).map((s) => quiz(question(s))),
+    level: levelId,
     createdAt: now,
     updatedAt: now,
   };
@@ -213,10 +211,31 @@ export const ContentDraftSection: React.FC<{
   secured: boolean;
   synced: boolean;
   direction: LearningDirection;
+  /** 강의자료의 학습 수준 id — 초안 문장 길이와 항목 수를 정한다 */
+  level: string;
+  /** AI 프롬프트에 넣을 강의 정보 */
+  week: number;
+  title: string;
+  dramaTitle: string;
   sourceName: string;
   /** 기존(번들) 학습 콘텐츠 */
   base: LessonContent | null;
-}> = ({ draft, onChange, timeline, segmentStart, segmentEnd, secured, synced, direction, sourceName, base }) => {
+}> = ({
+  draft,
+  onChange,
+  timeline,
+  segmentStart,
+  segmentEnd,
+  secured,
+  synced,
+  direction,
+  level,
+  week,
+  title,
+  dramaTitle,
+  sourceName,
+  base,
+}) => {
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   usePinyinReady(); // 병음 사전이 준비되면 자동 병음을 다시 그린다.
   const sourceLines = timeline.map((l) => l.text);
@@ -226,8 +245,13 @@ export const ContentDraftSection: React.FC<{
   const baseHas = !!base && (base.cues.length > 0 || base.quiz.length > 0 || base.summary.length > 0);
   const readyQuiz = draft ? draftQuizToQuestions(draft.quiz).length : 0;
 
+  const levelDef = getLevel(level);
+  const plan = levelDef.draft;
+  // 초안을 만든 뒤 수준을 바꿨으면 다시 구성하라고 알린다. (수준 기록이 없는 예전 초안은 알리지 않는다)
+  const levelChanged = !!draft?.level && getLevel(draft.level).id !== levelDef.id;
+
   const build = () => {
-    onChange(buildDraft(sourceLines, direction));
+    onChange(buildDraft(sourceLines, direction, level));
     setConfirmRebuild(false);
   };
 
@@ -251,9 +275,20 @@ export const ContentDraftSection: React.FC<{
       ) : (
         <>
           <p className="draft-proto">
-            현재 2차 프로토타입에서는 입력한 원문을 바탕으로 규칙·템플릿 기반 학습 콘텐츠 초안을 구성합니다. 향후
-            생성형 AI 연동을 통해 자동 분석·생성 기능으로 확장할 수 있습니다.
+            입력한 원문으로 학습 콘텐츠 초안을 구성해요. 아래 ‘생성형 AI로 내용 채우기’로 표현 뜻·문법 설명·문화렌즈·퀴즈
+            정답까지 채운 뒤 검토해 주세요.
           </p>
+          <p className="muted small">
+            <b>{levelDef.label}</b> 기준 ·{" "}
+            {plan.window[1] <= 0.5 ? "짧은 대사" : plan.window[0] >= 0.5 ? "긴 대사" : "중간 길이 대사"} 중심으로 핵심 표현{" "}
+            {plan.expressions}개 · 어휘·문법 {plan.grammar}개 · 문화렌즈 {plan.lenses}개 · 퀴즈 {plan.quiz}문제를 골라요.
+          </p>
+          {levelChanged && draft?.level ? (
+            <p className="sync-hint">
+              지금 초안은 {getLevel(draft.level).label} 기준으로 만들었어요. 바꾼 수준에 맞추려면 ‘원문으로 초안 다시
+              구성’을 눌러 주세요. (다시 구성하면 지금 초안에 입력한 내용은 지워져요)
+            </p>
+          ) : null}
           {!synced ? (
             <p className="sync-hint">
               시간 동기화 전이어도 초안을 만들고 편집할 수 있어요. 등장 시점이 없는 항목은 영상 위 모션그래픽이 아니라
@@ -297,6 +332,19 @@ export const ContentDraftSection: React.FC<{
               </small>
             ) : null}
           </div>
+
+          {sourceLines.length > 0 ? (
+            <AiDraftPanel
+              lines={sourceLines}
+              direction={direction}
+              level={level}
+              week={week}
+              title={title}
+              dramaTitle={dramaTitle}
+              hasDraft={!!draft}
+              onApply={onChange}
+            />
+          ) : null}
 
           {draft ? (
             <div className="draft-editor">

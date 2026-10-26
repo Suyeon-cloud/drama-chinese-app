@@ -627,6 +627,8 @@ const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; jus
         plain={form.plain}
         segmentStart={startSec ?? 0}
         segmentEnd={endSec}
+        title={form.title}
+        dramaTitle={form.dramaTitle}
         onPlainChange={(plain) =>
           setForm((f) => ({
             ...f,
@@ -657,6 +659,10 @@ const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; jus
         secured={sourceSecured}
         synced={status.synced}
         direction={form.direction}
+        level={form.level}
+        week={form.week}
+        title={form.title}
+        dramaTitle={form.dramaTitle}
         sourceName={sourceName}
         base={hasContent ? content : null}
       />

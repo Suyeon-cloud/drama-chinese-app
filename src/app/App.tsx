@@ -61,7 +61,8 @@ const Shell: React.FC = () => {
   }, [user, view]);
 
   const def = getView(view);
-  const adminOnly = def.adminOnly && user?.role !== "instructor";
+  const adminOnly =
+    (def.adminOnly && user?.role !== "instructor") || (def.adminModeOnly && user?.provider !== "admin");
   const needsLogin = def.requiresLogin && !user;
 
   // 관리자 승인 전 회원은 화면 전체를 막는다. (MemberGate가 안내 팝업을 띄운다)

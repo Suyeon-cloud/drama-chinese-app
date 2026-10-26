@@ -180,8 +180,8 @@ export type PlainScript = {
 
 /** 자막 트랙 한 언어(zh/ko)의 출처 */
 export type ScriptTrackOrigin = {
-  /** speech: 영상·음성 파일을 브라우저에서 음성 인식(Whisper)해 만든 자막 */
-  provider: "youtube" | "srt" | "speech";
+  /** speech: 영상·음성 파일을 브라우저에서 음성 인식(Whisper)해 만든 자막, ai: 원문 자막을 생성형 AI로 번역한 자막 */
+  provider: "youtube" | "srt" | "speech" | "ai";
   /** YouTube 자막 언어 코드 (예: zh-Hans, ko) */
   languageCode?: string;
   /** YouTube: manual(업로더 자막) / asr(자동 생성 자막) */
@@ -238,6 +238,8 @@ export type LessonDraft = {
   grammar: DraftNote[];
   lenses: DraftLens[];
   quiz: DraftQuiz[];
+  /** 초안을 만들 때의 학습 수준 id (수준을 바꾸면 다시 구성하라고 안내한다) */
+  level?: string;
   /** ISO datetime */
   createdAt: string;
   updatedAt: string;

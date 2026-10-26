@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SEED_LESSONS } from "../src/content/lessons";
+import { LEGACY_LEVEL_IDS } from "../src/content/levels";
 import type { Lesson } from "../src/content/types";
 import type {
   CourseInfo,
@@ -34,6 +35,8 @@ export type DbData = {
   enrollments: Record<string, Enrollment>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
+  /** 관리자가 화면에서 연결한 Anthropic API 키 (AI 학습 콘텐츠 생성). 화면에는 끝 4자리만 보여준다. */
+  anthropicApiKey?: string;
 };
 
 const emptyDb = (): DbData => ({
@@ -76,6 +79,14 @@ export const openDb = (dataDir: string): Db => {
     data.seededLessonIds.push(lesson.id);
     if (!data.lessons[lesson.id]) data.lessons[lesson.id] = lesson;
     changed = true;
+  }
+  // 초급·중급·고급으로 저장된 강의자료를 HSK 등급으로 옮긴다.
+  for (const lesson of Object.values(data.lessons)) {
+    const hsk = LEGACY_LEVEL_IDS[lesson.level];
+    if (hsk) {
+      lesson.level = hsk;
+      changed = true;
+    }
   }
   if (changed) save();
 

@@ -20,8 +20,11 @@ export type ViewKey =
   | "admin-feedback"
   | "admin-instructors";
 
-/** requiresLogin: 로그인하지 않으면 “로그인 후 이용하세요.” 안내 (수업·학습 콘텐츠) */
-export type ViewDef = { key: ViewKey; ko: string; requiresLogin?: boolean; adminOnly?: boolean };
+/**
+ * requiresLogin: 로그인하지 않으면 “로그인 후 이용하세요.” 안내 (수업·학습 콘텐츠)
+ * adminModeOnly: 교수자(Google)에게는 숨기고 관리자 아이디·비밀번호 로그인(관리자 모드)에서만 보인다.
+ */
+export type ViewDef = { key: ViewKey; ko: string; requiresLogin?: boolean; adminOnly?: boolean; adminModeOnly?: boolean };
 
 export const VIEWS: ViewDef[] = [
   { key: "home", ko: "홈" },
@@ -38,7 +41,7 @@ export const VIEWS: ViewDef[] = [
   { key: "admin-learners", ko: "학습자 관리", adminOnly: true },
   { key: "admin-progress", ko: "학습 현황", adminOnly: true },
   { key: "admin-feedback", ko: "피드백", adminOnly: true },
-  { key: "admin-instructors", ko: "교수자 관리", adminOnly: true },
+  { key: "admin-instructors", ko: "교수자 관리", adminOnly: true, adminModeOnly: true },
 ];
 
 const LEARNER_MENU: ViewKey[] = ["home", "weeks", "culture", "mine"];
@@ -54,9 +57,9 @@ const ADMIN_MENU: ViewKey[] = [
 
 export const getView = (key: ViewKey) => VIEWS.find((v) => v.key === key)!;
 
-/** 역할별 사이드바/모바일 메뉴 */
-export const menuFor = (role: UserRole | null): ViewDef[] =>
-  (role === "instructor" ? ADMIN_MENU : LEARNER_MENU).map(getView);
+/** 역할별 사이드바/모바일 메뉴. adminMode: 관리자 아이디·비밀번호로 로그인했는지 */
+export const menuFor = (role: UserRole | null, adminMode = false): ViewDef[] =>
+  (role === "instructor" ? ADMIN_MENU : LEARNER_MENU).map(getView).filter((v) => adminMode || !v.adminModeOnly);
 
 /** 메뉴에 없는 화면이 어느 메뉴에 속하는지 (활성 표시용) */
 export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = { lesson: "weeks", situations: "weeks" };

@@ -25,7 +25,8 @@ type WeekSpec = {
   /** 학습 주제 */
   theme: string;
   youtubeId: string;
-  level: "beginner" | "intermediate" | "advanced";
+  /** levels.ts의 HSK 등급 id (hsk1~hsk6) */
+  level: string;
   expressions: Note[];
   grammar: Note[];
   lens: { title: string; source: string; text: string };
@@ -83,7 +84,7 @@ const WEEKS: WeekSpec[] = [
     scene: "贺子秋 생일날 가족들이 함께 식사하며 李爸가 子秋를 감싸는 장면",
     theme: "가족관계, 친족 호칭, 식사, 혈연을 넘어선 가족",
     youtubeId: "w8b-Rhl3y5M",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["生日快乐", "생일 축하해. 생일을 맞은 사람에게 건네는 기본 인사"],
       ["一家人", "한 가족. 피가 섞이지 않았어도 함께 사는 사람을 가족이라고 할 때 써요"],
@@ -110,7 +111,7 @@ const WEEKS: WeekSpec[] = [
     scene: "학교에서 친구가 곤란한 상황에 처했을 때 서로 도와주고, 농구 경기를 하며 응원하는 장면",
     theme: "중국 고등학교 생활, 또래관계, 교내 스포츠·응원문화",
     youtubeId: "EXUSxAKaLmI",
-    level: "beginner",
+    level: "hsk2",
     expressions: [
       ["加油！", "힘내! 화이팅! 경기를 응원할 때 가장 많이 외치는 말"],
       ["别怕，有我呢", "겁내지 마, 내가 있잖아. 곤란한 친구를 안심시키는 말"],
@@ -137,7 +138,7 @@ const WEEKS: WeekSpec[] = [
     scene: "친한 사람과 일상적인 대화를 나누며 장난을 치고 자신의 감정과 호감을 자연스럽게 표현하는 장면",
     theme: "중국 청년의 일상 대화, 친밀한 관계에서의 구어체·장난·감정표현",
     youtubeId: "HDRFx2rtQ8o",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["你干嘛呀", "뭐 하는 거야~ 친한 사이에서 장난스럽게 핀잔 줄 때"],
       ["才不是呢", "아니거든! 쑥스러움을 감추며 부정할 때"],
@@ -164,7 +165,7 @@ const WEEKS: WeekSpec[] = [
     scene: "대학에 입학한 학생들이 새로운 환경에서 만나 기숙사·학교생활을 시작하며 서로 관계를 형성하는 장면",
     theme: "중국 대학생활, 대학 기숙사 문화, 신입생·룸메이트 관계",
     youtubeId: "740asstFkb8",
-    level: "beginner",
+    level: "hsk2",
     expressions: [
       ["你是哪个专业的？", "너는 무슨 전공이야? 신입생끼리 처음 묻는 말"],
       ["我们是室友", "우리는 룸메이트야"],
@@ -191,7 +192,7 @@ const WEEKS: WeekSpec[] = [
     scene: "신입 변호사 成瑶가 직장 회의에 참여하며 상사·동료들과 업무 상황에서 소통하는 장면",
     theme: "중국 청년의 직장생활, 회사 회의문화, 직장 내 상하관계·업무 의사소통",
     youtubeId: "EI6Qjxfsfm8",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["我补充一点", "한 가지 덧붙이겠습니다. 회의에서 의견을 더할 때"],
       ["收到", "알겠습니다. 업무 지시를 짧게 확인하는 말"],
@@ -218,7 +219,7 @@ const WEEKS: WeekSpec[] = [
     scene: "韩商言이 자신의 감정을 드러내고 웨이보를 통해 연인 관계를 공개적으로 표현하는 장면",
     theme: "중국의 微博·SNS 문화, 온라인 자기표현·소통 방식, 공개연애 문화",
     youtubeId: "VKHoF12BjBI",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["官宣", "공식 발표. 연애·결혼 사실을 SNS로 공개할 때 쓰는 유행어"],
       ["转发", "(게시물을) 공유하다, 리트윗하다"],
@@ -245,7 +246,7 @@ const WEEKS: WeekSpec[] = [
     scene: "연인이 집에서 서재를 정리하고 물건을 발견하며 자연스럽게 대화를 나누는 장면",
     theme: "중국 청년의 일상생활, 집안일·물건 정리 관련 어휘, 친밀한 관계에서의 생활 구어체",
     youtubeId: "nsN027-e1nI",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["这是什么？", "이게 뭐야? 물건을 발견했을 때"],
       ["放哪儿？", "어디에 둬? 정리하면서 묻는 말"],
@@ -272,7 +273,7 @@ const WEEKS: WeekSpec[] = [
     scene: "靳朝가 연인의 가족을 만나고 반지를 준비해 청혼하며 결혼을 준비하는 장면",
     theme: "중국의 见家长·求婚 문화, 현대 청년의 연애·결혼관, 가족과 결혼의 관계",
     youtubeId: "or355SyHlTg",
-    level: "advanced",
+    level: "hsk5",
     expressions: [
       ["叔叔阿姨好", "(연인의 부모님께) 안녕하세요"],
       ["嫁给我吧", "나와 결혼해 줘. 청혼할 때"],
@@ -301,7 +302,7 @@ const WEEKS: WeekSpec[] = [
     scene: "서울에서 온 혜진이 공진의 할머니들과 교류하며 점차 가까워지는 장면",
     theme: "세대가 다른 상대와 대화할 때 사용하는 중국어 호칭·부탁·권유·배려 표현",
     youtubeId: "lG_Y-CiPZd4",
-    level: "beginner",
+    level: "hsk2",
     expressions: [
       ["할머니, 제가 도와드릴게요", "奶奶，我来帮您吧。 ‘您’으로 존중을 나타내요"],
       ["식사하셨어요?", "您吃饭了吗？ 인사처럼 쓰는 안부"],
@@ -328,7 +329,7 @@ const WEEKS: WeekSpec[] = [
     scene: "전학 온 주경이 새 학교에서 친구들과 가까워지고, 방과 후 함께 떡볶이를 먹으며 대화하는 장면",
     theme: "친구와 친해지고 함께 식사할 때 사용하는 자연스러운 중국어 일상 구어체",
     youtubeId: "hfImf1EdDkM",
-    level: "beginner",
+    level: "hsk2",
     expressions: [
       ["같이 떡볶이 먹으러 갈래?", "一起去吃辣炒年糕吧？ 떡볶이는 ‘辣炒年糕’"],
       ["나 전학 왔어", "我是转学过来的。"],
@@ -355,7 +356,7 @@ const WEEKS: WeekSpec[] = [
     scene: "퀸즈가 가족이 용두리에서 지내며 과수원에서 과일을 따고, 평소와 다른 농촌의 일상을 경험하는 장면",
     theme: "가족과 함께 생활하며 부탁·권유하고 반응할 때 사용하는 중국어 생활 표현",
     youtubeId: "9NhVCC42yvk",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["이것 좀 들어 줄래?", "帮我拿一下这个，好吗？"],
       ["한번 먹어 봐", "你尝尝。 동사를 겹쳐 가볍게 권해요"],
@@ -382,7 +383,7 @@ const WEEKS: WeekSpec[] = [
     scene: "직장생활로 힘들어하는 미래가 쌍둥이 동생 미지에게 자신의 상황과 고민을 털어놓고, 두 사람이 서로의 삶을 바꿔 살아보기로 이야기하는 장면",
     theme: "직장 고민을 털어놓고 위로·조언하며 의논할 때 사용하는 중국어 표현",
     youtubeId: "-TNPwK65FKI",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["나 요즘 회사 때문에 너무 힘들어", "我最近因为工作特别累。"],
       ["괜찮아, 내가 있잖아", "没事，有我在呢。"],
@@ -409,7 +410,7 @@ const WEEKS: WeekSpec[] = [
     scene: "태양고 친구들과 이진이 함께 수학여행을 떠나 장난을 치고 다양한 이야기를 나누는 장면",
     theme: "친구 사이의 제안·재촉·불평·장난·감탄·동의·반응 등 자연스러운 중국어 일상 구어체",
     youtubeId: "JGye3BHSHZ4",
-    level: "intermediate",
+    level: "hsk4",
     expressions: [
       ["빨리 와!", "快点儿！ 재촉할 때"],
       ["말도 안 돼!", "怎么可能！ / 不会吧！ 놀라거나 믿기지 않을 때"],
@@ -436,7 +437,7 @@ const WEEKS: WeekSpec[] = [
     scene: "삼달의 억울함을 풀고 전시회를 지키기 위해 친구들과 주변 사람들이 함께 방법을 의논하고 역할을 나누어 문제를 해결하는 장면",
     theme: "의견 제안·의견 묻기·역할 분담·도움 요청·격려 등 여러 사람이 함께 문제를 해결할 때 사용하는 중국어 표현",
     youtubeId: "LxbKY6OxXBY",
-    level: "advanced",
+    level: "hsk5",
     expressions: [
       ["우리 어떻게 하면 좋을까?", "我们该怎么办？"],
       ["이건 내가 맡을게", "这个交给我吧。"],
@@ -463,7 +464,7 @@ const WEEKS: WeekSpec[] = [
     scene: "세 명의 1년 차 레지던트가 병원에서 교수·선배·동료 및 환자들과 소통하며 업무를 수행하는 장면",
     theme: "직장에서의 보고·질문·확인·피드백·협력 표현과 환자에게 설명·질문·배려할 때 사용하는 중국어 표현",
     youtubeId: "gKl7mDRO0ec",
-    level: "advanced",
+    level: "hsk5",
     expressions: [
       ["교수님, 보고드릴 게 있습니다", "教授，我有情况要汇报。"],
       ["제가 다시 확인하겠습니다", "我再确认一下。"],

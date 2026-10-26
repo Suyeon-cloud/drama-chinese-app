@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon";
 import { navigate } from "../router";
 import { useAuth } from "./AuthContext";
@@ -75,7 +76,8 @@ export const AdminLoginButton: React.FC = () => {
         <Icon name="shield" size={20} />
         <span>관리자</span>
       </button>
-      {open ? <AdminLoginModal onClose={() => setOpen(false)} /> : null}
+      {/* 상단바의 backdrop-filter 안에서는 position: fixed가 화면이 아닌 상단바 기준이 되어 창이 잘린다. body에 띄운다. */}
+      {open ? createPortal(<AdminLoginModal onClose={() => setOpen(false)} />, document.body) : null}
     </>
   );
 };

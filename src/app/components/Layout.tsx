@@ -26,7 +26,7 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
 const useMenu = (active: ViewKey) => {
   const { user } = useAuth();
   const go = useGuardedNavigate();
-  const menu = menuFor(user?.role ?? null);
+  const menu = menuFor(user?.role ?? null, user?.provider === "admin");
   return { menu, current: MENU_PARENT[active] ?? active, homeKey: menu[0].key, go };
 };
 
