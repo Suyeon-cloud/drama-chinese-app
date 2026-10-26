@@ -35,6 +35,8 @@ const lessonFromEpisode = (
 
 /** 기본 강의자료 (15주). 서버 DB에 처음 한 번 들어간다. */
 export const SEED_LESSONS: Lesson[] = [
+  // 이전 1주차(전체 회차 120~626초). 새 1주차 클립(lesson-week01)의 대본을 채워 공개하기 전까지 학습자용으로 둔다.
+  // 상황별 장면 · 문화 메뉴의 ‘장면 다시 보기’도 이 영상을 쓴다.
   {
     ...lessonFromEpisode(yijiarenzhimingEp3, {
       id: "lesson-yjrzm-ep3",

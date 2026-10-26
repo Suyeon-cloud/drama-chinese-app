@@ -62,14 +62,14 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
   );
 };
 
-/** 15주차 강의자료 목록. 공개된 강의자료만 학습할 수 있다. */
+/** 15주차 강의자료 목록. 학습자는 공개된 강의자료만, 관리자는 준비 중인 자료도 미리 본다. */
 const WeekList: React.FC = () => {
   const lessons = useLessons();
   const { user } = useAuth();
   const go = useGuardedNavigate();
   const progress = useUserProgress(user?.role === "learner" ? user.id : null);
   if (!lessons) return null;
-  const published = lessons.filter((l) => l.status === "published");
+  const visible = user?.role === "instructor" ? lessons : lessons.filter((l) => l.status === "published");
 
   return (
     <>
@@ -80,7 +80,7 @@ const WeekList: React.FC = () => {
           </h3>
           <div className="week-grid">
             {WEEKS.filter((w) => w >= phase.from && w <= phase.to).map((week) => {
-              const items = published.filter((l) => l.week === week);
+              const items = visible.filter((l) => l.week === week);
               if (items.length === 0) {
                 return (
                   <div key={week} className="card week-card empty-week">
@@ -111,6 +111,7 @@ const WeekList: React.FC = () => {
                     </span>
                     <span className="row-start">
                       <span className={`pill pill-${level.tone}`}>{level.label}</span>
+                      {lesson.status !== "published" ? <span className="pill pill-pink">미리보기 · 비공개</span> : null}
                       {p?.completedAt ? (
                         <span className="pill pill-mint">✅ 완료</span>
                       ) : p?.startedAt ? (

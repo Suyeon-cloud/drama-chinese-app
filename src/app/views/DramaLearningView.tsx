@@ -69,19 +69,23 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
   );
   // 저장된 자막 + 시간 동기화를 마친 원문 텍스트
   const script = useMemo(() => playbackCues(lesson), [lesson]);
-  const { video } = lesson;
   const seekParam = Number(params.get("t"));
-  const initialTime = Number.isFinite(seekParam) && seekParam > 0 ? seekParam : video.startTime;
+  const initialTime = Number.isFinite(seekParam) && seekParam > 0 ? seekParam : lesson.video.startTime;
 
   const hostRef = useRef<HTMLDivElement>(null);
-  const yt = useYouTubeClock(hostRef, video.youtubeId, initialTime);
+  const yt = useYouTubeClock(hostRef, lesson.video.youtubeId, initialTime);
   const [simMode, setSimMode] = useState(false);
   const sim = useSimulatedClock(initialTime, simMode);
   const clock = simMode ? sim : yt;
+  // 학습 구간 끝을 비워 둔 강의자료(짧은 클립)는 영상 끝까지 학습한다. 길이를 알기 전에는 끝나지 않는다.
+  const hasEnd = lesson.video.endTime > lesson.video.startTime;
+  const endTime = hasEnd ? lesson.video.endTime : yt.duration > 0 ? yt.duration - 0.5 : Infinity;
+  const video = useMemo(() => ({ ...lesson.video, endTime }), [lesson.video, endTime]);
+  const endLabel = Number.isFinite(endTime) ? formatTime(endTime) : "영상 끝";
 
   // 학습 기록: 학습자 계정 + 실제 영상 재생일 때만
   const recordFor = user?.role === "learner" && !simMode ? user.id : null;
-  const { progress, markCompleted, recordQuiz } = useLessonProgress(lesson, clock, recordFor);
+  const { progress, markCompleted, recordQuiz } = useLessonProgress(lesson, clock, recordFor, endTime);
 
   const [completed, setCompleted] = useState(false);
   const [showSubs, setShowSubs] = useState(true);
@@ -228,7 +232,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               ) : null}
             </div>
             <div className="video-head-meta">
-              학습 구간 <b>{formatTime(video.startTime)}</b> – <b>{formatTime(video.endTime)}</b>
+              학습 구간 <b>{formatTime(video.startTime)}</b> – <b>{endLabel}</b>
             </div>
           </div>
 
@@ -293,7 +297,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
                   {clock.playing ? "❚❚ 일시정지" : "▶ 재생"}
                 </button>
                 <span className="time-readout">
-                  {formatTime(clock.time)} <small>/ {formatTime(video.endTime)}</small>
+                  {formatTime(clock.time)} <small>/ {endLabel}</small>
                 </span>
                 {subToggle}
                 <button className="btn btn-primary btn-sm stage-exit" onClick={() => void stage.exit()}>
@@ -315,7 +319,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               {clock.playing ? "❚❚ 일시정지" : "▶ 재생"}
             </button>
             <span className="time-readout">
-              {formatTime(clock.time)} <small>/ {formatTime(video.endTime)}</small>
+              {formatTime(clock.time)} <small>/ {endLabel}</small>
             </span>
             {subToggle}
             <button
@@ -362,8 +366,12 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
                   {c.title}
                 </button>
               ))}
-              <button className="cue-chip end" onClick={() => jump(video.endTime - 4)}>
-                <span>{formatTime(video.endTime)}</span>🎉 학습 완료
+              <button
+                className="cue-chip end"
+                disabled={!Number.isFinite(video.endTime)}
+                onClick={() => jump(video.endTime - 4)}
+              >
+                <span>{endLabel}</span>🎉 학습 완료
               </button>
             </div>
           </div>

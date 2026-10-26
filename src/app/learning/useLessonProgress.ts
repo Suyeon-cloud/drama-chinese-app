@@ -18,8 +18,10 @@ export const useLessonProgress = (
   lesson: Lesson,
   clock: VideoClock,
   userId: string | null,
+  /** 학습 구간 끝(초). 끝 시각을 비워 둔 강의자료는 영상 길이를 넘겨받는다. */
+  endTime: number = lesson.video.endTime,
 ) => {
-  const { startTime, endTime } = lesson.video;
+  const { startTime } = lesson.video;
   const ref = useRef<LessonProgress | null>(null);
   const dirty = useRef(false);
   const lastTime = useRef<number | null>(null);

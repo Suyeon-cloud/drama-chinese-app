@@ -6,6 +6,7 @@ type YTPlayer = {
   pauseVideo(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   getCurrentTime(): number;
+  getDuration(): number;
   destroy(): void;
 };
 
@@ -64,6 +65,8 @@ export type VideoClock = {
   playing: boolean;
   /** seconds */
   time: number;
+  /** 영상 전체 길이(초). 알 수 없으면 0 */
+  duration: number;
   error: string | null;
   play(): void;
   pause(): void;
@@ -81,6 +84,7 @@ export const useYouTubeClock = (
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(startAt);
+  const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef(startAt);
 
@@ -115,6 +119,8 @@ export const useYouTubeClock = (
               timer = window.setInterval(() => {
                 const t = playerRef.current?.getCurrentTime();
                 if (typeof t === "number") setTime(t);
+                const d = playerRef.current?.getDuration();
+                if (typeof d === "number" && d > 0) setDuration(d);
               }, POLL_MS);
             },
             onStateChange: (e) => setPlaying(e.data === YT_PLAYING),
@@ -149,7 +155,7 @@ export const useYouTubeClock = (
     setTime(s);
   }, []);
 
-  return { ready, playing, time, error, play, pause, seekTo };
+  return { ready, playing, time, duration, error, play, pause, seekTo };
 };
 
 /**
@@ -175,6 +181,7 @@ export const useSimulatedClock = (startAt: number, enabled: boolean): VideoClock
     ready: enabled,
     playing: enabled && playing,
     time,
+    duration: 0,
     error: null,
     play: useCallback(() => setPlaying(true), []),
     pause: useCallback(() => setPlaying(false), []),
