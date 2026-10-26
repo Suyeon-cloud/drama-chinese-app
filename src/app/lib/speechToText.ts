@@ -14,14 +14,15 @@ export type WhisperRequest = { audio: Float32Array; lang: CueLang; model: string
 
 export type WhisperResponse =
   | { type: "download"; file: string; loaded: number; total: number }
-  | { type: "transcribing" }
+  | { type: "transcribing"; done: number; total: number }
   | { type: "done"; chunks: { text: string; start: number; end: number | null }[] }
   | { type: "error"; message: string };
 
 export type SttProgress =
   | { stage: "decoding" }
   | { stage: "download"; ratio: number }
-  | { stage: "transcribing" };
+  /** done/total: 끝낸 구간 수 / 전체 구간 수, remainingSec: 남은 시간 추정(초, 첫 구간이 끝나기 전에는 null) */
+  | { stage: "transcribing"; done: number; total: number; remainingSec: number | null };
 
 const SAMPLE_RATE = 16000;
 
@@ -63,6 +64,7 @@ export const transcribe = (
   new Promise<{ text: string; start: number; end: number | null }[]>((resolve, reject) => {
     const worker = new Worker(new URL("./whisperWorker.ts", import.meta.url), { type: "module" });
     const files = new Map<string, { loaded: number; total: number }>();
+    let startedAt = 0;
     worker.onmessage = (e: MessageEvent<WhisperResponse>) => {
       const m = e.data;
       if (m.type === "download") {
@@ -72,7 +74,16 @@ export const transcribe = (
           stage: "download",
           ratio: all.reduce((s, f) => s + f.loaded, 0) / Math.max(1, all.reduce((s, f) => s + f.total, 0)),
         });
-      } else if (m.type === "transcribing") onProgress({ stage: "transcribing" });
+      } else if (m.type === "transcribing") {
+        if (m.done === 0) startedAt = performance.now();
+        const perPart = m.done > 0 ? (performance.now() - startedAt) / 1000 / m.done : null;
+        onProgress({
+          stage: "transcribing",
+          done: m.done,
+          total: m.total,
+          remainingSec: perPart === null ? null : perPart * (m.total - m.done),
+        });
+      }
       else {
         worker.terminate();
         if (m.type === "done") resolve(m.chunks);

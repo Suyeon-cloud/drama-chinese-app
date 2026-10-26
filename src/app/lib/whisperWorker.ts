@@ -13,6 +13,35 @@ const createAsr = pipeline as unknown as (
   options: object,
 ) => Promise<AutomaticSpeechRecognitionPipeline>;
 
+const SAMPLE_RATE = 16000;
+/** 한 번에 인식하는 길이(초). 구간마다 진행률을 알린다. */
+const PART_SEC = 90;
+/** 구간 경계 앞뒤로 이 범위(초)에서 가장 조용한 곳을 찾아 자른다. (말이 중간에 잘리지 않도록) */
+const SEARCH_SEC = 4;
+const FRAME = SAMPLE_RATE / 20;
+
+/** 긴 소리를 PART_SEC 안팎의 구간으로 나눌 위치(샘플 번호) — 경계 근처의 가장 조용한 곳 */
+const splitPoints = (audio: Float32Array) => {
+  const points = [0];
+  const part = PART_SEC * SAMPLE_RATE;
+  const search = SEARCH_SEC * SAMPLE_RATE;
+  for (let target = part; target < audio.length - part / 3; target += part) {
+    let best = target;
+    let bestEnergy = Infinity;
+    for (let i = Math.max(points[points.length - 1] + FRAME, target - search); i + FRAME <= Math.min(audio.length, target + search); i += FRAME) {
+      let e = 0;
+      for (let j = i; j < i + FRAME; j++) e += audio[j] * audio[j];
+      if (e < bestEnergy) {
+        bestEnergy = e;
+        best = i + FRAME / 2;
+      }
+    }
+    points.push(Math.round(best));
+  }
+  points.push(audio.length);
+  return points;
+};
+
 let loaded: { model: string; asr: AutomaticSpeechRecognitionPipeline } | null = null;
 
 const load = async (model: string) => {
@@ -35,20 +64,29 @@ self.onmessage = async (e: MessageEvent<WhisperRequest>) => {
   const { audio, lang, model } = e.data;
   try {
     const asr = await load(model);
-    post({ type: "transcribing" });
-    const out = await asr(audio, {
-      language: lang === "zh" ? "chinese" : "korean",
-      task: "transcribe",
-      return_timestamps: true,
-      chunk_length_s: 30,
-      stride_length_s: 5,
-    });
-    const result = Array.isArray(out) ? out[0] : out;
-    const chunks = (result.chunks ?? []).map((c) => ({
-      text: c.text,
-      start: c.timestamp[0],
-      end: c.timestamp[1],
-    }));
+    const points = splitPoints(audio);
+    const total = points.length - 1;
+    const chunks: { text: string; start: number; end: number | null }[] = [];
+    for (let k = 0; k < total; k++) {
+      post({ type: "transcribing", done: k, total });
+      const offset = points[k] / SAMPLE_RATE;
+      const out = await asr(audio.subarray(points[k], points[k + 1]), {
+        language: lang === "zh" ? "chinese" : "korean",
+        task: "transcribe",
+        return_timestamps: true,
+        chunk_length_s: 30,
+        stride_length_s: 5,
+      });
+      const result = Array.isArray(out) ? out[0] : out;
+      for (const c of result.chunks ?? []) {
+        chunks.push({
+          text: c.text,
+          start: c.timestamp[0] + offset,
+          end: c.timestamp[1] === null ? null : c.timestamp[1] + offset,
+        });
+      }
+    }
+    post({ type: "transcribing", done: total, total });
     post({ type: "done", chunks });
   } catch (err) {
     post({ type: "error", message: err instanceof Error ? err.message : String(err) });

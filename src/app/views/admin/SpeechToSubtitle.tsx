@@ -14,7 +14,11 @@ const progressText = (p: SttProgress) =>
     ? "파일에서 소리를 읽는 중…"
     : p.stage === "download"
       ? `음성 인식 모델 내려받는 중… ${Math.round(p.ratio * 100)}% (처음 한 번만)`
-      : "음성을 자막으로 바꾸는 중… (영상 길이에 따라 몇 분 걸려요)";
+      : `음성을 자막으로 바꾸는 중… ${Math.round((p.done / Math.max(1, p.total)) * 100)}% (${p.done}/${p.total} 구간)${
+          p.remainingSec === null
+            ? " · 남은 시간 계산 중"
+            : ` · 약 ${Math.max(1, Math.round(p.remainingSec / 60))}분 남음`
+        }`;
 
 /**
  * 자막이 없는 영상: 영상·음성 파일을 올리면 브라우저 안에서 Whisper로 음성을 인식해 시간이 맞춰진 자막을 만든다.
