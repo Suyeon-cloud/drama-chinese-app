@@ -10,3 +10,13 @@ dist-server
 
 # 서버 데이터 (회원·학습 기록)
 data
+
+# 환경변수·인증 정보 (실수로 커밋되지 않게)
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+client_secret*.json
+credentials*.json
