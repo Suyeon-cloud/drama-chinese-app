@@ -1180,3 +1180,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .script-preview .cue-actions { white-space: nowrap; }
 .script-preview .cue-actions .link-btn + .link-btn { margin-left: 10px; }
 .script-preview tr.cue-bad-time td { background: var(--pink); }
+
+/* 2단계 자막 표: 중국어 칸 아래 병음 */
+.script-preview .cue-pinyin { margin-top: 2px; font-size: 12px; color: var(--sky-700); }
+.script-preview .cue-pinyin::placeholder { color: var(--muted); opacity: 0.7; }

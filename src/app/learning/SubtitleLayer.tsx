@@ -1,9 +1,10 @@
 import React from "react";
+import { lowerPinyin } from "../../content/lessons";
 import type { SubtitleCue } from "../../content/types";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 
-/** 중국어 cue의 병음: 저장된 값(사람이 입력) → 자동 변환값 */
-export const cuePinyin = (cue: SubtitleCue) => cue.pinyin?.trim() || toPinyin(cue.zh);
+/** 중국어 cue의 병음: 저장된 값(사람·AI가 입력) → 자동 변환값. 항상 소문자로 보여준다. */
+export const cuePinyin = (cue: SubtitleCue) => lowerPinyin(cue.pinyin?.trim() || toPinyin(cue.zh));
 
 /**
  * 영상 프레임 하단 중앙에 자막을 표시한다. 기본은 한국어 번역(ko).

@@ -1,6 +1,7 @@
 // 생성형 AI로 학습 콘텐츠 채우기: 프롬프트 만들기 + 결과(JSON) 읽기.
 // 외부 AI에 프롬프트를 복사해 붙여 넣는 방법과, 연결한 API 키로 바로 생성하는 방법이 같은 프롬프트·형식을 쓴다.
 
+import { lowerPinyin } from "../../content/lessons";
 import { getLevel } from "../../content/levels";
 import type { DraftLens, DraftNote, DraftQuiz, LearningDirection, LessonDraft } from "../../content/types";
 import { createId, nowIso } from "../store/localJson";
@@ -47,8 +48,8 @@ export const buildDraftPrompt = ({ lines, direction, level, week, title, dramaTi
 2. ${def.label} 학습자에게 맞는 대사를 고르세요. 아래 [추천 대사]는 수준에 맞는 길이의 대사예요. 참고하되 더 알맞은 대사가 있으면 바꿔도 돼요.
 3. ${
     zhKo
-      ? `핵심 표현의 "note"는 한국어로 뜻과 쓰임을 설명하고, "pinyin"에는 원문 표현의 병음(성조 부호 포함)을 넣으세요.`
-      : `핵심 표현의 "note"는 이 한국어 대사에 맞는 자연스러운 중국어 표현을 먼저 쓰고 이어서 한국어로 설명하세요. "pinyin"에는 그 중국어 표현의 병음(성조 부호 포함)을 넣으세요.`
+      ? `핵심 표현의 "note"는 한국어로 뜻과 쓰임을 설명하고, "pinyin"에는 원문 표현의 병음(성조 부호 포함, 문장 첫 글자와 이름까지 모두 소문자)을 넣으세요.`
+      : `핵심 표현의 "note"는 이 한국어 대사에 맞는 자연스러운 중국어 표현을 먼저 쓰고 이어서 한국어로 설명하세요. "pinyin"에는 그 중국어 표현의 병음(성조 부호 포함, 문장 첫 글자와 이름까지 모두 소문자)을 넣으세요.`
   }
 4. 어휘·문법의 "note"는 문형이나 핵심 어휘를 한국어로 설명하고 짧은 예문을 하나 넣으세요. "pinyin"은 핵심 표현과 같은 규칙이에요.
 5. 문화렌즈는 이 장면과 관련된 중국 문화·사회적 맥락을 한국 학습자에게 한국어로 설명하세요. "title"은 짧은 제목, "text"는 3~5문장이에요.
@@ -91,7 +92,7 @@ const extractJson = (text: string): unknown => {
 export const parseDraftResult = (text: string, level: string): LessonDraft => {
   const data = extractJson(text) as Record<string, unknown>;
   const note = (x: Record<string, unknown>): DraftNote => {
-    const pinyin = str(x.pinyin);
+    const pinyin = lowerPinyin(str(x.pinyin));
     return { id: createId("note"), source: str(x.source), note: str(x.note), ...(pinyin ? { pinyin } : {}) };
   };
   const expressions = list(data.expressions).map(note).filter((x) => x.source || x.note);
@@ -142,16 +143,43 @@ ${title || dramaTitle ? `작품: ${dramaTitle ? `《${dramaTitle}》` : ""}${tit
 ${lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}`;
 };
 
-/** AI 번역 결과 → 번호(1부터)별 번역문 */
-export const parseTranslateResult = (text: string): Map<number, string> => {
+/** 번호 붙은 결과 { [key]: [{ n, text }] } → 번호(1부터)별 문장 */
+const parseNumbered = (text: string, key: string, label: string): Map<number, string> => {
   const data = extractJson(text) as Record<string, unknown>;
-  const items = list(data.translations);
   const out = new Map<number, string>();
-  for (const x of items) {
+  for (const x of list(data[key])) {
     const n = typeof x.n === "number" ? x.n : Number(x.n);
     const t = str(x.text);
     if (Number.isInteger(n) && n > 0 && t) out.set(n, t);
   }
-  if (out.size === 0) throw new DraftResultError("번역 결과(translations)를 찾지 못했어요. 출력 형식을 확인해 주세요.");
+  if (out.size === 0) throw new DraftResultError(`${label} 결과(${key})를 찾지 못했어요. 출력 형식을 확인해 주세요.`);
+  return out;
+};
+
+/** AI 번역 결과 → 번호(1부터)별 번역문 */
+export const parseTranslateResult = (text: string) => parseNumbered(text, "translations", "번역");
+
+/* ───────── 자막 병음 (중국어 자막 한 줄마다) ───────── */
+
+export const buildPinyinPrompt = (lines: string[]) => `당신은 중국어 병음 표기 전문가입니다. 아래 중국어 드라마 자막의 병음을 써 주세요.
+
+[표기 규칙]
+1. 성조 부호(ā á ǎ à)로 쓰고, 경성은 부호 없이 쓰세요. 성조 숫자(ma1)는 쓰지 마세요.
+2. 모두 소문자로 쓰세요. 문장 첫 글자, 사람 이름, 지명도 대문자로 쓰지 마세요.
+3. 단어 단위로 띄어 쓰고(예: wǒmen shì yì jiā rén), 다음자(多音字)와 성조 변화(一·不)는 문맥에 맞게 쓰세요.
+4. 문장부호는 빼고, 한자가 아닌 글자(숫자·영어)는 그대로 두세요.
+5. 번호마다 한 줄씩, 모든 번호를 빠짐없이 쓰세요.
+6. 다른 설명 없이 아래 형식의 JSON만 출력하세요.
+
+[출력 형식]
+{ "pinyin": [{ "n": 1, "text": "" }] }
+
+[자막]
+${lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}`;
+
+/** AI 병음 결과 → 번호(1부터)별 병음 (소문자로 맞춘다) */
+export const parsePinyinResult = (text: string) => {
+  const out = parseNumbered(text, "pinyin", "병음");
+  for (const [n, t] of out) out.set(n, lowerPinyin(t));
   return out;
 };

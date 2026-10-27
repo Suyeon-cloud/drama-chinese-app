@@ -127,12 +127,15 @@ export const draftItemTime = (item: { source: string; at?: number | null }, time
 export const draftNoteChinese = (note: { source: string; note: string }, direction: Lesson["direction"]) =>
   direction === "zh-ko" ? note.source.trim() : (note.note.match(/\p{Script=Han}+/gu) ?? []).join(" ");
 
+/** 병음은 문장 첫 글자·이름도 대문자로 쓰지 않는다. (성조 부호는 그대로: Jīntiān → jīntiān) */
+export const lowerPinyin = (pinyin: string) => pinyin.toLocaleLowerCase("en");
+
 /** 핵심 표현·어휘의 병음: 교수자가 입력한 값 → 자동 변환값 */
 export const draftNotePinyin = (
   note: Pick<DraftNote, "source" | "note" | "pinyin">,
   direction: Lesson["direction"],
   toPinyin?: (text: string) => string,
-) => note.pinyin?.trim() || (toPinyin ? toPinyin(draftNoteChinese(note, direction)) : "");
+) => lowerPinyin(note.pinyin?.trim() || (toPinyin ? toPinyin(draftNoteChinese(note, direction)) : ""));
 
 const NOTE_SECONDS = 8;
 const LENS_SECONDS = 12;

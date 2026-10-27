@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   draftNoteChinese,
   draftQuizToQuestions,
+  lowerPinyin,
   matchSourceStart,
   type TimelineLine,
 } from "../../../content/lessons";
@@ -116,9 +117,12 @@ const PinyinField: React.FC<{ item: DraftNote; direction: LearningDirection; onP
       <span className="timing-label">병음</span>
       <input
         className="cue-input pinyin-input"
-        value={manual ? item.pinyin : auto}
+        value={manual ? lowerPinyin(item.pinyin ?? "") : auto}
         placeholder={chinese ? "병음 준비 중…" : "병음"}
-        onChange={(e) => onPinyin(e.target.value.trim() && e.target.value !== auto ? e.target.value : undefined)}
+        onChange={(e) => {
+          const v = lowerPinyin(e.target.value);
+          onPinyin(v.trim() && v !== auto ? v : undefined);
+        }}
         aria-label="병음"
       />
       {manual ? (

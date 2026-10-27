@@ -18,7 +18,9 @@ import { SpeechToSubtitle } from "./SpeechToSubtitle";
 import { mergeTrack, parsePlainText, parseSrt, scriptStatus, type CueLang } from "../../lib/subtitles";
 import { nowIso } from "../../store/localJson";
 import { TimeInput } from "./ScriptSyncPanel";
-import { TranslatePanel } from "./TranslatePanel";
+import { PinyinPanel, TranslatePanel } from "./TranslatePanel";
+import { lowerPinyin } from "../../../content/lessons";
+import { toPinyin, usePinyinReady } from "../../lib/pinyin";
 import type { CaptionLookup } from "./useCaptionLookup";
 
 export type ScriptOrigin = NonNullable<LessonScript["origin"]>;
@@ -135,6 +137,7 @@ export const ScriptSection: React.FC<{
   const sourceLang = sourceLangFor(direction);
   const targetLang: CaptionLang = sourceLang === "zh" ? "ko" : "zh";
   const sourceName = LANG_NAME[sourceLang];
+  usePinyinReady(); // 병음 사전이 준비되면 자동 병음(빈 칸 안내)을 다시 그린다.
   const langLabel = (l: CueLang) => `${LANG_NAME[l]} ${l === sourceLang ? "원문" : "번역"}`;
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -276,6 +279,15 @@ export const ScriptSection: React.FC<{
   const editCue = (index: number, lang: CueLang, value: string) => {
     const next = cues.map((c, i) => (i === index ? { ...c, [lang]: value || undefined } : c));
     onChange(next, markEdited([lang]));
+  };
+
+  /** 병음은 소문자로 저장한다. 비우면 자동 변환값으로 돌아간다. */
+  const editPinyin = (index: number, value: string) => {
+    const v = lowerPinyin(value);
+    onChange(
+      cues.map((c, i) => (i === index ? { ...c, pinyin: v.trim() ? v : undefined } : c)),
+      origin,
+    );
   };
 
   // 시간을 바꾸면 시작 시각 순서로 다시 정렬한다. (입력 칸을 벗어날 때 반영)
@@ -604,6 +616,16 @@ export const ScriptSection: React.FC<{
                         placeholder="—"
                         aria-label={`${formatTime(c.start)} ${langLabel(l)}`}
                       />
+                      {/* 병음: 비어 있으면 자동 변환값을 흐리게 보여주고, 입력한 값(AI 결과 포함)만 저장한다. */}
+                      {l === "zh" && (c.zh?.trim() || c.pinyin) ? (
+                        <input
+                          className="cue-input cue-pinyin"
+                          value={c.pinyin ? lowerPinyin(c.pinyin) : ""}
+                          onChange={(e) => editPinyin(i, e.target.value)}
+                          placeholder={toPinyin(c.zh ?? "")}
+                          aria-label={`${formatTime(c.start)} 병음`}
+                        />
+                      ) : null}
                     </td>
                   ))}
                   <td className="cue-actions">
@@ -644,6 +666,7 @@ export const ScriptSection: React.FC<{
           }
         />
       ) : null}
+      {cues.some((c) => c.zh?.trim()) ? <PinyinPanel cues={cues} onApply={(next) => onChange(next, origin)} /> : null}
     </section>
   );
 };
