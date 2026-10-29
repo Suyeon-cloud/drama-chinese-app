@@ -273,8 +273,8 @@ export type Lesson = {
   video: EpisodeContent["video"];
   /** 원본 영상 자막 가리기 설정 (선택 — 없으면 끔) */
   captionMask?: CaptionMask;
-  /** 작품 정보 (선택) — 특정 드라마에 고정하지 않는다 */
-  source?: { dramaTitle: string; episode: string };
+  /** 작품 정보 (선택) — 특정 드라마에 고정하지 않는다. videoTitle: 원본 YouTube 영상 제목 (선택) */
+  source?: { dramaTitle: string; episode: string; videoTitle?: string };
   script: LessonScript;
   /** 직접 생성·편집한 학습 콘텐츠 */
   content?: LessonContent;

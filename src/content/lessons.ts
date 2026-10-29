@@ -1,3 +1,4 @@
+import { COURSE_LESSONS } from "./courseLessons";
 import { LEGACY_COURSE_ID } from "./courses";
 import { episodes } from "./index";
 import { yijiarenzhimingEp3 } from "./episodes/yijiarenzhiming-ep3";
@@ -53,6 +54,8 @@ const BUILT_IN_LESSONS: Lesson[] = [
     captionMask: { enabled: true, top: 78.5, height: 14, width: 70 },
   },
   ...WEEKLY_LESSONS,
+  // 새 3과목 × 15주 기본 정보 (학습 콘텐츠는 SRT를 받은 뒤 채운다)
+  ...COURSE_LESSONS,
 ];
 
 /**
@@ -248,4 +251,4 @@ export const resolveLessonContent = (lesson: Lesson, toPinyin?: (text: string) =
 };
 
 export const lessonHeading = (lesson: Lesson) =>
-  lesson.source ? `《${lesson.source.dramaTitle}》 ${lesson.source.episode}` : lesson.title;
+  lesson.source ? `《${lesson.source.dramaTitle}》 ${lesson.source.episode}`.trim() : lesson.title;

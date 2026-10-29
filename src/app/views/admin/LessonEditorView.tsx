@@ -415,7 +415,12 @@ const LessonEditor: React.FC<{
       },
       source:
         form.dramaTitle.trim() || form.episode.trim()
-          ? { dramaTitle: form.dramaTitle.trim(), episode: form.episode.trim() }
+          ? {
+              dramaTitle: form.dramaTitle.trim(),
+              episode: form.episode.trim(),
+              // 원본 영상 제목은 이 화면에서 고치지 않으므로 저장된 값을 그대로 둔다.
+              ...(existing?.source?.videoTitle ? { videoTitle: existing.source.videoTitle } : {}),
+            }
           : undefined,
       script: {
         source: form.scriptSource,
@@ -495,6 +500,8 @@ const LessonEditor: React.FC<{
             <label className="field">
               <span>학습 수준</span>
               <select value={form.level} onChange={(e) => set("level", e.target.value)}>
+                {/* 새 3과목 기본 강의자료는 수준이 아직 정해지지 않았다 (빈 값) */}
+                {LEVELS.some((l) => l.id === form.level) ? null : <option value={form.level}>미지정</option>}
                 {LEVELS.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.label} — {l.description}
