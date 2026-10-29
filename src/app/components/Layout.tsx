@@ -13,6 +13,8 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
   situations: "clapper",
   culture: "book",
   mine: "chart",
+  teach: "calendar",
+  "teach-course": "calendar",
   admin: "grid",
   "admin-course": "calendar",
   "admin-editor": "plus",
@@ -27,8 +29,11 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
 const useMenu = (active: ViewKey) => {
   const { user } = useAuth();
   const go = useGuardedNavigate();
-  const menu = menuFor(user?.role ?? null, user?.provider === "admin");
-  return { menu, current: MENU_PARENT[active] ?? active, homeKey: menu[0].key, go };
+  const menu = menuFor(user);
+  // 학습자료 편집은 관리자는 ‘전체 강의’, 교수자는 ‘내 담당 강의’ 아래에 있다.
+  const parent = MENU_PARENT[active] ?? active;
+  const current = menu.some((v) => v.key === parent) ? parent : active === "admin-editor" ? "teach" : parent;
+  return { menu, current, homeKey: menu[0].key, go };
 };
 
 export const Logo: React.FC<{ compact?: boolean }> = ({ compact }) => (

@@ -7,6 +7,9 @@ import type { Enrollment, LessonProgress } from "../src/app/store/models";
 import {
   DB_VERSION,
   courseIdsForInstructor,
+  defaultSectionId,
+  nextSectionName,
+  uniqueSectionCode,
   enrollmentsForUser,
   findCourseByCode,
   lessonsForCourse,
@@ -81,6 +84,60 @@ test("버전 1 → 2: 이전 수업은 기존 자료 과목이 되고 강의코�
   assert.deepEqual(Object.keys(data.enrollments), [`${LEGACY_COURSE_ID}::u1`]);
   assert.equal(data.enrollments[`${LEGACY_COURSE_ID}::u1`].courseId, LEGACY_COURSE_ID);
   assert.equal(data.enrollments[`${LEGACY_COURSE_ID}::u1`].courseCode, "X2FL6N");
+});
+
+test("버전 2 → 3: 기본 01분반이 과목 코드를 잇고, 수강 등록·교수자 배정이 01분반으로 옮겨진다", () => {
+  const { data, codes } = v1();
+  migrateCourses(data, NOW, codes);
+  // 버전 2 상태를 흉내 낸다: 분반이 없고, 과목 기준 수강 등록·교수자 배정이 있다.
+  const campus = data.courses["course-campus"];
+  data.version = 2;
+  data.sections = {};
+  data.sectionInstructors = {};
+  data.enrollments["course-campus::u2"] = {
+    courseId: "course-campus",
+    courseCode: campus.code,
+    userId: "u2",
+    name: "학생2",
+    email: "b@x.com",
+    joinedAt: NOW,
+  };
+  data.courseInstructors = {
+    "course-campus::t@x.com": { courseId: "course-campus", email: "t@x.com", assignedAt: NOW, assignedBy: "admin" },
+  };
+  const legacyBefore = JSON.stringify(data.enrollments[`${LEGACY_COURSE_ID}::u1`]);
+
+  migrateCourses(data, NOW, codes);
+  assert.equal(data.version, DB_VERSION);
+  for (const seed of COURSE_SEEDS) {
+    const s = data.sections[defaultSectionId(seed.id)];
+    assert.equal(s.name, "01분반");
+    assert.equal(s.code, data.courses[seed.id].code);
+  }
+  assert.equal(Object.keys(data.sections).length, COURSE_SEEDS.length);
+  // 운영 과목 수강 → 01분반 (키 sectionId::userId), 기존 자료 기록은 그대로
+  assert.equal(data.enrollments["course-campus::u2"], undefined);
+  const moved = data.enrollments["section-campus-01::u2"];
+  assert.equal(moved.sectionId, "section-campus-01");
+  assert.equal(moved.courseId, "course-campus");
+  assert.equal(moved.joinedAt, NOW);
+  assert.equal(JSON.stringify(data.enrollments[`${LEGACY_COURSE_ID}::u1`]), legacyBefore);
+  // 교수자–과목 배정 → 01분반 배정 (원래 데이터도 남는다)
+  assert.equal(data.sectionInstructors["section-campus-01::t@x.com"].assignedBy, "admin");
+  assert.ok(data.courseInstructors["course-campus::t@x.com"]);
+  // 강의자료는 그대로 (분반별 복제 없음)
+  assert.deepEqual(Object.keys(data.lessons).sort(), ["lesson-week01", "lesson-week02", "lesson-yjrzm-ep3"]);
+});
+
+test("새 분반 강의코드는 모든 분반·과목 코드와 겹치지 않는다", () => {
+  const { data, codes } = v1();
+  migrateCourses(data, NOW, codes);
+  // 이미 쓰는 코드를 먼저 내놓는 생성기
+  const taken = [data.courses["course-campus"].code, data.courses[LEGACY_COURSE_ID].code];
+  let i = 0;
+  const code = uniqueSectionCode(data, () => (i < taken.length ? taken[i++] : "FRESH9"));
+  assert.equal(code, "FRESH9");
+  assert.equal(nextSectionName(data.sections, "course-campus"), "02분반");
 });
 
 test("마이그레이션을 다시 실행해도 바뀌는 것이 없다", () => {

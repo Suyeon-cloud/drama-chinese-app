@@ -42,7 +42,7 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild server/courses.test.ts server/courseLessons.test.ts server/studentCourses.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-test --out-extension:.js=.mjs && node --test dist-test/courses.test.mjs dist-test/courseLessons.test.mjs dist-test/studentCourses.test.mjs",
+    "test": "esbuild server/courses.test.ts server/courseLessons.test.ts server/studentCourses.test.ts server/staffRoles.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-test --out-extension:.js=.mjs && node --test --test-concurrency=1 dist-test/courses.test.mjs dist-test/courseLessons.test.mjs dist-test/studentCourses.test.mjs dist-test/staffRoles.test.mjs",
     "app:build": "vite build",
     "app:preview": "vite preview",
     "export-lessons": "node scripts/export-lessons.mjs"

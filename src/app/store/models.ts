@@ -128,7 +128,10 @@ export type Course = {
   /** 주요 학습 맥락 */
   context: string;
   description: string;
-  /** 강의코드 (과목마다 다름) */
+  /**
+   * (이전 구조) 과목 강의코드. 분반 도입 후 수강 등록은 분반(Section) 강의코드로 한다.
+   * 운영 과목의 이 코드는 기본 01분반 강의코드로 이어졌고, 호환을 위해 지우지 않는다.
+   */
   code: string;
   weekCount: number;
   status: CourseStatus;
@@ -139,8 +142,10 @@ export type Course = {
 /** 이전 이름 (1과목 시절 GET /api/course 응답) */
 export type CourseInfo = Course;
 
-/** 학습자에게 보내는 과목 정보 (강의코드 제외) */
-export type CourseSummary = Omit<Course, "code">;
+/** 학습자에게 보내는 과목 정보 (강의코드 제외). section: 내가 수강 중인 분반 (교강사 이름은 알려진 경우만) */
+export type CourseSummary = Omit<Course, "code"> & {
+  section?: { id: string; name: string; instructorNames: string[] };
+};
 
 /**
  * 학습자용 커리큘럼 한 주차. 준비 중인 주차도 주차·학습 주제·상태만 보여준다.
@@ -158,10 +163,80 @@ export type CurriculumWeek = {
 /** GET /api/courses/:id/curriculum */
 export type CourseCurriculum = { course: CourseSummary; weeks: CurriculumWeek[] };
 
-/** POST /api/enrollments — alreadyEnrolled: 이미 수강 중이던 과목 (새로 등록하지 않음) */
-export type EnrollResult = { enrollment: Enrollment; course: CourseSummary; alreadyEnrolled: boolean };
+/** 분반 담당 교강사 (name: 교강사가 Google로 로그인했을 때 받은 이름, 모르면 없음) */
+export type SectionTeacher = { email: string; name?: string };
 
-/** 교수자–과목 배정. 교수자 1명이 여러 과목을, 과목 1개를 여러 교수자가 맡을 수 있다. 교수자는 이메일로 구분한다. */
+/** 교수자·관리자용 분반 정보 */
+export type SectionOverview = Section & { instructors: SectionTeacher[]; enrolledCount: number };
+
+/**
+ * 교수자·관리자용 과목 정보 (GET /api/courses).
+ * sections: 관리자는 모든 분반, 교수자는 담당 분반만. enrolledCount도 그 분반들의 합이다.
+ */
+export type CourseOverview = Course & {
+  sections: SectionOverview[];
+  enrolledCount: number;
+  lessonCount: number;
+  publishedCount: number;
+};
+
+/** 과목 수강생 (GET /api/courses/:id/students) */
+export type CourseStudent = {
+  userId: string;
+  name: string;
+  email: string;
+  studentId: string;
+  joinedAt: string;
+  sectionId: string;
+  sectionName: string;
+};
+
+/** 과목 수강생과 그 과목 강의자료의 학습 기록 */
+export type CourseStudents = { students: CourseStudent[]; progress: LessonProgress[] };
+
+/** POST /api/enrollments — alreadyEnrolled: 이미 수강 중이던 과목 (새로 등록하지 않음) */
+export type EnrollResult = {
+  enrollment: Enrollment;
+  course: CourseSummary;
+  section: { id: string; name: string };
+  alreadyEnrolled: boolean;
+};
+
+/** GET /api/courses/lookup — 강의코드로 찾은 과목과 분반 */
+export type CourseLookup = CourseSummary & { sectionName: string };
+
+/** active: 운영 중 (강의코드로 등록 가능), inactive: 비활성 (신규 등록만 막고 수강·기록은 보존) */
+export type SectionStatus = "active" | "inactive";
+
+/**
+ * 분반: 과목(Course) 아래에서 실제 수업이 운영되는 단위. 강의코드·담당 교강사·수강생은 분반에 속한다.
+ * 학습자료(Lesson 15주)는 분반마다 복제하지 않고 과목의 것을 함께 쓴다.
+ */
+export type Section = {
+  id: string;
+  courseId: string;
+  /** 예: 01분반 */
+  name: string;
+  /** 학생이 입력하는 강의코드 (분반마다 다름) */
+  code: string;
+  status: SectionStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** 분반–교강사 배정 (key: sectionId::email). 교강사 1명이 여러 분반을, 분반 1개를 여러 교강사가 맡을 수 있다. */
+export type SectionInstructor = {
+  sectionId: string;
+  email: string;
+  assignedAt: string;
+  /** 배정한 사람 (관리자 이메일 또는 이름) */
+  assignedBy: string | null;
+};
+
+/**
+ * (이전 구조) 교수자–과목 배정. 분반 도입 후에는 권한에 쓰지 않는다.
+ * 데이터는 지우지 않고, 마이그레이션 때 그 과목의 기본 01분반 배정(SectionInstructor)으로 옮긴다.
+ */
 export type CourseInstructor = {
   courseId: string;
   email: string;
@@ -170,10 +245,15 @@ export type CourseInstructor = {
   assignedBy: string | null;
 };
 
-/** 수강 등록 (학생 × 과목). 학생 한 명이 여러 과목을 동시에 들을 수 있다. */
+/**
+ * 수강 등록 (학생 × 분반, key: sectionId::userId). 학생은 과목마다 운영 중인 분반 하나를 수강하고,
+ * 서로 다른 과목은 동시에 들을 수 있다. courseId는 조회 편의용(분반의 과목)이다.
+ * 기존 자료 과목의 예전 기록에는 sectionId가 없다 (key: courseId::userId 그대로).
+ */
 export type Enrollment = {
+  sectionId?: string;
   courseId: string;
-  /** 등록할 때 입력한 강의코드 (코드를 다시 발급해도 기록으로 남는다) */
+  /** 등록할 때 입력한 강의코드 */
   courseCode: string;
   userId: string;
   name: string;

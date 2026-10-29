@@ -3,9 +3,11 @@
 // 로그인
 //   - 회원: 브라우저가 Google 팝업으로 받은 access token을 보내면, 서버가 Google에 직접 확인한 뒤 로그인 쿠키를 준다.
 //   - 관리자: Google 계정과 별개로 ADMIN_ID / ADMIN_PASSWORD 환경변수로 로그인한다.
+//   - 교수자: 학습자와 같은 Google 로그인. 등록된 교수자 이메일이면 교수자가 된다.
 // 권한
-//   - 관리자(교수자)만: 회원 관리, 강의자료 저장, 전체 학습 기록, 피드백, 교수자 관리
-//   - 학습자: 본인 정보·본인 학습 기록만. 관리자 승인 전에는 학습 기록을 저장할 수 없다.
+//   - 관리자(아이디·비밀번호): 플랫폼 전체 — 회원, 교수자와 과목 배정, 모든 과목·강의자료·학습 기록, 피드백
+//   - 교수자: 배정(courseInstructors의 courseId + email)된 운영 과목만 — 수강생·진도·퀴즈 결과, 강의자료 편집
+//   - 학습자: 본인 정보·본인 학습 기록·수강 중인 과목만. 관리자 승인 전에는 수강 등록·학습 기록을 할 수 없다.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -14,7 +16,13 @@ import { LEGACY_COURSE_ID } from "../src/content/courses";
 import type {
   Course,
   CourseCurriculum,
+  CourseLookup,
+  CourseOverview,
+  CourseStudents,
   CourseSummary,
+  Section,
+  SectionOverview,
+  SectionTeacher,
   Enrollment,
   EnrollResult,
   FeedbackDraft,
@@ -29,11 +37,17 @@ import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 import {
   enrollmentKey,
+  enrollmentsForSection,
   enrollmentsForUser,
-  findCourseByCode,
-  instructorsForCourse,
+  findSectionByCode,
+  instructorsForSection,
   lessonsForCourse,
+  nextSectionName,
   progressForCourse,
+  sectionIdsForInstructor,
+  sectionInstructorKey,
+  sectionsForCourse,
+  uniqueSectionCode,
 } from "./courses";
 
 export type ApiEnv = {
@@ -189,29 +203,70 @@ export const createApi = (db: Db, env: ApiEnv) => {
     req.user = sessionUser(readSession(req)) ?? undefined;
     next();
   };
-  const isAdmin = (req: Authed) => req.user?.role === "instructor";
-  const isApproved = (req: Authed) => isAdmin(req) || req.user?.member?.status === "approved";
+  /** 교수자 또는 관리자 (세션 role이 instructor) */
+  const isStaff = (req: Authed) => req.user?.role === "instructor";
+  /** 관리자 아이디·비밀번호로 로그인한 관리자 */
+  const isPlatformAdmin = (req: Authed) => req.user?.provider === "admin";
+  const isApproved = (req: Authed) => isStaff(req) || req.user?.member?.status === "approved";
 
-  const requireAdmin = (req: Authed, res: Response, next: NextFunction) =>
-    isAdmin(req) ? next() : res.status(req.user ? 403 : 401).json({ error: "관리자만 사용할 수 있어요." });
+  /** 교수자·관리자만 (과목별 권한은 canManageCourse로 따로 확인한다) */
+  const requireStaff = (req: Authed, res: Response, next: NextFunction) =>
+    isStaff(req) ? next() : res.status(req.user ? 403 : 401).json({ error: "교수자·관리자만 사용할 수 있어요." });
   /** 관리자 아이디·비밀번호 로그인(관리자 모드)만. Google 교수자는 안 된다. */
   const requireAdminMode = (req: Authed, res: Response, next: NextFunction) =>
-    req.user?.provider === "admin"
+    isPlatformAdmin(req)
       ? next()
       : res.status(req.user ? 403 : 401).json({ error: "관리자 모드에서만 사용할 수 있어요." });
   const requireLogin =(req: Authed, res: Response, next: NextFunction) =>
     req.user ? next() : res.status(401).json({ error: "로그인이 필요해요." });
 
-  /** 학습자에게 보여도 되는 과목: 운영 중인 과목만 (기존 자료 과목은 학습자 화면에 나오지 않는다) */
+  /** 학습자·교수자에게 보여도 되는 과목: 운영 중인 과목만 (기존 자료 과목은 관리자만) */
   const isOpenCourse = (c: Course | undefined): c is Course => !!c && c.status === "active";
-  /** 학습자가 수강 중인 운영 과목 id */
+  /**
+   * 교수자(Google)가 맡은 분반 — sectionInstructors의 sectionId + email, 운영 과목의 분반만.
+   * activeOnly: 운영 중인 분반만 (학습자료 편집 권한). 비활성 분반도 수강생 기록은 계속 볼 수 있다.
+   */
+  const instructorSections = (email: string, activeOnly = false) =>
+    sectionIdsForInstructor(db.data.sectionInstructors, email)
+      .map((id) => db.data.sections[id])
+      .filter((s) => !!s && isOpenCourse(db.data.courses[s.courseId]) && (!activeOnly || s.status === "active"));
+  /** 요청자가 운영하는 분반 id — 수강생·진도·퀴즈 권한의 기준 (관리자: 모든 분반, 교수자: 배정된 분반, 과목을 주면 그 과목만) */
+  const managedSectionIds = (req: Authed, courseId?: string) =>
+    new Set(
+      (isPlatformAdmin(req) ? Object.values(db.data.sections) : isStaff(req) ? instructorSections(req.user!.email) : [])
+        .filter((s) => !courseId || s.courseId === courseId)
+        .map((s) => s.id),
+    );
+  /**
+   * 과목 공통 학습자료 권한: 관리자는 모든 과목(기존 자료 포함),
+   * 교수자는 그 과목에 운영 중인 담당 분반이 하나라도 있을 때. (분반이 달라도 같은 과목이면 같은 15주를 함께 관리한다)
+   */
+  const canManageCourse = (req: Authed, courseId: string) =>
+    isPlatformAdmin(req)
+      ? !!db.data.courses[courseId]
+      : isStaff(req) && instructorSections(req.user!.email, true).some((s) => s.courseId === courseId);
+  /** 교수자가 수강생 기록을 볼 수 있는 (과목, 학생) 쌍: 담당 분반 수강생 × 그 분반의 과목 */
+  const visibleStudentPairs = (req: Authed) =>
+    new Set(
+      Object.values(db.data.enrollments)
+        .filter((e) => e.sectionId && managedSectionIds(req).has(e.sectionId))
+        .map((e) => `${e.courseId}::${e.userId}`),
+    );
+  /** 학습자가 수강 중인 운영 과목 id (비활성 분반이어도 이미 등록한 수강은 유지된다) */
   const learnerCourseIds = (userId: string) =>
     new Set(
       enrollmentsForUser(db.data.enrollments, userId)
+        .filter((e) => !!e.sectionId)
         .map((e) => e.courseId)
         .filter((id) => isOpenCourse(db.data.courses[id])),
     );
   const courseSummary = ({ code: _code, ...c }: Course): CourseSummary => c;
+  /** 분반 담당 교강사 (이름은 교강사가 로그인한 적이 있을 때만) */
+  const sectionTeachers = (sectionId: string): SectionTeacher[] =>
+    instructorsForSection(db.data.sectionInstructors, sectionId).map((email) => {
+      const name = db.data.instructorNames[email];
+      return name ? { email, name } : { email };
+    });
 
   const api = express.Router();
   api.use(express.json({ limit: "5mb" }));
@@ -274,6 +329,11 @@ export const createApi = (db: Db, env: ApiEnv) => {
       const email = normalizeEmail(info.email);
       const session: Session = { k: "google", id: info.sub, email, name: info.name?.trim().slice(0, 100) || undefined };
 
+      // 교강사: 학생 ‘내 강의’에 담당 교강사 이름을 보여주기 위해 Google 이름을 기록한다.
+      if (instructorEmails().includes(email) && session.name && db.data.instructorNames[email] !== session.name) {
+        db.data.instructorNames[email] = session.name;
+        db.save();
+      }
       // 교수자 이메일이 아니면 회원으로 등록 (처음이면 승인 대기)
       if (!instructorEmails().includes(email)) {
         const now = nowIso();
@@ -339,11 +399,12 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 회원 관리 (관리자) ───────── */
 
-  api.get("/members", requireAdmin, (_req, res) => {
+  // 회원 목록·승인·수정·삭제는 관리자만. 교수자는 /courses/:id/students로 담당 과목 수강생만 본다.
+  api.get("/members", requireAdminMode, (_req, res) => {
     res.json(Object.values(db.data.members).sort((a, b) => b.firstSeenAt.localeCompare(a.firstSeenAt)));
   });
 
-  api.patch("/members/:id", requireAdmin, (req, res) => {
+  api.patch("/members/:id", requireAdminMode, (req, res) => {
     const m = db.data.members[req.params.id];
     if (!m) return res.status(404).json({ error: "회원을 찾을 수 없어요." });
     const body = (req.body ?? {}) as Partial<LearnerProfile>;
@@ -361,7 +422,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json(next);
   });
 
-  api.delete("/members/:id", requireAdmin, (req, res) => {
+  api.delete("/members/:id", requireAdminMode, (req, res) => {
     const id = req.params.id;
     delete db.data.members[id];
     for (const [k, p] of Object.entries(db.data.progress)) if (p.userId === id) delete db.data.progress[k];
@@ -374,32 +435,43 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /**
    * ?course={courseId}: 그 과목의 강의자료만 (없으면 모든 과목)
-   * 교수자·관리자: 전부. 학습자: 수강 중인 과목의 공개 강의자료만 (기존 자료 과목 제외). 로그인 전: 없음.
+   * 관리자: 전부. 교수자: 담당 과목의 강의자료 전부(준비 중 포함).
+   * 학습자: 수강 중인 과목의 공개 강의자료만 (기존 자료 과목 제외). 로그인 전: 없음.
    * 준비 중인 주차의 목록은 학습 콘텐츠 없이 /courses/:id/curriculum으로 본다.
    */
   api.get("/lessons", (req: Authed, res) => {
     const courseId = typeof req.query.course === "string" ? req.query.course : "";
     const all = courseId ? lessonsForCourse(db.data.lessons, courseId) : Object.values(db.data.lessons);
-    if (isAdmin(req)) return res.json(all);
+    if (isStaff(req)) return res.json(all.filter((l) => canManageCourse(req, l.courseId)));
     const mine = req.user ? learnerCourseIds(req.user.id) : new Set<string>();
     res.json(all.filter((l) => l.status === "published" && mine.has(l.courseId)));
   });
 
-  api.put("/lessons/:id", requireAdmin, (req, res) => {
+  /** 저장: 관리자는 모든 과목, 교수자는 담당 과목만 (원래 과목과 저장할 과목 모두 담당이어야 한다) */
+  api.put("/lessons/:id", requireStaff, (req: Authed, res) => {
     const lesson = req.body as Lesson;
     if (!lesson || lesson.id !== req.params.id || typeof lesson.week !== "number") {
       return res.status(400).json({ error: "강의자료 형식이 올바르지 않아요." });
     }
+    const prev = db.data.lessons[lesson.id];
     // 과목 정보가 없는 이전 화면의 저장은 원래 과목(없으면 기존 자료)으로 둔다.
-    const courseId = lesson.courseId || db.data.lessons[lesson.id]?.courseId || LEGACY_COURSE_ID;
+    const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
     if (!db.data.courses[courseId]) return res.status(400).json({ error: "없는 과목이에요." });
+    if (!canManageCourse(req, courseId) || (prev && !canManageCourse(req, prev.courseId))) {
+      return res.status(403).json({ error: "담당 강의의 학습자료만 저장할 수 있어요." });
+    }
     const saved = { ...lesson, courseId, updatedAt: nowIso() };
     db.data.lessons[lesson.id] = saved;
     db.save();
     res.json(saved);
   });
 
-  api.delete("/lessons/:id", requireAdmin, (req, res) => {
+  api.delete("/lessons/:id", requireStaff, (req: Authed, res) => {
+    const prev = db.data.lessons[req.params.id];
+    if (!prev) return res.json({ ok: true });
+    if (!canManageCourse(req, prev.courseId)) {
+      return res.status(403).json({ error: "담당 강의의 학습자료만 삭제할 수 있어요." });
+    }
     delete db.data.lessons[req.params.id];
     db.save();
     res.json({ ok: true });
@@ -407,20 +479,34 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 학습 기록 ───────── */
 
-  /** ?course={courseId}: 그 과목 강의자료의 기록만 (과목은 강의자료의 courseId로 찾는다) */
+  /**
+   * ?course={courseId}: 그 과목 강의자료의 기록만 (과목은 강의자료의 courseId로 찾는다)
+   * 관리자: 전부. 교수자: 담당 분반 수강생의, 그 분반 과목 강의자료 기록만. 학습자: 본인 기록만.
+   */
   api.get("/progress", requireLogin, (req: Authed, res) => {
     const courseId = typeof req.query.course === "string" ? req.query.course : "";
     const all = courseId
       ? progressForCourse(db.data.progress, db.data.lessons, courseId)
       : Object.values(db.data.progress);
-    res.json(isAdmin(req) ? all : all.filter((p) => p.userId === req.user!.id));
+    if (isPlatformAdmin(req)) return res.json(all);
+    if (isStaff(req)) {
+      const pairs = visibleStudentPairs(req);
+      const courseOf = (p: LessonProgress) => db.data.lessons[p.lessonId]?.courseId ?? "";
+      return res.json(all.filter((p) => pairs.has(`${courseOf(p)}::${p.userId}`)));
+    }
+    res.json(all.filter((p) => p.userId === req.user!.id));
   });
 
   api.put("/progress", requireLogin, (req: Authed, res) => {
     const p = req.body as LessonProgress;
-    if (!isApproved(req) || isAdmin(req)) return res.status(403).json({ error: "승인된 학습자만 기록돼요." });
+    if (!isApproved(req) || isStaff(req)) return res.status(403).json({ error: "승인된 학습자만 기록돼요." });
     if (!p || p.userId !== req.user!.id || typeof p.lessonId !== "string") {
       return res.status(400).json({ error: "학습 기록 형식이 올바르지 않아요." });
+    }
+    // 수강 중인 과목의 공개 강의자료만 기록한다.
+    const lesson = db.data.lessons[p.lessonId];
+    if (!lesson || lesson.status !== "published" || !learnerCourseIds(req.user!.id).has(lesson.courseId)) {
+      return res.status(403).json({ error: "수강 중인 강의의 학습만 기록돼요." });
     }
     db.data.progress[`${p.userId}::${p.lessonId}`] = p;
     db.save();
@@ -429,9 +515,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 피드백 (관리자) ───────── */
 
-  api.get("/feedback", requireAdmin, (_req, res) => res.json(Object.values(db.data.feedback)));
+  // 피드백은 전체 회원 정보를 쓰므로 관리자만
+  api.get("/feedback", requireAdminMode, (_req, res) => res.json(Object.values(db.data.feedback)));
 
-  api.put("/feedback/:id", requireAdmin, (req, res) => {
+  api.put("/feedback/:id", requireAdminMode, (req, res) => {
     const draft = req.body as FeedbackDraft;
     if (!draft || draft.id !== req.params.id) return res.status(400).json({ error: "형식이 올바르지 않아요." });
     const saved = { ...draft, updatedAt: nowIso() };
@@ -440,7 +527,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json(saved);
   });
 
-  api.delete("/feedback/:id", requireAdmin, (req, res) => {
+  api.delete("/feedback/:id", requireAdminMode, (req, res) => {
     delete db.data.feedback[req.params.id];
     db.save();
     res.json({ ok: true });
@@ -479,7 +566,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   const aiKey = () => db.data.anthropicApiKey || env.anthropicApiKey;
 
-  api.get("/ai/status", requireAdmin, (_req, res) => {
+  api.get("/ai/status", requireStaff, (_req, res) => {
     const key = aiKey();
     res.json({
       connected: !!key,
@@ -509,7 +596,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json({ ok: true });
   });
 
-  api.post("/ai/draft", requireAdmin, async (req, res) => {
+  api.post("/ai/draft", requireStaff, async (req, res) => {
     const key = aiKey();
     if (!key) return res.status(400).json({ error: "연결된 API 키가 없어요. 관리자 모드에서 먼저 연결해 주세요." });
     const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
@@ -523,45 +610,210 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 과목 · 수강 등록 ───────── */
 
-  /**
-   * 이전 1과목 화면(학습자 관리의 참여 링크, 참여 화면)용: 기존 자료 과목.
-   * 3과목 화면으로 바꾸면 /courses를 쓴다.
-   */
-  api.get("/course", (_req, res) => {
-    res.json(db.data.courses[LEGACY_COURSE_ID]);
+  /** 교수자·관리자용 분반 정보 */
+  const sectionOverview = (s: Section): SectionOverview => ({
+    ...s,
+    instructors: sectionTeachers(s.id),
+    enrolledCount: enrollmentsForSection(db.data.enrollments, s.id).length,
   });
 
   /**
-   * 과목 목록. 교수자·관리자: 모든 과목 + 강의코드 + 담당 교수자 이메일
+   * 교수자·관리자용 과목 정보: 분반(강의코드·담당 교강사·수강생 수) + 강의자료 수.
+   * 관리자는 모든 분반, 교수자는 담당 분반만 받는다.
+   */
+  const courseOverview = (req: Authed, c: Course): CourseOverview => {
+    const lessons = lessonsForCourse(db.data.lessons, c.id);
+    const mine = managedSectionIds(req, c.id);
+    const sections = sectionsForCourse(db.data.sections, c.id)
+      .filter((s) => mine.has(s.id))
+      .map(sectionOverview);
+    return {
+      ...c,
+      sections,
+      enrolledCount: sections.reduce((n, s) => n + s.enrolledCount, 0),
+      lessonCount: lessons.length,
+      publishedCount: lessons.filter((l) => l.status === "published").length,
+    };
+  };
+
+  /** 학습자의 과목 카드: 과목 + 내가 수강 중인 분반 (교강사 이름은 알려진 경우만) */
+  const learnerCourse = (userId: string, c: Course): CourseSummary => {
+    const e = enrollmentsForUser(db.data.enrollments, userId).find((x) => x.courseId === c.id && x.sectionId);
+    const s = e ? db.data.sections[e.sectionId!] : undefined;
+    return {
+      ...courseSummary(c),
+      ...(s
+        ? {
+            section: {
+              id: s.id,
+              name: s.name,
+              instructorNames: sectionTeachers(s.id).flatMap((t) => (t.name ? [t.name] : [])),
+            },
+          }
+        : {}),
+    };
+  };
+
+  /**
+   * 과목 목록. 관리자: 모든 과목(기존 자료 포함) / 교수자: 담당 분반이 있는 운영 과목만
    * 학습자: 수강 중인 운영 과목만 (강의코드는 보내지 않는다, 기존 자료 과목 제외)
-   * (교수자를 담당 과목으로만 제한하는 것은 권한 개편 단계에서 한다)
    */
   api.get("/courses", requireLogin, (req: Authed, res) => {
     const all = Object.values(db.data.courses);
-    if (isAdmin(req)) {
-      return res.json(all.map((c) => ({ ...c, instructors: instructorsForCourse(db.data.courseInstructors, c.id) })));
+    if (isPlatformAdmin(req)) return res.json(all.map((c) => courseOverview(req, c)));
+    if (isStaff(req)) {
+      return res.json(all.filter((c) => managedSectionIds(req, c.id).size > 0).map((c) => courseOverview(req, c)));
     }
     const mine = learnerCourseIds(req.user!.id);
-    res.json(all.filter((c) => mine.has(c.id)).map(courseSummary));
+    res.json(all.filter((c) => mine.has(c.id)).map((c) => learnerCourse(req.user!.id, c)));
   });
 
-  /** 강의코드로 운영 과목 미리 보기 (참여 링크 화면). 과목 정보만 보낸다. */
+  /**
+   * 과목 수강생과 학습 기록. ?section={sectionId}: 그 분반만.
+   * 관리자는 모든 분반, 교수자는 담당 분반의 수강생만 받는다. 다른 분반·다른 과목 학생은 섞이지 않는다.
+   * 학습 기록은 그 학생들의, 이 과목 강의자료 기록만 보낸다.
+   */
+  api.get("/courses/:id/students", requireLogin, (req: Authed, res) => {
+    const courseId = req.params.id;
+    const mine = managedSectionIds(req, courseId);
+    const only = typeof req.query.section === "string" ? req.query.section : "";
+    if (mine.size === 0 || (only && !mine.has(only))) {
+      return res.status(404).json({ error: "담당 분반이 아니에요." });
+    }
+    const enrolled = Object.values(db.data.enrollments).filter(
+      (e) => e.sectionId && mine.has(e.sectionId) && (!only || e.sectionId === only),
+    );
+    const ids = new Set(enrolled.map((e) => e.userId));
+    const body: CourseStudents = {
+      students: enrolled
+        .map((e) => {
+          const m = db.data.members[e.userId];
+          return {
+            userId: e.userId,
+            name: m?.name || e.name,
+            email: m?.email || e.email,
+            studentId: m?.studentId ?? "",
+            joinedAt: e.joinedAt,
+            sectionId: e.sectionId!,
+            sectionName: db.data.sections[e.sectionId!]?.name ?? "",
+          };
+        })
+        .sort((a, b) => a.sectionName.localeCompare(b.sectionName, "ko") || a.name.localeCompare(b.name, "ko")),
+      progress: progressForCourse(db.data.progress, db.data.lessons, courseId).filter((p) => ids.has(p.userId)),
+    };
+    res.json(body);
+  });
+
+  /* ───────── 분반 관리 (관리자) ───────── */
+
+  const cleanSectionName = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 40) : "");
+  /** 같은 과목 안에 같은 이름의 운영 중 분반이 있는지 */
+  const activeNameTaken = (courseId: string, name: string, exceptId = "") =>
+    sectionsForCourse(db.data.sections, courseId).some((s) => s.status === "active" && s.name === name && s.id !== exceptId);
+  const assignTeacher = (sectionId: string, email: string, by: string) => {
+    const key = sectionInstructorKey(sectionId, email);
+    if (db.data.sectionInstructors[key]) return false;
+    db.data.sectionInstructors[key] = { sectionId, email, assignedAt: nowIso(), assignedBy: by };
+    return true;
+  };
+
+  /**
+   * 새 분반 개설. 강의코드는 서버가 모든 분반·과목 코드와 겹치지 않게 만든다.
+   * body: { name?: 분반명(없으면 다음 번호 제안), instructors?: 담당 교강사 이메일[] }
+   * 학습자료는 만들지 않는다 — 분반은 과목의 15주 학습자료를 함께 쓴다.
+   */
+  api.post("/courses/:id/sections", requireAdminMode, (req: Authed, res) => {
+    const course = db.data.courses[req.params.id];
+    if (!isOpenCourse(course)) return res.status(404).json({ error: "운영 중인 과목에만 분반을 만들 수 있어요." });
+    const name = cleanSectionName(req.body?.name) || nextSectionName(db.data.sections, course.id);
+    if (activeNameTaken(course.id, name)) return res.status(409).json({ error: `이미 운영 중인 ${name}이 있어요.` });
+    const teachers = (Array.isArray(req.body?.instructors) ? (req.body.instructors as unknown[]) : [])
+      .filter((x): x is string => typeof x === "string")
+      .map(normalizeEmail);
+    const unknown = teachers.filter((t) => !instructorEmails().includes(t));
+    if (unknown.length) return res.status(400).json({ error: "교수자로 등록된 이메일만 배정할 수 있어요." });
+
+    const now = nowIso();
+    let n = 1;
+    while (db.data.sections[`section-${course.id.replace(/^course-/, "")}-${String(n).padStart(2, "0")}`]) n++;
+    const section: Section = {
+      id: `section-${course.id.replace(/^course-/, "")}-${String(n).padStart(2, "0")}`,
+      courseId: course.id,
+      name,
+      code: uniqueSectionCode(db.data),
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    };
+    db.data.sections[section.id] = section;
+    const by = req.user!.email || req.user!.name;
+    for (const t of new Set(teachers)) assignTeacher(section.id, t, by);
+    db.save();
+    res.json(sectionOverview(section));
+  });
+
+  /** 분반 이름 변경 · 운영/비활성 전환. 비활성 분반은 신규 등록만 막고 수강·기록·배정은 그대로 둔다. */
+  api.patch("/sections/:id", requireAdminMode, (req: Authed, res) => {
+    const s = db.data.sections[req.params.id];
+    if (!s) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
+    const name = req.body?.name === undefined ? s.name : cleanSectionName(req.body.name);
+    const status = req.body?.status === "active" || req.body?.status === "inactive" ? req.body.status : s.status;
+    if (!name) return res.status(400).json({ error: "분반 이름을 입력해 주세요." });
+    if (status === "active" && activeNameTaken(s.courseId, name, s.id)) {
+      return res.status(409).json({ error: `이미 운영 중인 ${name}이 있어요.` });
+    }
+    db.data.sections[s.id] = { ...s, name, status, updatedAt: nowIso() };
+    db.save();
+    res.json(sectionOverview(db.data.sections[s.id]));
+  });
+
+  /** 분반–교강사 배정 (관리자만). 같은 배정은 한 번만 생긴다. (키: sectionId::email) */
+  api.put("/sections/:id/instructors/:email", requireAdminMode, (req: Authed, res) => {
+    const s = db.data.sections[req.params.id];
+    const email = normalizeEmail(req.params.email);
+    if (!s || !isOpenCourse(db.data.courses[s.courseId])) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
+    if (!instructorEmails().includes(email)) {
+      return res.status(400).json({ error: "교수자로 등록된 이메일만 배정할 수 있어요." });
+    }
+    const added = assignTeacher(s.id, email, req.user!.email || req.user!.name);
+    if (added) db.save();
+    res.json({ ok: true, existed: !added });
+  });
+
+  api.delete("/sections/:id/instructors/:email", requireAdminMode, (req, res) => {
+    const key = sectionInstructorKey(req.params.id, normalizeEmail(req.params.email));
+    if (db.data.sectionInstructors[key]) {
+      delete db.data.sectionInstructors[key];
+      db.save();
+    }
+    res.json({ ok: true });
+  });
+
+  /** 분반 강의코드로 과목·분반 미리 보기 (참여 링크 화면). 운영 중인 분반만. */
   api.get("/courses/lookup", (req, res) => {
-    const course = findCourseByCode(db.data.courses, String(req.query.code ?? ""));
-    if (!isOpenCourse(course ?? undefined)) return res.status(404).json({ error: "강의코드에 맞는 강의가 없어요." });
-    res.json(courseSummary(course!));
+    const s = findSectionByCode(db.data.sections, String(req.query.code ?? ""));
+    const course = s ? db.data.courses[s.courseId] : undefined;
+    if (!s || s.status !== "active" || !isOpenCourse(course)) {
+      return res.status(404).json({ error: "강의코드에 맞는 강의가 없어요." });
+    }
+    const body: CourseLookup = { ...courseSummary(course), sectionName: s.name };
+    res.json(body);
   });
 
   /**
    * 과목 커리큘럼: 주차 · 학습 주제 · 상태만 (준비 중인 주차 포함, 학습 콘텐츠 없음).
-   * 학습자는 수강 중인 운영 과목만 볼 수 있다. 다른 과목·기존 자료 과목은 없는 과목처럼 404.
+   * 학습자는 수강 중인 과목만, 교수자는 담당 분반이 있는 과목만 볼 수 있다. 그 밖의 과목은 없는 과목처럼 404.
    */
   api.get("/courses/:id/curriculum", requireLogin, (req: Authed, res) => {
     const course = db.data.courses[req.params.id];
-    const allowed = isAdmin(req) ? !!course : isOpenCourse(course) && learnerCourseIds(req.user!.id).has(course.id);
+    const allowed = isStaff(req)
+      ? isPlatformAdmin(req)
+        ? !!course
+        : isOpenCourse(course) && managedSectionIds(req, course.id).size > 0
+      : isOpenCourse(course) && learnerCourseIds(req.user!.id).has(course.id);
     if (!allowed) return res.status(404).json({ error: "수강 중인 강의가 아니에요." });
     const body: CourseCurriculum = {
-      course: courseSummary(course),
+      course: isStaff(req) ? courseSummary(course) : learnerCourse(req.user!.id, course),
       weeks: lessonsForCourse(db.data.lessons, course.id).map((l) => ({
         lessonId: l.id,
         week: l.week,
@@ -573,32 +825,54 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json(body);
   });
 
-  /** ?course={courseId 또는 강의코드} */
+  /**
+   * ?course={과목 id · 분반 id · 강의코드} — 관리자는 생략하면 전체.
+   * 관리자: 전부 / 교수자: 담당 분반만 / 학습자: 본인 기록만
+   */
   api.get("/enrollments", requireLogin, (req: Authed, res) => {
     const q = String(req.query.course ?? "");
-    const list = Object.values(db.data.enrollments).filter((e) => e.courseId === q || e.courseCode === q);
-    res.json(isAdmin(req) ? list : list.filter((e) => e.userId === req.user!.id));
+    const all = Object.values(db.data.enrollments);
+    const list = q
+      ? all.filter((e) => e.courseId === q || e.sectionId === q || e.courseCode === q)
+      : isPlatformAdmin(req)
+        ? all
+        : [];
+    if (isPlatformAdmin(req)) return res.json(list);
+    if (isStaff(req)) {
+      const mine = managedSectionIds(req);
+      return res.json(list.filter((e) => e.sectionId && mine.has(e.sectionId)));
+    }
+    res.json(list.filter((e) => e.userId === req.user!.id));
   });
 
   /**
-   * 강의코드로 수강 등록. 관리자 승인을 받은 학습자는 코드가 맞으면 추가 승인 없이 바로 등록된다.
-   * 이미 수강 중이면 기존 등록을 그대로 돌려준다. (중복 등록 없음, 키: courseId::userId)
+   * 분반 강의코드로 수강 등록. 관리자 승인을 받은 학습자는 코드가 맞으면 추가 승인 없이 바로 등록된다.
+   * - 같은 분반: 기존 등록을 그대로 돌려준다 (중복 없음, 키: sectionId::userId)
+   * - 같은 과목의 다른 운영 중 분반을 이미 수강 중: 등록하지 않는다
+   * - 비활성 분반·기존 자료 코드: 등록하지 않는다
    */
   api.post("/enrollments", requireLogin, (req: Authed, res) => {
     const u = req.user!;
     if (u.role !== "learner") return res.status(400).json({ error: "교수자 계정은 수강 등록하지 않아도 돼요." });
     if (!isApproved(req)) return res.status(403).json({ error: "관리자 승인 후 수강 등록할 수 있어요." });
     const code = typeof req.body?.courseCode === "string" ? req.body.courseCode : "";
-    const course: Course | null = findCourseByCode(db.data.courses, code);
-    // 기존 자료 과목의 예전 코드로는 등록하지 않는다.
-    if (!isOpenCourse(course ?? undefined)) {
+    const section = findSectionByCode(db.data.sections, code);
+    const course = section ? db.data.courses[section.courseId] : undefined;
+    if (!section || section.status !== "active" || !isOpenCourse(course)) {
       return res.status(404).json({ error: "강의코드를 다시 확인해 주세요. 일치하는 강의가 없어요." });
     }
-    const key = enrollmentKey(course!.id, u.id);
+    const key = enrollmentKey(section.id, u.id);
     const alreadyEnrolled = !!db.data.enrollments[key];
+    if (!alreadyEnrolled) {
+      const other = enrollmentsForUser(db.data.enrollments, u.id).find(
+        (e) => e.courseId === course.id && e.sectionId && db.data.sections[e.sectionId]?.status === "active",
+      );
+      if (other) return res.status(409).json({ error: "이미 이 과목의 다른 분반을 수강 중이에요." });
+    }
     const e: Enrollment = db.data.enrollments[key] ?? {
-      courseId: course!.id,
-      courseCode: course!.code,
+      sectionId: section.id,
+      courseId: course.id,
+      courseCode: section.code,
       userId: u.id,
       name: u.name,
       email: u.email,
@@ -608,7 +882,12 @@ export const createApi = (db: Db, env: ApiEnv) => {
       db.data.enrollments[key] = e;
       db.save();
     }
-    const body: EnrollResult = { enrollment: e, course: courseSummary(course!), alreadyEnrolled };
+    const body: EnrollResult = {
+      enrollment: e,
+      course: learnerCourse(u.id, course),
+      section: { id: section.id, name: section.name },
+      alreadyEnrolled,
+    };
     res.json(body);
   });
 

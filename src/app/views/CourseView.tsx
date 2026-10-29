@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { navigate } from "../router";
 import { useCurriculum, useUserProgress } from "../store/hooks";
 import type { CurriculumWeek } from "../store/models";
-import { courseTone } from "./MyCoursesView";
+import { SectionLine, courseTone } from "./MyCoursesView";
 
 /** 과목 커리큘럼 (#/course?id=…): 1~15주. 공개된 주차만 학습 화면으로 들어가고, 나머지는 ‘준비 중’ */
 export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
@@ -41,6 +41,7 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
       <section className={`card course-hero tone-${courseTone(course.id)}`}>
         <span className="course-drama">《{course.drama}》</span>
         <h2 className="course-name">{course.title}</h2>
+        {course.section ? <SectionLine section={course.section} /> : null}
         <p className="course-desc">{course.description}</p>
         <small className="muted">{course.context}</small>
         <span className="row-start">

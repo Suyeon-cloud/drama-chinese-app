@@ -1,56 +1,48 @@
 import React from "react";
-import { COURSE_WEEK_COUNT, STATUS_TONE, WEEKS, defaultDirectionForWeek } from "../../../content/course";
-import type { Lesson, LessonStatus } from "../../../content/types";
+import { useAuth } from "../../auth/AuthContext";
 import { openMemberPopup } from "../../auth/memberPopup";
 import { navigate, type ViewKey } from "../../router";
-import { useAllProgress, useFeedbackDrafts, useLearners, useLessons } from "../../store/hooks";
+import { useFeedbackDrafts, useInstructors, useLearners, useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
+import { CourseOverviewCard, operatingCourses } from "./CourseAdminShared";
 
 const SHORTCUTS: { label: string; text: string; to: ViewKey }[] = [
-  { label: "학습자 관리", text: "참여 링크 · 학습자별 요약", to: "admin-learners" },
-  { label: "학습 현황", text: "출석 · 주차 · 재생률 · 퀴즈", to: "admin-progress" },
+  { label: "회원 관리", text: "가입 승인 · 회원 정보 · 수강 과목", to: "admin-learners" },
+  { label: "분반·교강사 관리", text: "분반 개설 · 교강사 등록 · 담당 분반 배정", to: "admin-instructors" },
+  { label: "학습 현황", text: "과목별 진도 · 완료 주차 · 퀴즈", to: "admin-progress" },
   { label: "피드백", text: "학습 결과 기반 피드백 작성", to: "admin-feedback" },
 ];
 
-const STATUS_RANK: Record<LessonStatus, number> = { draft: 0, ready: 1, published: 2 };
-
-/** 주차에서 가장 진행된 강의자료 상태 */
-const weekStatus = (lessons: Lesson[], week: number): LessonStatus | null =>
-  lessons
-    .filter((l) => l.week === week)
-    .reduce<LessonStatus | null>(
-      (best, l) => (best === null || STATUS_RANK[l.status] > STATUS_RANK[best] ? l.status : best),
-      null,
-    );
-
+/** 전체 운영 관리 (관리자): 회원 · 교수자 · 운영 3과목 현황 */
 export const AdminDashboardView: React.FC = () => {
-  const lessons = useLessons();
+  const { user } = useAuth();
+  const courses = useStaffCourses(user?.id ?? null);
   const learners = useLearners();
-  const progress = useAllProgress();
+  const instructors = useInstructors();
   const drafts = useFeedbackDrafts();
-  if (!lessons) return null;
-
-  const plannedWeeks = WEEKS.filter((w) => lessons.some((l) => l.week === w)).length;
-  const count = (s: LessonStatus) => lessons.filter((l) => l.status === s).length;
+  if (!courses) return null;
+  const operating = operatingCourses(courses);
 
   const tiles = [
-    { icon: "📅", label: "강의자료가 있는 주차", value: `${plannedWeeks} / ${COURSE_WEEK_COUNT}주`, tone: "sky" },
-    { icon: "✅", label: "공개 강의자료", value: `${count("published")}개`, tone: "mint" },
-    { icon: "🛠", label: "준비 중 · 준비 완료", value: `${count("draft") + count("ready")}개`, tone: "cream" },
     { icon: "👥", label: "회원 (승인 완료)", value: `${learners?.filter((l) => l.status === "approved").length ?? 0}명`, tone: "lavender" },
     { icon: "⏳", label: "승인 대기 회원", value: `${learners?.filter((l) => l.status === "pending").length ?? 0}명`, tone: "pink" },
-    { icon: "🎬", label: "학습 시작 기록", value: `${progress?.filter((p) => p.startedAt).length ?? 0}건`, tone: "sky" },
+    { icon: "🧑‍🏫", label: "등록된 교수자", value: `${instructors?.length ?? 0}명`, tone: "sky" },
+    { icon: "🎬", label: "운영 과목", value: `${operating.length}개`, tone: "mint" },
+    {
+      icon: "🏫",
+      label: "운영 분반",
+      value: `${operating.reduce((n, c) => n + c.sections.filter((s) => s.status === "active").length, 0)}개`,
+      tone: "sky",
+    },
+    { icon: "🎫", label: "수강 등록", value: `${operating.reduce((n, c) => n + c.enrolledCount, 0)}건`, tone: "cream" },
     { icon: "✉️", label: "피드백 초안", value: `${drafts?.length ?? 0}건`, tone: "pink" },
   ];
 
   return (
     <div className="page">
-      <PageIntro title="관리 대시보드" desc="15주 수업 구성과 회원·학습 현황을 한눈에 확인해요.">
+      <PageIntro title="전체 운영 관리" desc="《追剧学汉语》의 회원·교수자·운영 과목을 한눈에 확인해요.">
         <button className="btn btn-soft btn-sm" onClick={openMemberPopup}>
           👥 회원 현황
-        </button>
-        <button className="btn btn-primary btn-sm" onClick={() => navigate("admin-editor")}>
-          + 강의자료 만들기
         </button>
       </PageIntro>
 
@@ -64,34 +56,22 @@ export const AdminDashboardView: React.FC = () => {
         ))}
       </div>
 
-      <section className="card">
-        <div className="card-head">
-          <h3 className="card-title">학기 구성 (15주)</h3>
-          <button className="more" onClick={() => navigate("admin-course")}>
-            수업 관리 ›
-          </button>
-        </div>
-        <div className="week-strip">
-          {WEEKS.map((w) => {
-            const s = weekStatus(lessons, w);
-            return (
-              <button
-                key={w}
-                className={`week-dot ${s ? `tone-${STATUS_TONE[s]} has` : ""}`}
-                onClick={() => navigate("admin-course")}
-                title={`${w}주차`}
-              >
-                <b>{w}</b>
-                <small>{defaultDirectionForWeek(w) === "zh-ko" ? "중→한" : "한→중"}</small>
-              </button>
-            );
-          })}
-        </div>
-        <p className="muted small legend">
-          <span className="legend-dot tone-mint" /> 공개 <span className="legend-dot tone-sky" /> 준비 완료{" "}
-          <span className="legend-dot tone-cream" /> 준비 중 <span className="legend-dot" /> 강의자료 없음
-        </p>
-      </section>
+      <h3 className="section-title">운영 과목</h3>
+      <div className="course-admin-grid">
+        {operating.map((c) => (
+          <CourseOverviewCard key={c.id} course={c} showSections>
+            <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-course", { course: c.id })}>
+              📚 학습자료
+            </button>
+            <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-progress", { course: c.id })}>
+              👥 수강생 현황
+            </button>
+            <button className="link-btn" onClick={() => navigate("admin-instructors", { course: c.id })}>
+              분반·교강사 관리 ›
+            </button>
+          </CourseOverviewCard>
+        ))}
+      </div>
 
       <div className="admin-shortcuts">
         {SHORTCUTS.map((s) => (

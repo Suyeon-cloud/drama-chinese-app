@@ -6,7 +6,7 @@ import { navigate } from "../router";
 import { courseStore, enrollmentStore } from "../store";
 import { normalizeCourseCode } from "../store/courseStore";
 import { useMyCourses } from "../store/hooks";
-import type { CourseSummary } from "../store/models";
+import type { CourseLookup } from "../store/models";
 
 /**
  * 학생 참여 링크(#/join/{강의코드}) 화면.
@@ -16,7 +16,7 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const code = normalizeCourseCode(params.get("code") ?? "");
   const { user, signIn, pending } = useAuth();
   const toast = useToast();
-  const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined);
+  const [course, setCourse] = useState<CourseLookup | null | undefined>(undefined);
   const [joining, setJoining] = useState(false);
   const myCourses = useMyCourses(user?.role === "learner" ? user.id : null);
 
@@ -56,11 +56,16 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
       if (!u) return;
       if (u.role === "instructor") {
         toast.show("교수자 계정은 수강 등록하지 않아도 돼요.", "info");
-        navigate("admin");
+        navigate(u.provider === "admin" ? "admin" : "teach");
         return;
       }
-      await enrollmentStore.enroll(code);
-      toast.show(`《${course.drama}》 ${course.title} 수강 등록을 마쳤어요!`, "success");
+      const { section, alreadyEnrolled } = await enrollmentStore.enroll(code);
+      toast.show(
+        alreadyEnrolled
+          ? `이미 수강 중인 강의예요. 《${course.drama}》 ${section.name}`
+          : `《${course.drama}》 ${course.title} ${section.name} 수강 등록을 마쳤어요!`,
+        alreadyEnrolled ? "info" : "success",
+      );
       navigate("course", { id: course.id });
     } catch (err) {
       toast.show(err instanceof ApiError ? err.message : "수강 등록에 실패했어요.", "error");
@@ -75,7 +80,7 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
         <span className="gate-emoji">🎬</span>
         <span className="pill pill-sky">수강 등록</span>
         <h2>
-          《{course.drama}》 {course.title}
+          《{course.drama}》 {course.title} · {course.sectionName}
         </h2>
         <p className="muted">{course.description}</p>
         <p className="muted small">

@@ -13,6 +13,14 @@ import type { CourseSummary } from "../store/models";
 const TONES = ["sky", "pink", "mint"];
 export const courseTone = (courseId: string) => TONES[Math.max(0, COURSE_SEEDS.findIndex((c) => c.id === courseId)) % TONES.length];
 
+/** 수강 중인 분반 · 담당 교강사 (이름을 아는 경우만) */
+export const SectionLine: React.FC<{ section: NonNullable<CourseSummary["section"]> }> = ({ section }) => (
+  <span className="section-line">
+    <b>{section.name}</b>
+    {section.instructorNames.length ? ` · 담당 교강사 ${section.instructorNames.join(", ")}` : null}
+  </span>
+);
+
 /** 수강 중인 드라마 과목 카드 */
 const CourseCard: React.FC<{ course: CourseSummary }> = ({ course }) => (
   <button
@@ -24,6 +32,7 @@ const CourseCard: React.FC<{ course: CourseSummary }> = ({ course }) => (
       <span className="course-name">{course.title}</span>
     </span>
     <span className="course-body">
+      {course.section ? <SectionLine section={course.section} /> : null}
       <span className="course-desc">{course.description}</span>
       <small className="muted">{course.context}</small>
       <span className="course-foot">
@@ -49,10 +58,12 @@ const CourseCodeForm: React.FC<{ compact?: boolean }> = ({ compact }) => {
     setBusy(true);
     setError(null);
     try {
-      const { course, alreadyEnrolled } = await enrollmentStore.enroll(code);
+      const { course, section, alreadyEnrolled } = await enrollmentStore.enroll(code);
       setCode("");
       toast.show(
-        alreadyEnrolled ? `이미 수강 중인 강의예요. 《${course.drama}》` : `《${course.drama}》 ${course.title} 수강 등록을 마쳤어요!`,
+        alreadyEnrolled
+          ? `이미 수강 중인 강의예요. 《${course.drama}》 ${section.name}`
+          : `《${course.drama}》 ${course.title} ${section.name} 수강 등록을 마쳤어요!`,
         alreadyEnrolled ? "info" : "success",
       );
     } catch (err) {
@@ -108,9 +119,17 @@ export const MyCoursesSection: React.FC = () => {
     return (
       <div className="card empty">
         <span>🧑‍🏫</span>
-        <p>교수자 계정은 ‘수업 관리’에서 과목별 강의자료를 확인해요.</p>
-        <button className="btn btn-soft btn-sm" style={{ marginTop: 12 }} onClick={() => navigate("admin-course")}>
-          수업 관리로
+        <p>
+          {user.provider === "admin"
+            ? "관리자는 ‘전체 강의·학습자료’에서 과목별 학습자료를 확인해요."
+            : "교수자는 ‘내 담당 강의’에서 담당 과목을 관리해요."}
+        </p>
+        <button
+          className="btn btn-soft btn-sm"
+          style={{ marginTop: 12 }}
+          onClick={() => navigate(user.provider === "admin" ? "admin-course" : "teach")}
+        >
+          {user.provider === "admin" ? "전체 강의·학습자료로" : "내 담당 강의로"}
         </button>
       </div>
     );

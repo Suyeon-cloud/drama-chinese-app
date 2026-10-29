@@ -8,19 +8,40 @@
 // - courseId가 없는 강의자료 → 기존 자료 과목
 // - 이전 참여 기록 → 강의코드로 과목을 찾아 courseId를 붙이고 키만 바꾼다.
 // - 학습 기록(progress)은 그대로 둔다. 과목은 강의자료의 courseId로 찾는다. (lessonId는 과목이 달라도 겹치지 않는다)
+//
+// 버전 3(분반): sections[id] + sectionInstructors["sectionId::email"] + enrollments["sectionId::userId"]
+// - 운영 과목마다 기본 01분반(section-{과목}-01)을 만들고, 과목 강의코드를 그 분반 강의코드로 잇는다.
+// - 운영 과목 수강 등록 → 그 과목의 기본 01분반으로 (sectionId를 붙이고 키만 바꾼다)
+// - courseInstructors(교수자–과목) → 기본 01분반 배정으로 복사한다. 원래 데이터는 지우지 않는다.
+// - 기존 자료 과목은 분반으로 옮기지 않는다.
 
 import { randomInt } from "node:crypto";
 import { ALL_COURSE_SEEDS, LEGACY_COURSE_ID, type CourseSeed } from "../src/content/courses";
 import type { Lesson } from "../src/content/types";
-import type { Course, CourseInstructor, Enrollment, LessonProgress } from "../src/app/store/models";
+import type {
+  Course,
+  CourseInstructor,
+  Enrollment,
+  LessonProgress,
+  Section,
+  SectionInstructor,
+} from "../src/app/store/models";
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const randomCourseCode = () => Array.from({ length: 6 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join("");
 
-export const enrollmentKey = (courseId: string, userId: string) => `${courseId}::${userId}`;
+/** 수강 등록 키: 분반 등록은 sectionId::userId (기존 자료 과목의 예전 기록만 courseId::userId) */
+export const enrollmentKey = (sectionOrCourseId: string, userId: string) => `${sectionOrCourseId}::${userId}`;
 export const courseInstructorKey = (courseId: string, email: string) => `${courseId}::${email}`;
+export const sectionInstructorKey = (sectionId: string, email: string) => `${sectionId}::${email}`;
+
+/** 과목의 기본 01분반 id (예: course-campus → section-campus-01) */
+export const defaultSectionId = (courseId: string) => `section-${courseId.replace(/^course-/, "")}-01`;
+
+/** 분반 번호 이름 (1 → 01분반) */
+export const sectionName = (n: number) => `${String(n).padStart(2, "0")}분반`;
 
 /** 마이그레이션이 다루는 부분만 (나머지 필드는 그대로 둔다) */
 export type CourseTables = {
@@ -29,6 +50,16 @@ export type CourseTables = {
   courses: Record<string, Course>;
   courseInstructors: Record<string, CourseInstructor>;
   enrollments: Record<string, Enrollment>;
+  sections: Record<string, Section>;
+  sectionInstructors: Record<string, SectionInstructor>;
+};
+
+/** 모든 분반·과목 강의코드와 겹치지 않는 새 강의코드 */
+export const uniqueSectionCode = (data: Pick<CourseTables, "courses" | "sections">, newCode = randomCourseCode) => {
+  const used = new Set([...Object.values(data.sections).map((s) => s.code), ...Object.values(data.courses).map((c) => c.code)]);
+  let code = newCode();
+  while (used.has(code)) code = newCode();
+  return code;
 };
 
 type LegacyCourse = { code?: string; title?: string; createdAt?: string } | null | undefined;
@@ -47,6 +78,8 @@ export const migrateCourses = (
   data.courseInstructors ??= {};
   data.enrollments ??= {};
   data.lessons ??= {};
+  data.sections ??= {};
+  data.sectionInstructors ??= {};
 
   const usedCodes = new Set(Object.values(data.courses).map((c) => c.code));
   const uniqueCode = () => {
@@ -100,7 +133,7 @@ export const migrateCourses = (
   const byCode = new Map(Object.values(data.courses).map((c) => [c.code, c.id]));
   let enrollmentCount = 0;
   for (const [key, e] of Object.entries(data.enrollments)) {
-    if (e.courseId && key === enrollmentKey(e.courseId, e.userId)) continue;
+    if (e.sectionId || (e.courseId && key === enrollmentKey(e.courseId, e.userId))) continue;
     // 강의코드에 맞는 과목이 없으면(이전 1과목 시절 기록) 기존 자료 과목으로 본다.
     const courseId = e.courseId || byCode.get(e.courseCode) || LEGACY_COURSE_ID;
     const next: Enrollment = { ...e, courseId };
@@ -112,6 +145,49 @@ export const migrateCourses = (
     enrollmentCount++;
   }
   if (enrollmentCount) changes.push(`참여 기록 ${enrollmentCount}건에 과목을 연결했어요.`);
+
+  // 4) 분반: 운영 과목마다 기본 01분반 (과목 강의코드를 이어받는다)
+  const openCourses = Object.values(data.courses).filter((c) => c.status === "active");
+  for (const course of openCourses) {
+    const id = defaultSectionId(course.id);
+    if (data.sections[id]) continue;
+    const taken = Object.values(data.sections).some((s) => s.code === course.code);
+    data.sections[id] = {
+      id,
+      courseId: course.id,
+      name: sectionName(1),
+      code: taken ? uniqueSectionCode(data, newCode) : course.code,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    };
+    changes.push(`${course.title} ${sectionName(1)}을 만들었어요. 강의코드 ${data.sections[id].code}`);
+  }
+
+  // 5) 운영 과목 수강 등록 → 기본 01분반 (키: sectionId::userId)
+  let sectionEnrollments = 0;
+  for (const [key, e] of Object.entries(data.enrollments)) {
+    if (e.sectionId || !openCourses.some((c) => c.id === e.courseId)) continue;
+    const sectionId = defaultSectionId(e.courseId);
+    const nextKey = enrollmentKey(sectionId, e.userId);
+    const prev = data.enrollments[nextKey];
+    delete data.enrollments[key];
+    data.enrollments[nextKey] = prev ?? { ...e, sectionId };
+    sectionEnrollments++;
+  }
+  if (sectionEnrollments) changes.push(`수강 등록 ${sectionEnrollments}건을 기본 01분반으로 옮겼어요.`);
+
+  // 6) 교수자–과목 배정 → 기본 01분반 배정 (courseInstructors는 그대로 둔다)
+  let copied = 0;
+  for (const ci of Object.values(data.courseInstructors)) {
+    if (!openCourses.some((c) => c.id === ci.courseId)) continue;
+    const sectionId = defaultSectionId(ci.courseId);
+    const key = sectionInstructorKey(sectionId, ci.email);
+    if (data.sectionInstructors[key]) continue;
+    data.sectionInstructors[key] = { sectionId, email: ci.email, assignedAt: ci.assignedAt, assignedBy: ci.assignedBy };
+    copied++;
+  }
+  if (copied) changes.push(`교수자 과목 배정 ${copied}건을 기본 01분반 배정으로 옮겼어요.`);
 
   if (data.version !== DB_VERSION) {
     changes.push(`DB 버전 ${data.version} → ${DB_VERSION}`);
@@ -145,6 +221,42 @@ export const enrollmentsForCourse = (enrollments: Record<string, Enrollment>, co
 
 export const enrollmentsForUser = (enrollments: Record<string, Enrollment>, userId: string): Enrollment[] =>
   Object.values(enrollments).filter((e) => e.userId === userId);
+
+/* ───────── 분반 ───────── */
+
+/** 분반 강의코드로 분반 찾기 (대소문자·앞뒤 공백 무시) */
+export const findSectionByCode = (sections: Record<string, Section>, code: string): Section | null => {
+  const c = code.trim().toUpperCase();
+  return (c && Object.values(sections).find((s) => s.code === c)) || null;
+};
+
+/** 과목의 분반 (분반명 순) */
+export const sectionsForCourse = (sections: Record<string, Section>, courseId: string): Section[] =>
+  Object.values(sections)
+    .filter((s) => s.courseId === courseId)
+    .sort((a, b) => a.name.localeCompare(b.name, "ko", { numeric: true }));
+
+export const enrollmentsForSection = (enrollments: Record<string, Enrollment>, sectionId: string): Enrollment[] =>
+  Object.values(enrollments).filter((e) => e.sectionId === sectionId);
+
+/** 교강사가 맡은 분반 id */
+export const sectionIdsForInstructor = (links: Record<string, SectionInstructor>, email: string): string[] =>
+  Object.values(links)
+    .filter((l) => l.email === email)
+    .map((l) => l.sectionId);
+
+export const instructorsForSection = (links: Record<string, SectionInstructor>, sectionId: string): string[] =>
+  Object.values(links)
+    .filter((l) => l.sectionId === sectionId)
+    .map((l) => l.email);
+
+/** 과목의 다음 분반 이름 제안 (01분반, 02분반 … 중 비어 있는 다음 번호) */
+export const nextSectionName = (sections: Record<string, Section>, courseId: string) => {
+  const names = new Set(sectionsForCourse(sections, courseId).map((s) => s.name));
+  let n = 1;
+  while (names.has(sectionName(n))) n++;
+  return sectionName(n);
+};
 
 /** 교수자가 맡은 과목 id */
 export const courseIdsForInstructor = (links: Record<string, CourseInstructor>, email: string): string[] =>

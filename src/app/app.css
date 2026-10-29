@@ -1164,6 +1164,51 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .course-hero .course-drama { font-size: 28px; }
 .course-hero .course-name { font-size: 18px; }
 .course-hero .row-start { margin-top: 6px; }
+/* 교수자·관리자 과목 카드 */
+.course-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; margin-bottom: 18px; }
+.course-admin-card { display: flex; flex-direction: column; gap: 12px; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); margin-bottom: 16px; }
+.course-admin-grid .course-admin-card { margin-bottom: 0; }
+.course-admin-head { display: flex; flex-direction: column; gap: 2px; }
+.course-admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin: 0; }
+.course-admin-stats div { background: rgba(255, 255, 255, 0.75); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.course-admin-stats dt { font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.course-admin-stats dd { margin: 2px 0 0; font-weight: 800; font-size: 15.5px; white-space: nowrap; }
+.course-admin-stats .code-chip { letter-spacing: 0.06em; }
+.course-admin-teachers { color: var(--ink-2); }
+.course-admin-card .row-start > .join-link-row { flex: 1 1 100%; margin: 0; }
+.join-link-row .join-link-input { flex: 1; min-width: 0; }
+.code-chip { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.12em; font-weight: 800; color: var(--sky-700); }
+.join-code-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.join-code-item { display: grid; grid-template-columns: minmax(180px, 1.2fr) auto minmax(0, 2fr); align-items: center; gap: 12px; }
+.join-code-item .join-link-row { margin: 0; }
+.sub-tabs { margin-top: 4px; }
+.pill-btn { border: 0; cursor: pointer; }
+.assign-table th, .assign-table td { vertical-align: middle; }
+.assign-table td:nth-last-child(-n + 2) { white-space: nowrap; }
+.assign-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.assign-check input { width: 18px; height: 18px; accent-color: var(--sky-500); }
+@media (max-width: 900px) {
+  .join-code-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .join-code-item .join-link-row { grid-column: 1 / -1; }
+}
+/* 분반 */
+.section-line { font-size: 13.5px; color: var(--ink-2); }
+.section-line b { color: var(--ink); }
+.section-mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.section-mini-list li { background: rgba(255, 255, 255, 0.75); border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+.section-filter { margin: -6px 0 14px; }
+.section-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+.section-admin-card { display: flex; flex-direction: column; gap: 12px; }
+.section-admin-card.is-inactive { background: var(--sky-50); box-shadow: none; }
+.section-admin-card h4 { font-size: 18px; font-weight: 800; }
+.section-admin-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.section-admin-label { margin-bottom: 6px; }
+.teacher-checks { display: flex; flex-direction: column; gap: 6px; }
+.rename-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rename-form input { padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); font-size: 15px; width: 140px; }
+.section-new-btn { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 160px; text-align: left; border-style: dashed; background: var(--sky-50); box-shadow: none; }
+.section-new-btn b { font-size: 17px; color: var(--sky-700); }
+.nowrap { white-space: nowrap; }
 .week-locked { background: var(--sky-50); box-shadow: none; min-height: 110px; cursor: default; }
 .week-locked .week-title { color: var(--ink-2); }
 .week-card .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

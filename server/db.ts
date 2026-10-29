@@ -20,6 +20,8 @@ import type {
   InstructorRecord,
   LearnerProfile,
   LessonProgress,
+  Section,
+  SectionInstructor,
 } from "../src/app/store/models";
 import { DB_VERSION, migrateCourses } from "./courses";
 
@@ -36,9 +38,15 @@ export type DbData = {
   instructors: Record<string, InstructorRecord>;
   /** key: courseId */
   courses: Record<string, Course>;
-  /** 교수자–과목 배정. key: courseId::email */
+  /** (이전 구조) 교수자–과목 배정. key: courseId::email — 권한에는 쓰지 않고 보존만 한다. */
   courseInstructors: Record<string, CourseInstructor>;
-  /** 수강 등록. key: courseId::userId */
+  /** 분반. key: sectionId */
+  sections: Record<string, Section>;
+  /** 분반–교강사 배정 (교수자 권한의 기준). key: sectionId::email */
+  sectionInstructors: Record<string, SectionInstructor>;
+  /** 교강사 이름 (교강사가 Google로 로그인할 때 받은 이름). key: email */
+  instructorNames: Record<string, string>;
+  /** 수강 등록. key: sectionId::userId (기존 자료 과목의 예전 기록은 courseId::userId) */
   enrollments: Record<string, Enrollment>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
@@ -56,6 +64,9 @@ const emptyDb = (): DbData => ({
   instructors: {},
   courses: {},
   courseInstructors: {},
+  sections: {},
+  sectionInstructors: {},
+  instructorNames: {},
   enrollments: {},
   sessionSecret: randomBytes(32).toString("hex"),
 });
@@ -103,7 +114,7 @@ export const openDb = (dataDir: string): Db => {
       changed = true;
     }
   }
-  // 1과목 → 3과목 구조 (과목·교수자 배정·수강 등록, 강의자료의 courseId)
+  // 1과목 → 3과목 → 분반 구조 (과목·분반·교강사 배정·수강 등록, 강의자료의 courseId)
   const courseChanges = migrateCourses(data, new Date().toISOString());
   if (courseChanges.length) {
     for (const c of courseChanges) console.log(`DB: ${c}`);

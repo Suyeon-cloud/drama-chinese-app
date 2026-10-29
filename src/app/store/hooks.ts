@@ -11,7 +11,8 @@ import {
 } from "./index";
 import type {
   CourseCurriculum,
-  CourseInfo,
+  CourseOverview,
+  CourseStudents,
   CourseSummary,
   Enrollment,
   FeedbackDraft,
@@ -71,8 +72,34 @@ export const useFeedbackDrafts = (): FeedbackDraft[] | null =>
 export const useInstructors = (): InstructorRecord[] | null =>
   useStoreQuery(() => instructorStore.list(), instructorStore.subscribe, "instructors");
 
-export const useCurrentCourse = (): CourseInfo | null =>
-  useStoreQuery(() => courseStore.current(), courseStore.subscribe, "course");
+/** 여러 저장소 중 하나라도 바뀌면 다시 읽는다. */
+const subscribeAll =
+  (...subs: ((listener: () => void) => () => void)[]) =>
+  (listener: () => void) => {
+    const offs = subs.map((s) => s(listener));
+    return () => offs.forEach((off) => off());
+  };
+
+/** 교수자: 담당 과목 / 관리자: 모든 과목 (기존 자료 포함 — 화면에서 운영 과목만 골라 쓴다) */
+export const useStaffCourses = (userId: string | null): CourseOverview[] | null =>
+  useStoreQuery(
+    () => (userId ? courseStore.staffCourses() : Promise.resolve([])),
+    subscribeAll(courseStore.subscribe, lessonStore.subscribe, enrollmentStore.subscribe),
+    `staff-courses:${userId ?? ""}`,
+  );
+
+/** 과목 수강생과 학습 기록 (sectionId를 주면 그 분반만). undefined: 불러오는 중, null: 권한 없음 */
+export const useCourseStudents = (courseId: string, sectionId?: string): CourseStudents | null | undefined => {
+  const value = useStoreQuery(
+    () => courseStore.students(courseId, sectionId).then((s) => ({ s })),
+    subscribeAll(courseStore.subscribe, progressStore.subscribe, enrollmentStore.subscribe),
+    `course-students:${courseId}:${sectionId ?? ""}`,
+  );
+  return value === null ? undefined : value.s;
+};
+
+export const useAllEnrollments = (): Enrollment[] | null =>
+  useStoreQuery(() => enrollmentStore.listAll(), enrollmentStore.subscribe, "enrollments:all");
 
 /** 내가 수강 중인 과목. userId가 없으면(학습자가 아니면) 빈 목록 */
 export const useMyCourses = (userId: string | null): CourseSummary[] | null =>

@@ -26,6 +26,8 @@ import type {
 import { LANG_NAME } from "../../lib/captionsApi";
 import { parseClock, scriptStatus } from "../../lib/subtitles";
 import { parseYouTubeId, parseYouTubeStart, youtubeWatchUrl } from "../../lib/youtube";
+import { useAuth } from "../../auth/AuthContext";
+import { ApiError } from "../../lib/api";
 import { navigate } from "../../router";
 import { lessonStore } from "../../store";
 import { useLessons } from "../../store/hooks";
@@ -330,6 +332,7 @@ const LessonEditor: React.FC<{
   initialWeek: number;
   justSaved: boolean;
 }> = ({ existing, initialCourseId, initialWeek, justSaved }) => {
+  const { user } = useAuth();
   const [form, setForm] = useState<FormState>(() =>
     existing ? fromLesson(existing) : blankForm(initialCourseId, initialWeek),
   );
@@ -437,15 +440,31 @@ const LessonEditor: React.FC<{
         form.captionMask.enabled || existing?.captionMask ? normalizeMask(form.captionMask) : undefined,
       updatedAt: now,
     };
-    const saved = await lessonStore.save(lesson);
-    setNotice("강의자료를 저장했어요.");
-    if (!existing) navigate("admin-editor", { id: saved.id, saved: 1 });
+    try {
+      const saved = await lessonStore.save(lesson);
+      setNotice("강의자료를 저장했어요.");
+      if (!existing) navigate("admin-editor", { id: saved.id, saved: 1 });
+    } catch (err) {
+      // 담당하지 않는 과목 등 서버가 거절한 경우
+      setErrors([err instanceof ApiError ? err.message : "저장하지 못했어요. 잠시 후 다시 시도해 주세요."]);
+    }
   };
+
+  // 목록으로: 관리자는 전체 강의의 그 과목, 교수자는 담당 강의의 주차별 학습자료
+  const isAdmin = user?.provider === "admin";
+  const backToList = () =>
+    isAdmin
+      ? navigate("admin-course", { course: form.courseId })
+      : navigate("teach-course", { id: form.courseId, tab: "lessons" });
 
   const remove = async () => {
     if (!existing) return;
-    await lessonStore.remove(existing.id);
-    navigate("admin-course");
+    try {
+      await lessonStore.remove(existing.id);
+      backToList();
+    } catch (err) {
+      setErrors([err instanceof ApiError ? err.message : "삭제하지 못했어요."]);
+    }
   };
 
   return (
@@ -454,8 +473,8 @@ const LessonEditor: React.FC<{
         title={existing ? "강의자료 편집" : "강의자료 만들기"}
         desc="YouTube 영상과 자막/스크립트로 주차별 강의자료를 만들어요."
       >
-        <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-course")}>
-          ← 수업 관리
+        <button className="btn btn-soft btn-sm" onClick={backToList}>
+          ← {isAdmin ? "전체 강의·학습자료" : "주차별 학습자료"}
         </button>
       </PageIntro>
 

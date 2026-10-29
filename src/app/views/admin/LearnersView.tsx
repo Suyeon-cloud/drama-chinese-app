@@ -1,52 +1,54 @@
-import React, { useState } from "react";
+import React from "react";
 import { Avatar } from "../../auth/AuthControls";
+import { useAuth } from "../../auth/AuthContext";
 import { openMemberPopup } from "../../auth/memberPopup";
 import { formatDateTime } from "../../lib/format";
-import { useToast } from "../../components/Toast";
-import { joinUrl, navigate } from "../../router";
-import { useAllProgress, useCurrentCourse, useEnrollments, useLearners } from "../../store/hooks";
+import { navigate } from "../../router";
+import { useAllEnrollments, useLearners, useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
+import { JoinLinkBox, operatingCourses } from "./CourseAdminShared";
 
-/** 학습자 관리: 로그인한 학습자 목록과 주차 학습 요약 */
+/** 회원 관리 (관리자): 가입 회원 · 승인 상태 · 역할 · 수강 과목. 승인·수정·삭제는 ‘회원 현황’에서 한다. */
 export const LearnersView: React.FC = () => {
+  const { user } = useAuth();
   const learners = useLearners();
-  const progress = useAllProgress();
-  const course = useCurrentCourse();
-  const enrollments = useEnrollments(course?.code ?? null);
-  const toast = useToast();
-  const [copied, setCopied] = useState(false);
-  if (!learners || !progress || !course) return null;
-
-  const link = joinUrl(course.code);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      toast.show("참여 링크를 복사했어요.", "success");
-    } catch {
-      toast.show("복사하지 못했어요. 링크를 직접 선택해 복사해 주세요.", "error");
-    }
-  };
+  const enrollments = useAllEnrollments();
+  const courses = useStaffCourses(user?.id ?? null);
+  if (!learners || !enrollments || !courses) return null;
+  const operating = operatingCourses(courses);
+  const pending = learners.filter((l) => l.status === "pending").length;
 
   return (
     <div className="page">
-      <PageIntro title="학습자 관리" desc="가입한 회원과 학습 요약을 확인해요. 승인·수정·삭제는 ‘회원 현황’에서 해요.">
+      <PageIntro
+        title="회원 관리"
+        desc="Google로 가입한 회원과 승인 상태를 확인해요. 승인된 학생은 강의코드로 과목에 바로 수강 등록해요."
+      >
         <button className="btn btn-primary btn-sm" onClick={openMemberPopup}>
-          👥 회원 현황
+          👥 회원 현황 · 승인 {pending ? `(대기 ${pending}명)` : ""}
         </button>
       </PageIntro>
 
       <section className="card join-link-card">
-        <h3 className="card-title">🔗 학생 참여 링크</h3>
+        <h3 className="card-title">🎫 분반 강의코드</h3>
         <p className="muted small">
-          학생은 이 링크로 들어와 Google 로그인 후 학습자로 수업에 참여해요. · {course.title} · 참여 코드{" "}
-          <b>{course.code}</b>
+          학생은 승인 후 자기 분반의 강의코드를 ‘내 강의’에 입력하거나 참여 링크로 들어와 수강 등록해요. 운영 중인 분반만
+          보여요.
         </p>
-        <div className="join-link-row">
-          <input className="join-link-input" value={link} readOnly onFocus={(e) => e.currentTarget.select()} aria-label="참여 링크" />
-          <button className="btn btn-primary btn-sm" onClick={() => void copy()}>
-            {copied ? "복사됨" : "링크 복사"}
-          </button>
+        <div className="join-code-list">
+          {operating.flatMap((c) =>
+            c.sections
+              .filter((s) => s.status === "active")
+              .map((s) => (
+                <div key={s.id} className="join-code-item">
+                  <span>
+                    <b>《{c.drama}》</b> <span className="muted small">{c.title} · {s.name}</span>
+                  </span>
+                  <span className="code-chip">{s.code}</span>
+                  <JoinLinkBox code={s.code} label={`《${c.drama}》 ${s.name}`} />
+                </div>
+              )),
+          )}
         </div>
       </section>
 
@@ -57,35 +59,41 @@ export const LearnersView: React.FC = () => {
         </div>
       ) : (
         <section className="card data-table">
+          <h3 className="card-title">전체 회원 {learners.length}명</h3>
           <table>
             <thead>
               <tr>
-                <th>학습자</th>
+                <th>회원</th>
                 <th>대학 · 학과</th>
+                <th>역할</th>
                 <th>승인</th>
-                <th>수업 참여</th>
-                <th>학습 시작 주차</th>
-                <th>완료 주차</th>
+                <th>수강 과목 · 분반</th>
                 <th>가입일</th>
                 <th>최종 접속</th>
-                <th />
               </tr>
             </thead>
             <tbody>
               {learners.map((l) => {
-                const mine = progress.filter((p) => p.userId === l.id);
-                const started = new Set(mine.filter((p) => p.startedAt).map((p) => p.week));
-                const done = new Set(mine.filter((p) => p.completedAt).map((p) => p.week));
-                const joined = enrollments?.find((e) => e.userId === l.id);
+                // 수강 중인 과목 · 분반
+                const mine = enrollments.flatMap((e) => {
+                  if (e.userId !== l.id || !e.sectionId) return [];
+                  const c = operating.find((x) => x.id === e.courseId);
+                  const s = c?.sections.find((x) => x.id === e.sectionId);
+                  return c && s ? [{ c, s }] : [];
+                });
                 return (
                   <tr key={l.id}>
                     <td>
                       <span className="who">
                         <Avatar name={l.name} color={l.avatarColor} src={l.picture} size={30} />
-                        <b>{l.name}</b>
+                        <span>
+                          <b>{l.name || "(이름 미입력)"}</b>
+                          <small className="muted block">{l.googleEmail}</small>
+                        </span>
                       </span>
                     </td>
                     <td className="muted">{l.university ? `${l.university} · ${l.department}` : "—"}</td>
+                    <td>학습자</td>
                     <td>
                       {l.status === "approved" ? (
                         <span className="pill pill-mint">승인</span>
@@ -93,21 +101,34 @@ export const LearnersView: React.FC = () => {
                         <span className="pill pill-cream">대기</span>
                       )}
                     </td>
-                    <td className="tabular">{joined ? formatDateTime(joined.joinedAt) : "—"}</td>
-                    <td>{started.size}개 주차</td>
-                    <td>{done.size}개 주차</td>
+                    <td>
+                      {mine.length === 0 ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <span className="row-start">
+                          {mine.map(({ c, s }) => (
+                            <button
+                              key={s.id}
+                              className="pill pill-sky pill-btn"
+                              onClick={() =>
+                                navigate("admin-progress", { course: c.id, section: s.id, learner: l.id })
+                              }
+                              title="이 분반의 학습 현황"
+                            >
+                              {c.title} · {s.name}
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                    </td>
                     <td className="tabular">{formatDateTime(l.firstSeenAt)}</td>
                     <td className="tabular">{formatDateTime(l.lastSeenAt)}</td>
-                    <td>
-                      <button className="link-btn" onClick={() => navigate("admin-progress", { learner: l.id })}>
-                        학습 현황 ›
-                      </button>
-                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          <p className="muted small legend">교강사는 ‘분반·교강사 관리’에서 관리해요. 교강사 계정은 회원 목록에 나오지 않아요.</p>
         </section>
       )}
     </div>
