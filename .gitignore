@@ -7,6 +7,7 @@ dist
 out
 dist-app
 dist-server
+dist-test
 
 # 서버 데이터 (회원·학습 기록)
 data

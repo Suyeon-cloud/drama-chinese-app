@@ -1,5 +1,5 @@
 // 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 `npm run export-lessons`로 다시 만듭니다.
-// data/db.json의 강의자료 16개 (2026-10-26T17:45:13.926Z)
+// data/db.json의 강의자료 16개 (2026-10-29T10:35:12.180Z)
 // 서버 DB에 처음 들어가는 기본 강의자료(SEED_LESSONS)에서 같은 id의 기본값을 이 내용으로 바꾼다.
 import type { Lesson } from "./types";
 
@@ -1074,7 +1074,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "top": 78.5,
       "height": 14,
       "width": 70
-    }
+    },
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week01",
@@ -1771,7 +1772,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "top": 78,
       "height": 12,
       "width": 70
-    }
+    },
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week02",
@@ -2502,7 +2504,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "top": 78,
       "height": 12,
       "width": 70
-    }
+    },
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week03",
@@ -2599,7 +2602,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week04",
@@ -2696,7 +2700,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week05",
@@ -2793,7 +2798,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week06",
@@ -2890,7 +2896,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week07",
@@ -2987,7 +2994,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week08",
@@ -3084,7 +3092,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week09",
@@ -3181,7 +3190,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week10",
@@ -3278,7 +3288,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week11",
@@ -3375,7 +3386,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week12",
@@ -3472,7 +3484,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week13",
@@ -3569,7 +3582,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week14",
@@ -3666,7 +3680,8 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   },
   {
     "id": "lesson-week15",
@@ -3763,6 +3778,7 @@ export const SAVED_LESSONS: Lesson[] = [
       "updatedAt": "2026-10-26T00:00:00.000Z"
     },
     "createdAt": "2026-10-26T00:00:00.000Z",
-    "updatedAt": "2026-10-26T00:00:00.000Z"
+    "updatedAt": "2026-10-26T00:00:00.000Z",
+    "courseId": "course-legacy"
   }
 ];

@@ -14,9 +14,15 @@ if (!existsSync(dbFile)) {
 }
 
 const db = JSON.parse(readFileSync(dbFile, "utf8"));
-const lessons = Object.values(db.lessons ?? {}).sort(
-  (a, b) => a.week - b.week || String(a.createdAt).localeCompare(String(b.createdAt)),
-);
+// courseId가 없는 이전 저장본은 ‘기존 자료’ 과목(src/content/courses.ts의 LEGACY_COURSE_ID)으로 내보낸다.
+const lessons = Object.values(db.lessons ?? {})
+  .map((l) => (l.courseId ? l : { id: l.id, courseId: "course-legacy", ...l }))
+  .sort(
+    (a, b) =>
+      String(a.courseId).localeCompare(String(b.courseId)) ||
+      a.week - b.week ||
+      String(a.createdAt).localeCompare(String(b.createdAt)),
+  );
 
 const header = `// 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 \`npm run export-lessons\`로 다시 만듭니다.
 // data/db.json의 강의자료 ${lessons.length}개 (${new Date().toISOString()})
@@ -26,5 +32,5 @@ import type { Lesson } from "./types";
 `;
 writeFileSync(outFile, `${header}export const SAVED_LESSONS: Lesson[] = ${JSON.stringify(lessons, null, 2)};\n`);
 
-for (const l of lessons) console.log(`  ${String(l.week).padStart(2)}주차 · ${l.status.padEnd(9)} · ${l.title || "(제목 없음)"}`);
+for (const l of lessons) console.log(`  ${l.courseId} · ${String(l.week).padStart(2)}주차 · ${l.status.padEnd(9)} · ${l.title || "(제목 없음)"}`);
 console.log(`\n강의자료 ${lessons.length}개를 ${outFile}에 내보냈어요.`);

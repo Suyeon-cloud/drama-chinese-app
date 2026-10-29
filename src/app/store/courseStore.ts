@@ -13,7 +13,8 @@ export interface CourseStore {
 /** 수업 참여 기록 저장소 */
 export interface EnrollmentStore {
   listByCourse(courseCode: string): Promise<Enrollment[]>;
-  enroll(enrollment: Omit<Enrollment, "joinedAt">): Promise<Enrollment>;
+  /** 과목은 서버가 강의코드로 찾는다. */
+  enroll(enrollment: Omit<Enrollment, "joinedAt" | "courseId">): Promise<Enrollment>;
   subscribe(listener: () => void): () => void;
 }
 

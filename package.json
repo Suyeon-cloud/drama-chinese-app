@@ -42,6 +42,7 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "typecheck": "tsc --noEmit",
+    "test": "esbuild server/courses.test.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-test/courses.test.mjs && node --test dist-test/courses.test.mjs",
     "app:build": "vite build",
     "app:preview": "vite preview",
     "export-lessons": "node scripts/export-lessons.mjs"

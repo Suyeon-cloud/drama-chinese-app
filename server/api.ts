@@ -7,10 +7,12 @@
 //   - 관리자(교수자)만: 회원 관리, 강의자료 저장, 전체 학습 기록, 피드백, 교수자 관리
 //   - 학습자: 본인 정보·본인 학습 기록만. 관리자 승인 전에는 학습 기록을 저장할 수 없다.
 
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { isValidEmail, normalizeEmail } from "../src/app/auth/roles";
+import { LEGACY_COURSE_ID } from "../src/content/courses";
 import type {
+  Course,
   Enrollment,
   FeedbackDraft,
   LearnerProfile,
@@ -22,6 +24,14 @@ import type {
 import type { Lesson } from "../src/content/types";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
+import {
+  enrollmentKey,
+  enrollmentsForUser,
+  findCourseByCode,
+  instructorsForCourse,
+  lessonsForCourse,
+  progressForCourse,
+} from "./courses";
 
 export type ApiEnv = {
   googleClientId: string;
@@ -348,8 +358,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 강의자료 ───────── */
 
+  /** ?course={courseId}: 그 과목의 강의자료만 (없으면 모든 과목) */
   api.get("/lessons", (req: Authed, res) => {
-    const all = Object.values(db.data.lessons);
+    const courseId = typeof req.query.course === "string" ? req.query.course : "";
+    const all = courseId ? lessonsForCourse(db.data.lessons, courseId) : Object.values(db.data.lessons);
     res.json(isAdmin(req) ? all : all.filter((l) => l.status === "published"));
   });
 
@@ -358,7 +370,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!lesson || lesson.id !== req.params.id || typeof lesson.week !== "number") {
       return res.status(400).json({ error: "강의자료 형식이 올바르지 않아요." });
     }
-    const saved = { ...lesson, updatedAt: nowIso() };
+    // 과목 정보가 없는 이전 화면의 저장은 원래 과목(없으면 기존 자료)으로 둔다.
+    const courseId = lesson.courseId || db.data.lessons[lesson.id]?.courseId || LEGACY_COURSE_ID;
+    if (!db.data.courses[courseId]) return res.status(400).json({ error: "없는 과목이에요." });
+    const saved = { ...lesson, courseId, updatedAt: nowIso() };
     db.data.lessons[lesson.id] = saved;
     db.save();
     res.json(saved);
@@ -372,8 +387,12 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 학습 기록 ───────── */
 
+  /** ?course={courseId}: 그 과목 강의자료의 기록만 (과목은 강의자료의 courseId로 찾는다) */
   api.get("/progress", requireLogin, (req: Authed, res) => {
-    const all = Object.values(db.data.progress);
+    const courseId = typeof req.query.course === "string" ? req.query.course : "";
+    const all = courseId
+      ? progressForCourse(db.data.progress, db.data.lessons, courseId)
+      : Object.values(db.data.progress);
     res.json(isAdmin(req) ? all : all.filter((p) => p.userId === req.user!.id));
   });
 
@@ -482,36 +501,49 @@ export const createApi = (db: Db, env: ApiEnv) => {
     }
   });
 
-  /* ───────── 수업 · 참여 ───────── */
+  /* ───────── 과목 · 수강 등록 ───────── */
 
-  const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  /**
+   * 이전 1과목 화면(학습자 관리의 참여 링크, 참여 화면)용: 기존 자료 과목.
+   * 3과목 화면으로 바꾸면 /courses를 쓴다.
+   */
   api.get("/course", (_req, res) => {
-    if (!db.data.course) {
-      db.data.course = {
-        code: Array.from({ length: 6 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join(""),
-        title: "드라마로 배우는 중국어 (15주)",
-        createdAt: nowIso(),
-      };
-      db.save();
-    }
-    res.json(db.data.course);
+    res.json(db.data.courses[LEGACY_COURSE_ID]);
   });
 
+  /**
+   * 과목 목록. 교수자·관리자: 모든 과목 + 강의코드 + 담당 교수자 이메일
+   * 학습자: 수강 중인 과목만 (강의코드는 보내지 않는다)
+   * (교수자를 담당 과목으로만 제한하는 것은 권한 개편 단계에서 한다)
+   */
+  api.get("/courses", requireLogin, (req: Authed, res) => {
+    const all = Object.values(db.data.courses);
+    if (isAdmin(req)) {
+      return res.json(all.map((c) => ({ ...c, instructors: instructorsForCourse(db.data.courseInstructors, c.id) })));
+    }
+    const mine = new Set(enrollmentsForUser(db.data.enrollments, req.user!.id).map((e) => e.courseId));
+    res.json(all.filter((c) => mine.has(c.id)).map(({ code: _code, ...c }) => c));
+  });
+
+  /** ?course={courseId 또는 강의코드} */
   api.get("/enrollments", requireLogin, (req: Authed, res) => {
-    const code = String(req.query.course ?? "");
-    const list = Object.values(db.data.enrollments).filter((e) => e.courseCode === code);
+    const q = String(req.query.course ?? "");
+    const list = Object.values(db.data.enrollments).filter((e) => e.courseId === q || e.courseCode === q);
     res.json(isAdmin(req) ? list : list.filter((e) => e.userId === req.user!.id));
   });
 
+  /** 강의코드로 수강 등록. 코드가 맞으면 추가 승인 없이 바로 등록된다. */
   api.post("/enrollments", requireLogin, (req: Authed, res) => {
     const u = req.user!;
     const code = typeof req.body?.courseCode === "string" ? req.body.courseCode : "";
-    if (!db.data.course || db.data.course.code !== code || u.role !== "learner") {
+    const course: Course | null = findCourseByCode(db.data.courses, code);
+    if (!course || u.role !== "learner") {
       return res.status(400).json({ error: "수업에 참여할 수 없어요." });
     }
-    const key = `${code}::${u.id}`;
+    const key = enrollmentKey(course.id, u.id);
     const e: Enrollment = db.data.enrollments[key] ?? {
-      courseCode: code,
+      courseId: course.id,
+      courseCode: course.code,
       userId: u.id,
       name: u.name,
       email: u.email,

@@ -260,6 +260,8 @@ export type CaptionMask = { enabled: boolean; top: number; height: number; width
 
 export type Lesson = {
   id: string;
+  /** 속한 과목 (courses.ts). 3과목 개편 전 자료는 LEGACY_COURSE_ID */
+  courseId: string;
   /** 1~15 */
   week: number;
   title: string;

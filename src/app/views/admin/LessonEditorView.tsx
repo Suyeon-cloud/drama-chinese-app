@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { formatTime, youtubeThumbnail } from "../../../content";
-import {
-  DIRECTION_LABEL,
-  STATUS_LABEL,
-  WEEKS,
-  defaultDirectionForWeek,
-} from "../../../content/course";
+import { DIRECTION_LABEL, STATUS_LABEL, WEEKS } from "../../../content/course";
+import { LEGACY_COURSE_ID, defaultDirectionFor, isCourseId } from "../../../content/courses";
 import { baseLessonContent, sourceTimeline, type TimelineLine } from "../../../content/lessons";
 import { useYouTubeClock } from "../../learning/useVideoClock";
 import { formatClock } from "../../lib/subtitles";
@@ -41,6 +37,8 @@ import { ScriptSyncPanel } from "./ScriptSyncPanel";
 import { useCaptionLookup } from "./useCaptionLookup";
 
 type FormState = {
+  /** 속한 과목 (이 화면에서는 바꾸지 않는다) */
+  courseId: string;
   week: number;
   direction: LearningDirection;
   level: string;
@@ -64,6 +62,7 @@ type FormState = {
 };
 
 const fromLesson = (l: Lesson): FormState => ({
+  courseId: l.courseId,
   week: l.week,
   direction: l.direction,
   level: l.level,
@@ -83,9 +82,10 @@ const fromLesson = (l: Lesson): FormState => ({
   captionMask: normalizeMask(l.captionMask),
 });
 
-const blankForm = (week: number): FormState => ({
+const blankForm = (courseId: string, week: number): FormState => ({
+  courseId,
   week,
-  direction: defaultDirectionForWeek(week),
+  direction: defaultDirectionFor(courseId, week),
   level: DEFAULT_LEVEL_ID,
   title: "",
   description: "",
@@ -310,23 +310,28 @@ export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params
   }
   const weekParam = Number(params.get("week"));
   const week = WEEKS.indexOf(weekParam) >= 0 ? weekParam : 1;
+  // 새 강의자료의 과목: ?course={courseId} (과목 화면 개편 전에는 기존 자료)
+  const courseParam = params.get("course") ?? "";
+  const courseId = isCourseId(courseParam) ? courseParam : LEGACY_COURSE_ID;
   return (
     <LessonEditor
-      key={existing?.id ?? `new-${week}`}
+      key={existing?.id ?? `new-${courseId}-${week}`}
       existing={existing}
+      initialCourseId={courseId}
       initialWeek={week}
       justSaved={params.get("saved") === "1"}
     />
   );
 };
 
-const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; justSaved: boolean }> = ({
-  existing,
-  initialWeek,
-  justSaved,
-}) => {
+const LessonEditor: React.FC<{
+  existing: Lesson | null;
+  initialCourseId: string;
+  initialWeek: number;
+  justSaved: boolean;
+}> = ({ existing, initialCourseId, initialWeek, justSaved }) => {
   const [form, setForm] = useState<FormState>(() =>
-    existing ? fromLesson(existing) : blankForm(initialWeek),
+    existing ? fromLesson(existing) : blankForm(initialCourseId, initialWeek),
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(justSaved ? "강의자료를 생성했어요." : null);
@@ -395,6 +400,7 @@ const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; jus
     const now = nowIso();
     const lesson: Lesson = {
       ...(existing ?? { id: createId("lesson"), createdAt: now }),
+      courseId: form.courseId,
       week: form.week,
       direction: form.direction,
       level: form.level,
@@ -473,7 +479,9 @@ const LessonEditor: React.FC<{ existing: Lesson | null; initialWeek: number; jus
                     week,
                     // 방향을 따로 바꾸지 않았다면 주차 기본 방향을 따른다.
                     direction:
-                      f.direction === defaultDirectionForWeek(f.week) ? defaultDirectionForWeek(week) : f.direction,
+                      f.direction === defaultDirectionFor(f.courseId, f.week)
+                        ? defaultDirectionFor(f.courseId, week)
+                        : f.direction,
                   }));
                 }}
               >

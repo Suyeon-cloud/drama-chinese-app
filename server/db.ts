@@ -4,34 +4,41 @@
 // - Railway에서는 Volume을 /data에 연결하고 DATA_DIR=/data 로 두어야 재배포 후에도 데이터가 남는다.
 //   (Volume이 없으면 배포할 때마다 데이터가 초기화된다)
 // - 쓰기는 임시 파일에 쓴 뒤 이름을 바꿔(원자적 교체) 파일이 깨지지 않게 한다.
+// - 구조가 바뀌는 마이그레이션(server/courses.ts) 전에는 원래 파일을 db.backup-v{버전}-{시각}.json으로 복사해 둔다.
 
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SEED_LESSONS } from "../src/content/lessons";
 import { LEGACY_LEVEL_IDS } from "../src/content/levels";
 import type { Lesson } from "../src/content/types";
 import type {
-  CourseInfo,
+  Course,
+  CourseInstructor,
   Enrollment,
   FeedbackDraft,
   InstructorRecord,
   LearnerProfile,
   LessonProgress,
 } from "../src/app/store/models";
+import { DB_VERSION, migrateCourses } from "./courses";
 
 export type DbData = {
-  version: 1;
+  version: number;
   members: Record<string, LearnerProfile>;
+  /** 모든 과목의 강의자료. 과목은 lesson.courseId */
   lessons: Record<string, Lesson>;
   /** 이미 한 번 넣은 기본 강의자료 id (관리자가 지운 기본 자료를 다시 넣지 않기 위해) */
   seededLessonIds: string[];
-  /** key: userId::lessonId */
+  /** key: userId::lessonId (과목은 lessons[lessonId].courseId로 찾는다) */
   progress: Record<string, LessonProgress>;
   feedback: Record<string, FeedbackDraft>;
   instructors: Record<string, InstructorRecord>;
-  course: CourseInfo | null;
-  /** key: courseCode::userId */
+  /** key: courseId */
+  courses: Record<string, Course>;
+  /** 교수자–과목 배정. key: courseId::email */
+  courseInstructors: Record<string, CourseInstructor>;
+  /** 수강 등록. key: courseId::userId */
   enrollments: Record<string, Enrollment>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
@@ -40,14 +47,15 @@ export type DbData = {
 };
 
 const emptyDb = (): DbData => ({
-  version: 1,
+  version: DB_VERSION,
   members: {},
   lessons: {},
   seededLessonIds: [],
   progress: {},
   feedback: {},
   instructors: {},
-  course: null,
+  courses: {},
+  courseInstructors: {},
   enrollments: {},
   sessionSecret: randomBytes(32).toString("hex"),
 });
@@ -62,9 +70,16 @@ export type Db = {
 export const openDb = (dataDir: string): Db => {
   mkdirSync(dataDir, { recursive: true });
   const file = path.join(dataDir, "db.json");
-  const data: DbData = existsSync(file)
-    ? { ...emptyDb(), ...(JSON.parse(readFileSync(file, "utf8")) as Partial<DbData>) }
-    : emptyDb();
+  const stored = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<DbData>) : null;
+  // 버전 1 파일에는 version: 1과 course가 들어 있다. 기본값으로 덮어쓰지 않도록 저장된 값을 뒤에 펼친다.
+  const data: DbData = stored ? { ...emptyDb(), ...stored, version: stored.version ?? 1 } : emptyDb();
+
+  if (stored && data.version !== DB_VERSION) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backup = path.join(dataDir, `db.backup-v${data.version}-${stamp}.json`);
+    copyFileSync(file, backup);
+    console.log(`DB 구조를 바꾸기 전에 원래 파일을 ${backup}에 복사해 두었어요.`);
+  }
 
   const save = () => {
     const tmp = `${file}.tmp`;
@@ -87,6 +102,12 @@ export const openDb = (dataDir: string): Db => {
       lesson.level = hsk;
       changed = true;
     }
+  }
+  // 1과목 → 3과목 구조 (과목·교수자 배정·수강 등록, 강의자료의 courseId)
+  const courseChanges = migrateCourses(data, new Date().toISOString());
+  if (courseChanges.length) {
+    for (const c of courseChanges) console.log(`DB: ${c}`);
+    changed = true;
   }
   if (changed) save();
 

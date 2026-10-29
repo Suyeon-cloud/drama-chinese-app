@@ -1,3 +1,4 @@
+import { LEGACY_COURSE_ID } from "./courses";
 import { episodes } from "./index";
 import { yijiarenzhimingEp3 } from "./episodes/yijiarenzhiming-ep3";
 import { SAVED_LESSONS } from "./savedLessons";
@@ -25,6 +26,7 @@ const lessonFromEpisode = (
   meta: Pick<Lesson, "id" | "week" | "title" | "direction" | "level" | "status">,
 ): Lesson => ({
   ...meta,
+  courseId: LEGACY_COURSE_ID,
   description: ep.description,
   video: ep.video,
   source: { dramaTitle: ep.dramaTitle, episode: ep.episode },
@@ -34,7 +36,7 @@ const lessonFromEpisode = (
   updatedAt: SEED_TIME,
 });
 
-/** 코드에 들어 있는 기본 강의자료 (15주) */
+/** 코드에 들어 있는 기본 강의자료 (3과목 개편 전 15주 — 모두 ‘기존 자료’ 과목) */
 const BUILT_IN_LESSONS: Lesson[] = [
   // 이전 1주차(전체 회차 120~626초). 새 1주차 클립(lesson-week01)의 대본을 채워 공개하기 전까지 학습자용으로 둔다.
   // 상황별 장면 · 문화 메뉴의 ‘장면 다시 보기’도 이 영상을 쓴다.

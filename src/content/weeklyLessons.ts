@@ -7,6 +7,7 @@
 // - 1~8주차는 중국어 → 한국어(중국 드라마), 9~15주차는 한국어 → 중국어(한국 드라마)이다.
 
 import { defaultDirectionForWeek } from "./course";
+import { LEGACY_COURSE_ID } from "./courses";
 import type { DraftLens, DraftNote, DraftQuiz, Lesson } from "./types";
 
 const SEED_TIME = "2026-10-26T00:00:00.000Z";
@@ -51,6 +52,8 @@ const buildLesson = (w: WeekSpec): Lesson => {
   });
   return {
     id: `lesson-week${String(w.week).padStart(2, "0")}`,
+    // 3과목 개편 전 15주 계획이라 ‘기존 자료’로 보관한다. (새 과목 주차와 영상이 같은 것만 나중에 옮긴다)
+    courseId: LEGACY_COURSE_ID,
     week: w.week,
     title: w.title,
     description: `${w.scene} · 학습 주제: ${w.theme}`,
