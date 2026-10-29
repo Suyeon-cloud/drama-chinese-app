@@ -1,25 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { COURSE_PHASES } from "../../content/course";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { ApiError } from "../lib/api";
 import { navigate } from "../router";
 import { courseStore, enrollmentStore } from "../store";
 import { normalizeCourseCode } from "../store/courseStore";
-import { useEnrollments } from "../store/hooks";
-import type { CourseInfo } from "../store/models";
+import { useMyCourses } from "../store/hooks";
+import type { CourseSummary } from "../store/models";
 
 /**
- * 학생 참여 링크(#/join/{courseCode}) 화면.
- * 로그인하지 않았으면 Google 로그인을 요청하고, 로그인 후 학습자로 수업에 참여한다.
- * 승인된 학습자만 학습할 수 있으므로, 참여 후 관리자 승인을 기다린다.
+ * 학생 참여 링크(#/join/{강의코드}) 화면.
+ * 로그인하지 않았으면 Google 로그인을 요청하고, 관리자 승인을 받은 학습자는 바로 그 과목에 수강 등록된다.
  */
 export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const code = normalizeCourseCode(params.get("code") ?? "");
   const { user, signIn, pending } = useAuth();
   const toast = useToast();
-  const [course, setCourse] = useState<CourseInfo | null | undefined>(undefined);
+  const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined);
   const [joining, setJoining] = useState(false);
-  const enrollments = useEnrollments(course ? course.code : null);
+  const myCourses = useMyCourses(user?.role === "learner" ? user.id : null);
 
   useEffect(() => {
     let alive = true;
@@ -36,19 +35,19 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
       <div className="page">
         <div className="card login-gate">
           <span className="gate-emoji">🔗</span>
-          <h2>수업을 찾을 수 없어요</h2>
+          <h2>강의를 찾을 수 없어요</h2>
           <p className="muted">
-            참여 코드 <b>{code || "(없음)"}</b>에 해당하는 수업이 없어요. 링크를 다시 확인해 주세요.
+            강의코드 <b>{code || "(없음)"}</b>에 해당하는 강의가 없어요. 링크를 다시 확인해 주세요.
           </p>
-          <button className="btn btn-soft" onClick={() => navigate("home")}>
-            홈으로
+          <button className="btn btn-soft" onClick={() => navigate("weeks")}>
+            내 강의로
           </button>
         </div>
       </div>
     );
   }
 
-  const enrolled = !!user && !!enrollments?.some((e) => e.userId === user.id);
+  const enrolled = !!myCourses?.some((c) => c.id === course.id);
 
   const join = async () => {
     setJoining(true);
@@ -56,13 +55,15 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
       const u = user ?? (await signIn());
       if (!u) return;
       if (u.role === "instructor") {
-        toast.show("교수자 계정은 수업에 참여하지 않아도 돼요.", "info");
+        toast.show("교수자 계정은 수강 등록하지 않아도 돼요.", "info");
         navigate("admin");
         return;
       }
-      await enrollmentStore.enroll({ courseCode: course.code, userId: u.id, name: u.name, email: u.email });
-      toast.show("수업에 참여했어요.", "success");
-      navigate("weeks");
+      await enrollmentStore.enroll(code);
+      toast.show(`《${course.drama}》 ${course.title} 수강 등록을 마쳤어요!`, "success");
+      navigate("course", { id: course.id });
+    } catch (err) {
+      toast.show(err instanceof ApiError ? err.message : "수강 등록에 실패했어요.", "error");
     } finally {
       setJoining(false);
     }
@@ -71,31 +72,29 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   return (
     <div className="page">
       <div className="card login-gate join-card">
-        <span className="gate-emoji">🎓</span>
-        <span className="pill pill-sky">수업 참여</span>
-        <h2>{course.title}</h2>
-        <ul className="join-phases">
-          {COURSE_PHASES.map((p) => (
-            <li key={p.title}>
-              <b>{p.title}</b> {p.subtitle}
-            </li>
-          ))}
-        </ul>
-        <p className="muted small">참여 코드 {course.code}</p>
+        <span className="gate-emoji">🎬</span>
+        <span className="pill pill-sky">수강 등록</span>
+        <h2>
+          《{course.drama}》 {course.title}
+        </h2>
+        <p className="muted">{course.description}</p>
+        <p className="muted small">
+          {course.weekCount}주 과정 · 강의코드 {code}
+        </p>
         {enrolled ? (
           <>
-            <p>이미 참여 중인 수업이에요.</p>
-            <button className="btn btn-primary" onClick={() => navigate("weeks")}>
-              주차별 학습으로 →
+            <p>이미 수강 중인 강의예요.</p>
+            <button className="btn btn-primary" onClick={() => navigate("course", { id: course.id })}>
+              과목 들어가기 →
             </button>
           </>
         ) : (
           <>
             <p className="muted">
-              {user ? `${user.name}님, 학습자로 이 수업에 참여할까요?` : "Google 계정으로 로그인하면 이 수업에 참여할 수 있어요."}
+              {user ? `${user.name}님, 이 강의를 수강할까요?` : "Google 계정으로 로그인하면 이 강의를 수강할 수 있어요."}
             </p>
             <button className="btn btn-primary" onClick={() => void join()} disabled={pending || joining}>
-              {pending ? "로그인 중…" : user ? "수업 참여하기" : "Google로 로그인하고 참여하기"}
+              {pending ? "로그인 중…" : user ? "수강 등록하기" : "Google로 로그인하고 수강하기"}
             </button>
           </>
         )}

@@ -1,5 +1,6 @@
 // 학습 기록·회원·피드백 데이터 모델. 브라우저와 서버(server/)가 같은 형태를 사용한다.
 import type { UserRole } from "../auth/roles";
+import type { LessonStatus } from "../../content/types";
 
 export type QuizResult = {
   correct: number;
@@ -137,6 +138,28 @@ export type Course = {
 
 /** 이전 이름 (1과목 시절 GET /api/course 응답) */
 export type CourseInfo = Course;
+
+/** 학습자에게 보내는 과목 정보 (강의코드 제외) */
+export type CourseSummary = Omit<Course, "code">;
+
+/**
+ * 학습자용 커리큘럼 한 주차. 준비 중인 주차도 주차·학습 주제·상태만 보여준다.
+ * 학습 콘텐츠(자막·표현·퀴즈 등)는 들어 있지 않다. 공개된 주차만 영상 id(썸네일용)를 준다.
+ */
+export type CurriculumWeek = {
+  lessonId: string;
+  week: number;
+  /** 학습 주제 */
+  title: string;
+  status: LessonStatus;
+  youtubeId: string | null;
+};
+
+/** GET /api/courses/:id/curriculum */
+export type CourseCurriculum = { course: CourseSummary; weeks: CurriculumWeek[] };
+
+/** POST /api/enrollments — alreadyEnrolled: 이미 수강 중이던 과목 (새로 등록하지 않음) */
+export type EnrollResult = { enrollment: Enrollment; course: CourseSummary; alreadyEnrolled: boolean };
 
 /** 교수자–과목 배정. 교수자 1명이 여러 과목을, 과목 1개를 여러 교수자가 맡을 수 있다. 교수자는 이메일로 구분한다. */
 export type CourseInstructor = {

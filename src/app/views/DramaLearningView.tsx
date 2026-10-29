@@ -47,7 +47,7 @@ export const DramaLearningView: React.FC<{ params: URLSearchParams }> = ({ param
           <p>{lesson ? "아직 공개되지 않은 강의자료예요." : "강의자료를 찾을 수 없어요."}</p>
           <div className="row" style={{ marginTop: 12 }}>
             <button className="btn btn-soft btn-sm" onClick={() => navigate("weeks")}>
-              주차별 학습으로
+              내 강의로
             </button>
           </div>
         </div>

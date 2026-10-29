@@ -14,6 +14,7 @@ import { LearnersView } from "./views/admin/LearnersView";
 import { LessonEditorView } from "./views/admin/LessonEditorView";
 import { MemberTableModal } from "./views/admin/MemberTableModal";
 import { ProgressView } from "./views/admin/ProgressView";
+import { CourseView } from "./views/CourseView";
 import { CultureView } from "./views/CultureView";
 import { DramaLearningView } from "./views/DramaLearningView";
 import { HomeView } from "./views/HomeView";
@@ -59,6 +60,16 @@ const Shell: React.FC = () => {
     prevUserId.current = user?.id ?? null;
     if (!prev && user?.role === "instructor" && view === "home") navigate("admin");
   }, [user, view]);
+  // 홈에서 승인된 학습자가 Google 로그인하면 ‘내 강의’로 이동한다. (새로고침으로 로그인 상태를 확인한 경우는 그대로 둔다)
+  const learnerPrev = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!ready) return;
+    const prev = learnerPrev.current;
+    learnerPrev.current = user?.id ?? null;
+    if (prev === null && user?.role === "learner" && user.member?.status === "approved" && view === "home") {
+      navigate("weeks");
+    }
+  }, [ready, user, view]);
 
   const def = getView(view);
   const adminOnly =
@@ -83,6 +94,7 @@ const Shell: React.FC = () => {
             <>
               {view === "home" && <HomeView />}
               {(view === "weeks" || view === "situations") && <WeeksView params={params} />}
+              {view === "course" && <CourseView params={params} />}
               {view === "lesson" && <DramaLearningView params={params} />}
               {view === "culture" && <CultureView />}
               {view === "mine" && <MyLearningView />}

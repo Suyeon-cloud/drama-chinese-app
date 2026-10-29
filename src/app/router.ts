@@ -5,6 +5,8 @@ export type ViewKey =
   // 학습자
   | "home"
   | "weeks"
+  // 과목 커리큘럼 #/course?id={courseId}
+  | "course"
   | "lesson"
   | "situations"
   | "culture"
@@ -28,10 +30,12 @@ export type ViewDef = { key: ViewKey; ko: string; requiresLogin?: boolean; admin
 
 export const VIEWS: ViewDef[] = [
   { key: "home", ko: "홈" },
-  { key: "weeks", ko: "주차·상황 학습" },
+  // 내 강의(수강 중인 드라마 과목 + 강의코드 등록)와 상황별 장면 탭
+  { key: "weeks", ko: "내 강의" },
+  { key: "course", ko: "내 강의", requiresLogin: true },
   { key: "lesson", ko: "주차별 학습", requiresLogin: true },
-  // 상황별 장면은 ‘주차·상황별 학습’ 화면에 합쳐졌다. (이전 링크 호환용)
-  { key: "situations", ko: "주차·상황 학습" },
+  // 상황별 장면은 ‘내 강의’ 화면의 탭으로 합쳐졌다. (이전 링크 호환용)
+  { key: "situations", ko: "내 강의" },
   { key: "culture", ko: "한중문화", requiresLogin: true },
   { key: "mine", ko: "내 대시보드", requiresLogin: true },
   { key: "join", ko: "수업 참여" },
@@ -62,7 +66,7 @@ export const menuFor = (role: UserRole | null, adminMode = false): ViewDef[] =>
   (role === "instructor" ? ADMIN_MENU : LEARNER_MENU).map(getView).filter((v) => adminMode || !v.adminModeOnly);
 
 /** 메뉴에 없는 화면이 어느 메뉴에 속하는지 (활성 표시용) */
-export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = { lesson: "weeks", situations: "weeks" };
+export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = { course: "weeks", lesson: "weeks", situations: "weeks" };
 
 /** 1차 판본 링크(#/drama?…) 호환 */
 const ALIASES: Record<string, ViewKey> = { drama: "lesson" };

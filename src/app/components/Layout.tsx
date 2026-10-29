@@ -8,6 +8,7 @@ import { Icon, type IconName } from "./Icon";
 const VIEW_ICONS: Record<ViewKey, IconName> = {
   home: "home",
   weeks: "play",
+  course: "play",
   lesson: "play",
   situations: "clapper",
   culture: "book",

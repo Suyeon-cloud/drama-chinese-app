@@ -1,18 +1,14 @@
 import React from "react";
-import { youtubeThumbnail } from "../../content";
-import { COURSE_PHASES, WEEKS } from "../../content/course";
-import { lessonHeading } from "../../content/lessons";
-import { getLevel } from "../../content/levels";
 import { useAuth } from "../auth/AuthContext";
 import { GoogleSignInButton } from "../auth/AuthControls";
-import { LOGIN_REQUIRED_MESSAGE, useGuardedNavigate } from "../auth/LoginPrompt";
+import { LOGIN_REQUIRED_MESSAGE } from "../auth/LoginPrompt";
 import { navigate } from "../router";
-import { useLessons, useUserProgress } from "../store/hooks";
+import { MyCoursesSection } from "./MyCoursesView";
 import { SituationsSection } from "./SituationsView";
 
 type Tab = "weeks" | "situations";
 
-/** 주차별 학습 + 상황별 장면을 한 화면에서 탭으로 오간다. */
+/** 내 강의(수강 중인 드라마 과목) + 상황별 장면을 한 화면에서 탭으로 오간다. */
 export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const { user } = useAuth();
   const query = params.get("q") ?? "";
@@ -20,15 +16,15 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
   const tab: Tab =
     params.get("tab") === "situations" || window.location.hash.startsWith("#/situations") ? "situations" : "weeks";
   const tabs: [Tab, string, string][] = [
-    ["weeks", "📅 주차별 학습", "15주 강의 영상"],
+    ["weeks", "📚 내 강의", "드라마별 15주 과정"],
     ["situations", "🎭 상황별 장면", "표현 · 역할극"],
   ];
 
   return (
     <div className="page">
       <div className="page-intro">
-        <h2>주차·상황별 학습</h2>
-        <p className="muted">15주 강의로 차근차근 배우고, 상황별 장면으로 표현을 연습해요.</p>
+        <h2>내 강의</h2>
+        <p className="muted">수강 중인 드라마 과목을 골라 실제 장면과 대사로 중국어를 배워요.</p>
       </div>
 
       <div className="learn-tabs" role="tablist" aria-label="학습 방식">
@@ -46,92 +42,22 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
         ))}
       </div>
 
-      {tab === "weeks" ? (
-        <WeekList />
-      ) : user ? (
-        <SituationsSection query={query} />
-      ) : (
+      {!user ? (
         <div className="card login-gate">
           <span className="gate-emoji">🔒</span>
           <h2>{LOGIN_REQUIRED_MESSAGE}</h2>
-          <p className="muted">로그인하면 상황별 장면과 역할극 연습을 이용할 수 있어요.</p>
+          <p className="muted">
+            {tab === "weeks"
+              ? "로그인하고 강의코드를 등록하면 드라마 과목을 학습할 수 있어요."
+              : "로그인하면 상황별 장면과 역할극 연습을 이용할 수 있어요."}
+          </p>
           <GoogleSignInButton />
         </div>
+      ) : tab === "weeks" ? (
+        <MyCoursesSection />
+      ) : (
+        <SituationsSection query={query} />
       )}
     </div>
-  );
-};
-
-/** 15주차 강의자료 목록. 학습자는 공개된 강의자료만, 관리자는 준비 중인 자료도 미리 본다. */
-const WeekList: React.FC = () => {
-  const lessons = useLessons();
-  const { user } = useAuth();
-  const go = useGuardedNavigate();
-  const progress = useUserProgress(user?.role === "learner" ? user.id : null);
-  if (!lessons) return null;
-  const visible = user?.role === "instructor" ? lessons : lessons.filter((l) => l.status === "published");
-
-  return (
-    <>
-      {COURSE_PHASES.map((phase) => (
-        <section key={phase.title} className="week-phase">
-          <h3 className="section-title">
-            {phase.title} <span className="muted">· {phase.subtitle}</span>
-          </h3>
-          <div className="week-grid">
-            {WEEKS.filter((w) => w >= phase.from && w <= phase.to).map((week) => {
-              const items = visible.filter((l) => l.week === week);
-              if (items.length === 0) {
-                return (
-                  <div key={week} className="card week-card empty-week">
-                    <span className="week-no">{week}주차</span>
-                    <p className="muted small">강의자료 준비 중</p>
-                  </div>
-                );
-              }
-              return items.map((lesson) => {
-                const p = progress?.find((x) => x.lessonId === lesson.id);
-                const level = getLevel(lesson.level);
-                return (
-                  <button
-                    key={lesson.id}
-                    className="card week-card"
-                    onClick={() => go("lesson", { lesson: lesson.id })}
-                  >
-                    <span className="week-thumb">
-                      {lesson.video.youtubeId ? (
-                        // eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion
-                        <img src={youtubeThumbnail(lesson.video.youtubeId)} alt="" loading="lazy" />
-                      ) : (
-                        <span className="thumb-placeholder" aria-hidden>
-                          📖
-                        </span>
-                      )}
-                      <span className="week-no on-thumb">{week}주차</span>
-                    </span>
-                    <span className="row-start">
-                      <span className={`pill pill-${level.tone}`}>{level.label}</span>
-                      {lesson.status !== "published" ? <span className="pill pill-pink">미리보기 · 비공개</span> : null}
-                      {p?.completedAt ? (
-                        <span className="pill pill-mint">✅ 완료</span>
-                      ) : p?.startedAt ? (
-                        <span className="pill pill-sky">학습 중 {Math.round(p.progressRatio * 100)}%</span>
-                      ) : null}
-                    </span>
-                    <b className="week-title">{lessonHeading(lesson)}</b>
-                    <small className="muted">{lesson.title}</small>
-                    {p ? (
-                      <span className="mini-bar" aria-label={`진행률 ${Math.round(p.progressRatio * 100)}%`}>
-                        <span style={{ width: `${p.progressRatio * 100}%` }} />
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              });
-            })}
-          </div>
-        </section>
-      ))}
-    </>
   );
 };

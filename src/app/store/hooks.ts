@@ -10,7 +10,9 @@ import {
   progressStore,
 } from "./index";
 import type {
+  CourseCurriculum,
   CourseInfo,
+  CourseSummary,
   Enrollment,
   FeedbackDraft,
   InstructorRecord,
@@ -71,6 +73,24 @@ export const useInstructors = (): InstructorRecord[] | null =>
 
 export const useCurrentCourse = (): CourseInfo | null =>
   useStoreQuery(() => courseStore.current(), courseStore.subscribe, "course");
+
+/** 내가 수강 중인 과목. userId가 없으면(학습자가 아니면) 빈 목록 */
+export const useMyCourses = (userId: string | null): CourseSummary[] | null =>
+  useStoreQuery(
+    () => (userId ? courseStore.myCourses() : Promise.resolve([])),
+    courseStore.subscribe,
+    `my-courses:${userId ?? ""}`,
+  );
+
+/** 과목 커리큘럼. undefined: 불러오는 중, null: 수강 중이 아니거나 없는 과목 */
+export const useCurriculum = (courseId: string, userId: string | null): CourseCurriculum | null | undefined => {
+  const value = useStoreQuery(
+    () => (userId ? courseStore.curriculum(courseId) : Promise.resolve(null)).then((c) => ({ c })),
+    courseStore.subscribe,
+    `curriculum:${courseId}:${userId ?? ""}`,
+  );
+  return value === null ? undefined : value.c;
+};
 
 export const useEnrollments = (courseCode: string | null): Enrollment[] | null =>
   useStoreQuery(
