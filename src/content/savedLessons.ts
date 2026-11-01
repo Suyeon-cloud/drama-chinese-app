@@ -1,9 +1,1588 @@
 // 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 `npm run export-lessons`로 다시 만듭니다.
-// data/db.json의 강의자료 16개 (2026-10-29T10:35:12.180Z)
+// data/db.json의 강의자료 61개 (2026-11-01T13:01:34.994Z)
 // 서버 DB에 처음 들어가는 기본 강의자료(SEED_LESSONS)에서 같은 id의 기본값을 이 내용으로 바꾼다.
 import type { Lesson } from "./types";
 
 export const SAVED_LESSONS: Lesson[] = [
+  {
+    "id": "course-campus-w01",
+    "courseId": "course-campus",
+    "week": 1,
+    "title": "첫 만남과 첫인상",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "published",
+    "video": {
+      "youtubeUrl": "https://youtu.be/d0msPNoywS8",
+      "youtubeId": "d0msPNoywS8",
+      "startTime": 3,
+      "endTime": 462
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在雨中邂逅张陆让"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [
+        {
+          "start": 7.2,
+          "end": 8.759,
+          "zh": "下雨了 还不跑起来",
+          "ko": "비 오는데 뛰지도 않고",
+          "pinyin": "xià yǔ le hái bù pǎo qǐlai"
+        },
+        {
+          "start": 9.16,
+          "end": 10.52,
+          "zh": "为什么走着淋雨啊",
+          "ko": "왜 비를 맞으면서 걸어?",
+          "pinyin": "wèishénme zǒuzhe lín yǔ a"
+        },
+        {
+          "start": 10.52,
+          "end": 11.439,
+          "zh": "笨蛋",
+          "ko": "바보",
+          "pinyin": "bèndàn"
+        },
+        {
+          "start": 21.719,
+          "end": 23.24,
+          "zh": "阿姨 给我两瓶可乐",
+          "ko": "이모, 콜라 두 병 주세요",
+          "pinyin": "āyí gěi wǒ liǎng píng kělè"
+        },
+        {
+          "start": 23.24,
+          "end": 24.039,
+          "zh": "谢谢",
+          "ko": "감사합니다",
+          "pinyin": "xièxie"
+        },
+        {
+          "start": 64.48,
+          "end": 67.14,
+          "zh": "我听说啊新生中有好几个厉害的",
+          "ko": "듣자 하니 신입생 중에 대단한 애들이 몇 명 있대",
+          "pinyin": "wǒ tīngshuō a xīnshēng zhōng yǒu hǎo jǐ gè lìhai de"
+        },
+        {
+          "start": 67.1,
+          "end": 68.5,
+          "zh": "也不知道是不是真的",
+          "ko": "진짜인지는 모르겠지만",
+          "pinyin": "yě bù zhīdào shì bu shì zhēn de"
+        },
+        {
+          "start": 68.5,
+          "end": 70.4,
+          "zh": "反正我打听出来最有名的两个",
+          "ko": "어쨌든 내가 알아낸 제일 유명한 두 명은",
+          "pinyin": "fǎnzhèng wǒ dǎting chūlai zuì yǒumíng de liǎng gè"
+        },
+        {
+          "start": 70.4,
+          "end": 72.5,
+          "zh": "一个叫张陆让",
+          "ko": "한 명은 장루랑",
+          "pinyin": "yí gè jiào zhāng lùràng"
+        },
+        {
+          "start": 72.5,
+          "end": 73.34,
+          "zh": "一个叫顾然",
+          "ko": "한 명은 구란이야",
+          "pinyin": "yí gè jiào gù rán"
+        },
+        {
+          "start": 73.3,
+          "end": 75.4,
+          "zh": "那他们为什么这么有名啊",
+          "ko": "그 애들은 왜 그렇게 유명한데?",
+          "pinyin": "nà tāmen wèishénme zhème yǒumíng a"
+        },
+        {
+          "start": 75.4,
+          "end": 77.4,
+          "zh": "成绩好呗",
+          "ko": "성적이 좋겠지",
+          "pinyin": "chéngjì hǎo bei"
+        },
+        {
+          "start": 78.5,
+          "end": 80.5,
+          "zh": "我们学校成绩好的也不少啊",
+          "ko": "우리 학교에 성적 좋은 애들은 많잖아",
+          "pinyin": "wǒmen xuéxiào chéngjì hǎo de yě bù shǎo a"
+        },
+        {
+          "start": 80.9,
+          "end": 82.9,
+          "zh": "所以肯定还有别的过人之处",
+          "ko": "그러니까 분명 다른 뛰어난 점이 있겠지",
+          "pinyin": "suǒyǐ kěndìng hái yǒu bié de guòrén zhī chù"
+        },
+        {
+          "start": 84.4,
+          "end": 85.9,
+          "zh": "在在快点 我们要迟到了",
+          "ko": "짜이짜이, 빨리 와, 우리 지각하겠어",
+          "pinyin": "zàizài kuài diǎn wǒmen yào chídào le"
+        },
+        {
+          "start": 87.4,
+          "end": 88.5,
+          "zh": "别磨蹭了",
+          "ko": "꾸물거리지 마",
+          "pinyin": "bié móceng le"
+        },
+        {
+          "start": 88.5,
+          "end": 88.96,
+          "zh": "赶紧说吧",
+          "ko": "빨리 말해",
+          "pinyin": "gǎnjǐn shuō ba"
+        },
+        {
+          "start": 89,
+          "end": 90.1,
+          "zh": "叫什么名字",
+          "ko": "이름이 뭐야?",
+          "pinyin": "jiào shénme míngzi"
+        },
+        {
+          "start": 90.1,
+          "end": 91.5,
+          "zh": "几班的",
+          "ko": "몇 반이야?",
+          "pinyin": "jǐ bān de"
+        },
+        {
+          "start": 93,
+          "end": 94,
+          "zh": "问你们话呢",
+          "ko": "묻잖아",
+          "pinyin": "wèn nǐmen huà ne"
+        },
+        {
+          "start": 94,
+          "end": 96,
+          "zh": "苏在在高一九班",
+          "ko": "쑤짜이짜이, 1학년 9반이요",
+          "pinyin": "sū zàizài gāo yī jiǔ bān"
+        },
+        {
+          "start": 97,
+          "end": 99,
+          "zh": "姜佳 也是高一九班",
+          "ko": "장자, 저도 1학년 9반이요",
+          "pinyin": "jiāng jiā yě shì gāo yī jiǔ bān"
+        },
+        {
+          "start": 102.6,
+          "end": 103.5,
+          "zh": "同学",
+          "ko": "거기 학생",
+          "pinyin": "tóngxué"
+        },
+        {
+          "start": 104.6,
+          "end": 105.7,
+          "zh": "过来过来",
+          "ko": "이리 와, 이리 와",
+          "pinyin": "guòlai guòlai"
+        },
+        {
+          "start": 106.4,
+          "end": 107.6,
+          "zh": "同学 过来",
+          "ko": "학생, 이리 와",
+          "pinyin": "tóngxué guòlai"
+        },
+        {
+          "start": 110.4,
+          "end": 111.6,
+          "zh": "学长 学姐 早",
+          "ko": "선배님들, 안녕하세요",
+          "pinyin": "xuézhǎng xuéjiě zǎo"
+        },
+        {
+          "start": 112.4,
+          "end": 115,
+          "zh": "看看几点了 叫什么",
+          "ko": "지금 몇 시인지 봐. 이름이 뭐야?",
+          "pinyin": "kànkan jǐ diǎn le jiào shénme"
+        },
+        {
+          "start": 116.3,
+          "end": 117.3,
+          "zh": "学姐",
+          "ko": "선배",
+          "pinyin": "xuéjiě"
+        },
+        {
+          "start": 117.3,
+          "end": 118.3,
+          "zh": "不说是吧",
+          "ko": "말 안 하겠다 이거지?",
+          "pinyin": "bù shuō shì ba"
+        },
+        {
+          "start": 124.5,
+          "end": 125.5,
+          "zh": "张陆让",
+          "ko": "장루랑이요",
+          "pinyin": "zhāng lùràng"
+        },
+        {
+          "start": 127,
+          "end": 128,
+          "zh": "啊 我不是",
+          "ko": "네? 전 아닌데요",
+          "pinyin": "à wǒ bú shì"
+        },
+        {
+          "start": 128,
+          "end": 129,
+          "zh": "名字都在这儿写着呢 还不是",
+          "ko": "이름이 여기 다 쓰여 있는데 아니긴 뭐가 아니야",
+          "pinyin": "míngzi dōu zài zhèr xiězhe ne hái bú shì"
+        },
+        {
+          "start": 129,
+          "end": 131.6,
+          "zh": "记下来 他叫张陆让",
+          "ko": "적어. 얘 이름은 장루랑",
+          "pinyin": "jì xiàlai tā jiào zhāng lùràng"
+        },
+        {
+          "start": 131.6,
+          "end": 133.6,
+          "zh": "哎 张陆让",
+          "ko": "어, 장루랑",
+          "pinyin": "āi zhāng lùràng"
+        },
+        {
+          "start": 133.6,
+          "end": 135.5,
+          "zh": "就是贴吧那个",
+          "ko": "바로 그 게시판에 나온 애",
+          "pinyin": "jiùshì tiēbā nàge"
+        },
+        {
+          "start": 138.6,
+          "end": 140,
+          "zh": "你跟她们一样都是九班的吗",
+          "ko": "너도 쟤들처럼 9반이야?",
+          "pinyin": "nǐ gēn tāmen yíyàng dōu shì jiǔ bān de ma"
+        },
+        {
+          "start": 142.3,
+          "end": 143.5,
+          "zh": "我其实我",
+          "ko": "저는 사실, 저는",
+          "pinyin": "wǒ qíshí wǒ"
+        },
+        {
+          "start": 144,
+          "end": 145.5,
+          "zh": "知道了 九班的",
+          "ko": "알았어, 9반",
+          "pinyin": "zhīdào le jiǔ bān de"
+        },
+        {
+          "start": 149,
+          "end": 151.3,
+          "zh": "愣着干嘛呀 赶快回班呀",
+          "ko": "멍하니 뭐 해? 얼른 교실로 가",
+          "pinyin": "lèngzhe gànmá ya gǎnkuài huí bān ya"
+        },
+        {
+          "start": 151.3,
+          "end": 153.3,
+          "zh": "哦 好",
+          "ko": "아, 네",
+          "pinyin": "ò hǎo"
+        },
+        {
+          "start": 155.3,
+          "end": 157.3,
+          "zh": "老师 张陆让还没来呢",
+          "ko": "선생님, 장루랑이 아직 안 왔는데요",
+          "pinyin": "lǎoshī zhāng lùràng hái méi lái ne"
+        },
+        {
+          "start": 157.7,
+          "end": 158.8,
+          "zh": "张陆让",
+          "ko": "장루랑?",
+          "pinyin": "zhāng lùràng"
+        },
+        {
+          "start": 160,
+          "end": 161.8,
+          "zh": "他是一班的 来咱们班干嘛",
+          "ko": "걔는 1반인데 우리 반엔 왜 와?",
+          "pinyin": "tā shì yī bān de lái zánmen bān gànmá"
+        },
+        {
+          "start": 162,
+          "end": 163.2,
+          "zh": "啊 一班",
+          "ko": "아, 1반",
+          "pinyin": "à yī bān"
+        },
+        {
+          "start": 164.5,
+          "end": 165.9,
+          "zh": "张陆让到了没有",
+          "ko": "장루랑 왔어, 안 왔어?",
+          "pinyin": "zhāng lùràng dào le méiyǒu"
+        },
+        {
+          "start": 166.2,
+          "end": 167,
+          "zh": "来了来了",
+          "ko": "왔어요, 왔어요",
+          "pinyin": "lái le lái le"
+        },
+        {
+          "start": 168,
+          "end": 170,
+          "zh": "你是张陆让",
+          "ko": "네가 장루랑이야?",
+          "pinyin": "nǐ shì zhāng lùràng"
+        },
+        {
+          "start": 173.4,
+          "end": 175.1,
+          "zh": "啊让 啊让",
+          "ko": "아랑, 아랑",
+          "pinyin": "ā ràng ā ràng"
+        },
+        {
+          "start": 176.1,
+          "end": 177,
+          "zh": "王阳",
+          "ko": "왕양",
+          "pinyin": "wáng yáng"
+        },
+        {
+          "start": 178,
+          "end": 179,
+          "zh": "韩正",
+          "ko": "한정",
+          "pinyin": "hán zhèng"
+        },
+        {
+          "start": 180,
+          "end": 181,
+          "zh": "李茂生",
+          "ko": "리마오성",
+          "pinyin": "lǐ màoshēng"
+        },
+        {
+          "start": 184,
+          "end": 185,
+          "zh": "借你的书",
+          "ko": "빌려 간 책",
+          "pinyin": "jiè nǐ de shū"
+        },
+        {
+          "start": 185,
+          "end": 186.2,
+          "zh": "给你摆好了",
+          "ko": "잘 정리해 놨어",
+          "pinyin": "gěi nǐ bǎi hǎo le"
+        },
+        {
+          "start": 190,
+          "end": 191,
+          "zh": "今天怎么这么晚",
+          "ko": "오늘은 왜 이렇게 늦었어?",
+          "pinyin": "jīntiān zěnme zhème wǎn"
+        },
+        {
+          "start": 191,
+          "end": 194,
+          "zh": "迟到了 在学校门口被值日生拦下了",
+          "ko": "지각했어. 교문에서 당번한테 붙잡혔어",
+          "pinyin": "chídào le zài xuéxiào ménkǒu bèi zhírìshēng lán xià le"
+        },
+        {
+          "start": 194,
+          "end": 195,
+          "zh": "啊",
+          "ko": "아?",
+          "pinyin": "á"
+        },
+        {
+          "start": 195,
+          "end": 198,
+          "zh": "那 那怎么办",
+          "ko": "그, 그래서 어떻게 됐어?",
+          "pinyin": "nà nà zěnme bàn"
+        },
+        {
+          "start": 198,
+          "end": 199,
+          "zh": "很紧张",
+          "ko": "되게 긴장하네",
+          "pinyin": "hěn jǐnzhāng"
+        },
+        {
+          "start": 200,
+          "end": 202,
+          "zh": "啊 没事啊",
+          "ko": "아, 아니야",
+          "pinyin": "à méishì a"
+        },
+        {
+          "start": 202,
+          "end": 204,
+          "zh": "这不关心你吗",
+          "ko": "걱정돼서 그러지",
+          "pinyin": "zhè bú guānxīn nǐ ma"
+        },
+        {
+          "start": 204,
+          "end": 205,
+          "zh": "主要是我听说",
+          "ko": "그게, 내가 듣기로는",
+          "pinyin": "zhǔyào shì wǒ tīngshuō"
+        },
+        {
+          "start": 205,
+          "end": 207,
+          "zh": "咱们学校如果迟到的话会被记名字的",
+          "ko": "우리 학교는 지각하면 이름 적힌다던데",
+          "pinyin": "zánmen xuéxiào rúguǒ chídào dehuà huì bèi jì míngzi de"
+        },
+        {
+          "start": 207,
+          "end": 208,
+          "zh": "没记我",
+          "ko": "나 안 적혔어",
+          "pinyin": "méi jì wǒ"
+        },
+        {
+          "start": 209,
+          "end": 211,
+          "zh": "啊 没记你啊",
+          "ko": "아, 안 적혔구나",
+          "pinyin": "à méi jì nǐ a"
+        },
+        {
+          "start": 213,
+          "end": 215.4,
+          "zh": "那就好 差点出现两个张陆让",
+          "ko": "다행이다. 하마터면 장루랑이 두 명 될 뻔했네",
+          "pinyin": "nà jiù hǎo chàdiǎn chūxiàn liǎng gè zhāng lùràng"
+        },
+        {
+          "start": 216,
+          "end": 219,
+          "zh": "你不觉得你今天对我有点过分地热情吗",
+          "ko": "너 오늘 나한테 좀 지나치게 친절한 거 같지 않아?",
+          "pinyin": "nǐ bù juéde nǐ jīntiān duì wǒ yǒudiǎn guòfèn de rèqíng ma"
+        },
+        {
+          "start": 220,
+          "end": 222,
+          "zh": "有吗 还好吧",
+          "ko": "그래? 별로 안 그런데",
+          "pinyin": "yǒu ma hái hǎo ba"
+        },
+        {
+          "start": 223,
+          "end": 225.2,
+          "zh": "而且你今天的热情里边",
+          "ko": "그리고 오늘 너의 친절 속엔",
+          "pinyin": "érqiě nǐ jīntiān de rèqíng lǐbian"
+        },
+        {
+          "start": 226,
+          "end": 228,
+          "zh": "带着一丝心虚的成分",
+          "ko": "왠지 찔리는 구석이 좀 섞여 있어",
+          "pinyin": "dàizhe yì sī xīnxū de chéngfèn"
+        },
+        {
+          "start": 231,
+          "end": 232.5,
+          "zh": "有吗",
+          "ko": "그래?",
+          "pinyin": "yǒu ma"
+        },
+        {
+          "start": 232.5,
+          "end": 234,
+          "zh": "主要是吧",
+          "ko": "그게 말이야",
+          "pinyin": "zhǔyào shì ba"
+        },
+        {
+          "start": 234,
+          "end": 236,
+          "zh": "我也没有做什么",
+          "ko": "나도 딱히",
+          "pinyin": "wǒ yě méiyǒu zuò shénme"
+        },
+        {
+          "start": 236,
+          "end": 238,
+          "zh": "特别对不起你的事",
+          "ko": "너한테 크게 미안할 짓을 한 건 아니야",
+          "pinyin": "tèbié duìbuqǐ nǐ de shì"
+        },
+        {
+          "start": 240,
+          "end": 241,
+          "zh": "干嘛去啊",
+          "ko": "어디 가?",
+          "pinyin": "gànmá qù a"
+        },
+        {
+          "start": 241,
+          "end": 242,
+          "zh": "广播室",
+          "ko": "방송실",
+          "pinyin": "guǎngbōshì"
+        },
+        {
+          "start": 242,
+          "end": 243.8,
+          "zh": "广播室",
+          "ko": "방송실",
+          "pinyin": "guǎngbōshì"
+        },
+        {
+          "start": 245,
+          "end": 246,
+          "zh": "苏在在",
+          "ko": "쑤짜이짜이",
+          "pinyin": "sū zàizài"
+        },
+        {
+          "start": 246,
+          "end": 248,
+          "zh": "咱班就你的衣服钱还没交",
+          "ko": "우리 반에서 너만 옷값 아직 안 냈어",
+          "pinyin": "zán bān jiù nǐ de yīfu qián hái méi jiāo"
+        },
+        {
+          "start": 248,
+          "end": 250,
+          "zh": "啊 好 马上",
+          "ko": "아, 응, 바로 낼게",
+          "pinyin": "à hǎo mǎshàng"
+        },
+        {
+          "start": 262,
+          "end": 263.5,
+          "zh": "我钱包呢",
+          "ko": "내 지갑 어디 갔지?",
+          "pinyin": "wǒ qiánbāo ne"
+        },
+        {
+          "start": 267,
+          "end": 268,
+          "zh": "捡到个钱包",
+          "ko": "지갑을 하나 주웠는데요",
+          "pinyin": "jiǎndào ge qiánbāo"
+        },
+        {
+          "start": 268,
+          "end": 270,
+          "zh": "有什么证件",
+          "ko": "신분증 같은 거 있어요?",
+          "pinyin": "yǒu shénme zhèngjiàn"
+        },
+        {
+          "start": 271,
+          "end": 272,
+          "zh": "没有打开看过",
+          "ko": "열어 보진 않았어요",
+          "pinyin": "méiyǒu dǎkāi kàn guo"
+        },
+        {
+          "start": 272,
+          "end": 273.5,
+          "zh": "得打开看一下",
+          "ko": "열어 봐야겠네요",
+          "pinyin": "děi dǎkāi kàn yíxià"
+        },
+        {
+          "start": 273.5,
+          "end": 276.5,
+          "zh": "里边可能有证明身份的东西",
+          "ko": "안에 신분을 확인할 만한 게 있을 수도 있으니까요",
+          "pinyin": "lǐbian kěnéng yǒu zhèngmíng shēnfèn de dōngxi"
+        },
+        {
+          "start": 276.5,
+          "end": 278,
+          "zh": "我就说让你看看吧",
+          "ko": "그러니까 열어 보라고 했잖아",
+          "pinyin": "wǒ jiù shuō ràng nǐ kànkan ba"
+        },
+        {
+          "start": 278,
+          "end": 279,
+          "zh": "非不看",
+          "ko": "끝까지 안 보더니",
+          "pinyin": "fēi bú kàn"
+        },
+        {
+          "start": 285,
+          "end": 288.8,
+          "zh": "我记得早上明明就放口袋里了",
+          "ko": "분명히 아침에 주머니에 넣어 둔 것 같은데",
+          "pinyin": "wǒ jìde zǎoshang míngmíng jiù fàng kǒudai lǐ le"
+        },
+        {
+          "start": 288.8,
+          "end": 290,
+          "zh": "在在 你先别急",
+          "ko": "짜이짜이, 일단 진정해",
+          "pinyin": "zàizài nǐ xiān bié jí"
+        },
+        {
+          "start": 290,
+          "end": 292,
+          "zh": "要不我先帮你把钱垫上",
+          "ko": "아니면 내가 일단 돈 대신 내 줄게",
+          "pinyin": "yàobù wǒ xiān bāng nǐ bǎ qián diàn shang"
+        },
+        {
+          "start": 292,
+          "end": 292.5,
+          "zh": "然后你再",
+          "ko": "그다음에 네가",
+          "pinyin": "ránhòu nǐ zài"
+        },
+        {
+          "start": 292.5,
+          "end": 294.8,
+          "zh": "然后我们可以去广播站播寻物启事",
+          "ko": "그다음에 방송실 가서 분실물 방송을 하면 돼",
+          "pinyin": "ránhòu wǒmen kěyǐ qù guǎngbōzhàn bō xúnwù qǐshì"
+        },
+        {
+          "start": 295,
+          "end": 297,
+          "zh": "万一是咱同学捡到了呢",
+          "ko": "혹시 우리 학교 애가 주웠을 수도 있잖아",
+          "pinyin": "wànyī shì zán tóngxué jiǎndào le ne"
+        },
+        {
+          "start": 297,
+          "end": 300,
+          "zh": "你学生卡有没有在钱包里呢",
+          "ko": "지갑에 학생증 들어 있어?",
+          "pinyin": "nǐ xuéshēngkǎ yǒu méiyǒu zài qiánbāo lǐ ne"
+        },
+        {
+          "start": 303,
+          "end": 304,
+          "zh": "在的",
+          "ko": "들어 있어",
+          "pinyin": "zài de"
+        },
+        {
+          "start": 305,
+          "end": 306.3,
+          "zh": "哎呀 那不就简单了",
+          "ko": "아이고, 그럼 간단하네",
+          "pinyin": "āiyā nà bú jiù jiǎndān le"
+        },
+        {
+          "start": 306.3,
+          "end": 308,
+          "zh": "学生卡上又有照片又有名字的",
+          "ko": "학생증에 사진도 있고 이름도 있으니까",
+          "pinyin": "xuéshēngkǎ shang yòu yǒu zhàopiàn yòu yǒu míngzi de"
+        },
+        {
+          "start": 308,
+          "end": 310.2,
+          "zh": "谁捡到了打开一看就知道是你的呀",
+          "ko": "누가 주워서 열어 보면 바로 네 거인 줄 알 거야",
+          "pinyin": "shéi jiǎndào le dǎkāi yí kàn jiù zhīdào shì nǐ de ya"
+        },
+        {
+          "start": 310.8,
+          "end": 312,
+          "zh": "但是",
+          "ko": "근데",
+          "pinyin": "dànshì"
+        },
+        {
+          "start": 313,
+          "end": 315.4,
+          "zh": "但是我学生卡",
+          "ko": "근데 내 학생증에",
+          "pinyin": "dànshì wǒ xuéshēngkǎ"
+        },
+        {
+          "start": 315.4,
+          "end": 318,
+          "zh": "没写自己的名字",
+          "ko": "내 이름을 안 썼어",
+          "pinyin": "méi xiě zìjǐ de míngzi"
+        },
+        {
+          "start": 318,
+          "end": 320,
+          "zh": "那你写的谁的",
+          "ko": "그럼 누구 이름을 썼는데?",
+          "pinyin": "nà nǐ xiě de shéi de"
+        },
+        {
+          "start": 320,
+          "end": 321,
+          "zh": "就是",
+          "ko": "그게",
+          "pinyin": "jiùshì"
+        },
+        {
+          "start": 323.1,
+          "end": 324,
+          "zh": "就是",
+          "ko": "그게",
+          "pinyin": "jiùshì"
+        },
+        {
+          "start": 324,
+          "end": 327,
+          "zh": "现播报 失物招领一条",
+          "ko": "분실물 안내 방송을 하겠습니다",
+          "pinyin": "xiàn bōbào shīwù zhāolǐng yì tiáo"
+        },
+        {
+          "start": 327.5,
+          "end": 329.5,
+          "zh": "附中刘亦菲同学",
+          "ko": "부속고 유역비 학생",
+          "pinyin": "fùzhōng liú yìfēi tóngxué"
+        },
+        {
+          "start": 329.5,
+          "end": 331,
+          "zh": "附中刘亦菲同学",
+          "ko": "부속고 유역비 학생",
+          "pinyin": "fùzhōng liú yìfēi tóngxué"
+        },
+        {
+          "start": 332,
+          "end": 334,
+          "zh": "请速来广播站",
+          "ko": "지금 바로 방송실로 와서",
+          "pinyin": "qǐng sù lái guǎngbōzhàn"
+        },
+        {
+          "start": 334,
+          "end": 336,
+          "zh": "领取你遗失的钱包",
+          "ko": "잃어버린 지갑을 찾아가세요",
+          "pinyin": "lǐngqǔ nǐ yíshī de qiánbāo"
+        },
+        {
+          "start": 336,
+          "end": 338,
+          "zh": "谁叫附中刘亦菲啊",
+          "ko": "누가 부속고 유역비야?",
+          "pinyin": "shéi jiào fùzhōng liú yìfēi a"
+        },
+        {
+          "start": 338,
+          "end": 340,
+          "zh": "我还附中吴彦祖呢",
+          "ko": "그럼 난 부속고 오언조다",
+          "pinyin": "wǒ hái fùzhōng wú yànzǔ ne"
+        },
+        {
+          "start": 343,
+          "end": 344,
+          "zh": "附中王祖贤 幸会",
+          "ko": "부속고 왕조현이야, 반가워",
+          "pinyin": "fùzhōng wáng zǔxián xìnghuì"
+        },
+        {
+          "start": 345,
+          "end": 346,
+          "zh": "幸会",
+          "ko": "반가워",
+          "pinyin": "xìnghuì"
+        },
+        {
+          "start": 347.5,
+          "end": 349.5,
+          "zh": "哎 那个钱包我先不找了",
+          "ko": "어, 그 지갑은 일단 안 찾을래",
+          "pinyin": "āi nàge qiánbāo wǒ xiān bù zhǎo le"
+        },
+        {
+          "start": 350,
+          "end": 351,
+          "zh": "哎 今天天气不错",
+          "ko": "아, 오늘 날씨 좋다",
+          "pinyin": "āi jīntiān tiānqì búcuò"
+        },
+        {
+          "start": 351,
+          "end": 352,
+          "zh": "我出去透透气",
+          "ko": "나 바람 좀 쐬고 올게",
+          "pinyin": "wǒ chūqu tòutou qì"
+        },
+        {
+          "start": 353.1,
+          "end": 355,
+          "zh": "这么着急啊",
+          "ko": "왜 이렇게 급해?",
+          "pinyin": "zhème zháojí a"
+        },
+        {
+          "start": 355,
+          "end": 356.2,
+          "zh": "等等",
+          "ko": "잠깐만",
+          "pinyin": "děngdeng"
+        },
+        {
+          "start": 358,
+          "end": 360,
+          "zh": "苏在在 附中刘亦菲 是你吧",
+          "ko": "쑤짜이짜이, 부속고 유역비가 너지?",
+          "pinyin": "sū zàizài fùzhōng liú yìfēi shì nǐ ba"
+        },
+        {
+          "start": 363,
+          "end": 365,
+          "zh": "嗯 确实是我",
+          "ko": "네, 저 맞아요",
+          "pinyin": "èn quèshí shì wǒ"
+        },
+        {
+          "start": 366,
+          "end": 367,
+          "zh": "嗯",
+          "ko": "응",
+          "pinyin": "èn"
+        },
+        {
+          "start": 371,
+          "end": 372,
+          "zh": "附中刘亦菲",
+          "ko": "부속고 유역비",
+          "pinyin": "fùzhōng liú yìfēi"
+        },
+        {
+          "start": 377,
+          "end": 380,
+          "zh": "看一下钱包有没有少东西吧",
+          "ko": "지갑에 없어진 거 있는지 확인해 봐",
+          "pinyin": "kàn yíxià qiánbāo yǒu méiyǒu shǎo dōngxi ba"
+        },
+        {
+          "start": 386.5,
+          "end": 388,
+          "zh": "张陆让 顾然",
+          "ko": "장루랑, 구란",
+          "pinyin": "zhāng lùràng gù rán"
+        },
+        {
+          "start": 389,
+          "end": 392,
+          "zh": "所以这个钱包是他们捡的",
+          "ko": "그러니까 이 지갑을 그 애들이 주운 거예요?",
+          "pinyin": "suǒyǐ zhège qiánbāo shì tāmen jiǎn de"
+        },
+        {
+          "start": 392.12,
+          "end": 393.679,
+          "zh": "两个男生送过来的",
+          "ko": "남학생 두 명이 가져왔어",
+          "pinyin": "liǎng gè nánshēng sòng guòlai de"
+        },
+        {
+          "start": 394.039,
+          "end": 395.12,
+          "zh": "刚走不久",
+          "ko": "간 지 얼마 안 됐어",
+          "pinyin": "gāng zǒu bù jiǔ"
+        },
+        {
+          "start": 397.039,
+          "end": 398.12,
+          "zh": "张陆让",
+          "ko": "장루랑",
+          "pinyin": "zhāng lùràng"
+        },
+        {
+          "start": 398.12,
+          "end": 399.679,
+          "zh": "不是我们早上遇到的那个",
+          "ko": "아침에 우리가 만난 그 애 아니야?",
+          "pinyin": "bú shì wǒmen zǎoshang yùdào de nàge"
+        },
+        {
+          "start": 399.679,
+          "end": 400,
+          "zh": "现在追还来得及",
+          "ko": "지금 쫓아가면 아직 늦지 않았어",
+          "pinyin": "xiànzài zhuī hái láidejí"
+        },
+        {
+          "start": 400,
+          "end": 401,
+          "zh": "快啊",
+          "ko": "빨리!",
+          "pinyin": "kuài a"
+        },
+        {
+          "start": 403,
+          "end": 404,
+          "zh": "在在快点",
+          "ko": "짜이짜이, 빨리",
+          "pinyin": "zàizài kuài diǎn"
+        },
+        {
+          "start": 411.639,
+          "end": 412.639,
+          "zh": "他们在那呢",
+          "ko": "저기 있다",
+          "pinyin": "tāmen zài nà ne"
+        },
+        {
+          "start": 412.639,
+          "end": 413.639,
+          "zh": "在在 快点",
+          "ko": "짜이짜이, 빨리",
+          "pinyin": "zàizài kuài diǎn"
+        },
+        {
+          "start": 416,
+          "end": 418,
+          "zh": "这呢 张陆让 顾然",
+          "ko": "여기 있어, 장루랑, 구란",
+          "pinyin": "zhè ne zhāng lùràng gù rán"
+        },
+        {
+          "start": 418,
+          "end": 419,
+          "zh": "嘿",
+          "ko": "저기!",
+          "pinyin": "hēi"
+        },
+        {
+          "start": 427,
+          "end": 428,
+          "zh": "哎哎哎哎",
+          "ko": "어어어어",
+          "pinyin": "āi āi āi āi"
+        },
+        {
+          "start": 430,
+          "end": 433,
+          "zh": "干嘛呢 我还没看清楚呢",
+          "ko": "뭐 하는 거야, 나 아직 제대로 못 봤는데",
+          "pinyin": "gànmá ne wǒ hái méi kàn qīngchu ne"
+        },
+        {
+          "start": 434,
+          "end": 435,
+          "zh": "顾然",
+          "ko": "구란",
+          "pinyin": "gù rán"
+        },
+        {
+          "start": 447,
+          "end": 450,
+          "zh": "是他 他叫顾然",
+          "ko": "쟤야, 쟤가 구란이야",
+          "pinyin": "shì tā tā jiào gù rán"
+        },
+        {
+          "start": 450,
+          "end": 451,
+          "zh": "你认识啊",
+          "ko": "아는 애야?",
+          "pinyin": "nǐ rènshi a"
+        },
+        {
+          "start": 451,
+          "end": 454,
+          "zh": "我之前在小卖部见过他",
+          "ko": "전에 매점에서 본 적 있어",
+          "pinyin": "wǒ zhīqián zài xiǎomàibù jiàn guo tā"
+        },
+        {
+          "start": 454,
+          "end": 456,
+          "zh": "啊",
+          "ko": "아",
+          "pinyin": "à"
+        }
+      ],
+      "updatedAt": "2026-11-01T12:49:54.104Z",
+      "origin": {
+        "zh": {
+          "provider": "srt",
+          "fileName": "당아비분향니_1주차.srt",
+          "fetchedAt": "2026-11-01T08:37:21.722Z",
+          "edited": true
+        },
+        "ko": {
+          "provider": "ai",
+          "fetchedAt": "2026-11-01T12:45:41.697Z"
+        }
+      }
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-11-01T12:51:00.010Z",
+    "captionMask": {
+      "enabled": true,
+      "top": 78,
+      "height": 12,
+      "width": 70
+    },
+    "draft": {
+      "expressions": [
+        {
+          "id": "note-mvxtui1j-gcddka",
+          "source": "下雨了 还不跑起来",
+          "note": "'비가 오는데 아직도 안 뛰어?'라는 뜻이에요. '还不 + 동사'는 '아직도 ~하지 않니?'라는 뜻으로, 상대가 당연히 해야 할 행동을 하지 않을 때 답답함이나 핀잔을 담아 써요. '跑起来'의 '起来'는 동작이 시작됨을 나타내요.",
+          "pinyin": "xià yǔ le hái bù pǎo qǐlai"
+        },
+        {
+          "id": "note-mvxtui1j-22xyrm",
+          "source": "看看几点了 叫什么",
+          "note": "'지금 몇 시인지 봐. 이름이 뭐야?'라는 뜻이에요. 지각한 학생을 붙잡은 선배가 꾸짖듯 묻는 말이에요. '看看'처럼 동사를 겹쳐 쓰면 '좀 ~해 봐'라는 가벼운 어감이 되고, '叫什么(名字)'는 이름을 묻는 가장 기본적인 표현이에요.",
+          "pinyin": "kànkan jǐ diǎn le jiào shénme"
+        },
+        {
+          "id": "note-mvxtui1j-q6ln8c",
+          "source": "别磨蹭了",
+          "note": "'꾸물거리지 마'라는 뜻이에요. '磨蹭'은 '꾸물대다, 늑장 부리다'라는 뜻이고, '别…了'는 '그만 ~해'라고 지금 하고 있는 행동을 멈추라고 할 때 써요. 지각할까 봐 친구를 재촉하는 장면에 어울리는 표현이에요.",
+          "pinyin": "bié móceng le"
+        },
+        {
+          "id": "note-mvxtui1j-0pc7vf",
+          "source": "幸会",
+          "note": "'만나서 반갑습니다'라는 뜻의 인사말이에요. 처음 만난 사람에게 쓰는 다소 격식 있는 표현인데, 이 장면에서는 서로 연예인 이름을 대며 장난스럽게 주고받아 웃음을 줘요. 일상에서는 '很高兴认识你'를 더 자주 써요.",
+          "pinyin": "xìnghuì"
+        },
+        {
+          "id": "note-mvxtui1j-biwmiq",
+          "source": "我出去透透气",
+          "note": "'나 바람 좀 쐬고 올게'라는 뜻이에요. '透气'는 '숨을 돌리다, 바람을 쐬다'라는 뜻이고, '透透气'처럼 겹쳐 쓰면 '잠깐 좀'이라는 가벼운 느낌이 돼요. 이 장면에서는 창피한 상황을 피하려는 핑계로 쓰였어요.",
+          "pinyin": "wǒ chūqu tòutou qì"
+        }
+      ],
+      "grammar": [
+        {
+          "id": "note-mvxtui1j-7k5m1v",
+          "source": "迟到了 在学校门口被值日生拦下了",
+          "note": "'A + 被 + B + 동사'는 'A가 B에게 ~당하다'라는 피동문이에요. 여기서는 '(내가) 당번 학생에게 붙잡혔다'라는 뜻이에요. 주로 좋지 않은 일을 당했을 때 많이 써요. 예문: 我的钱包被偷了。(내 지갑을 도둑맞았어요.)",
+          "pinyin": "chídào le zài xuéxiào ménkǒu bèi zhírìshēng lán xià le"
+        },
+        {
+          "id": "note-mvxtui1j-28eqjj",
+          "source": "得打开看一下",
+          "note": "'得(děi)'는 '~해야 한다'라는 뜻으로 구어에서 많이 써요. '동사 + 一下'는 '한번 ~해 보다, 좀 ~하다'라는 뜻으로 말투를 부드럽게 해요. 예문: 我得回家一下。(나 집에 좀 다녀와야 해.)",
+          "pinyin": "děi dǎkāi kàn yíxià"
+        },
+        {
+          "id": "note-mvxtui1j-swneb1",
+          "source": "你学生卡有没有在钱包里呢",
+          "note": "'有没有'처럼 긍정형과 부정형을 이어 붙이면 '~했니, 안 했니?'라는 정반의문문이 돼요. 문장 끝에 '吗'를 붙이지 않는다는 점에 주의하세요. 예문: 你有没有时间？(너 시간 있어, 없어?)",
+          "pinyin": "nǐ xuéshēngkǎ yǒu méiyǒu zài qiánbāo lǐ ne"
+        },
+        {
+          "id": "note-mvxtui1j-tv4o37",
+          "source": "为什么走着淋雨啊",
+          "note": "'동사1 + 着 + 동사2'는 '~한 채로 ~하다'라는 뜻으로, 앞 동작이 뒤 동작의 방식이나 상태를 나타내요. '走着淋雨'는 '걸으면서 비를 맞다'라는 뜻이에요. 예문: 他笑着说。(그는 웃으면서 말했어요.)",
+          "pinyin": "wèishénme zǒuzhe lín yǔ a"
+        },
+        {
+          "id": "note-mvxtui1j-tkv7en",
+          "source": "学生卡上又有照片又有名字的",
+          "note": "'又A又B'는 'A하기도 하고 B하기도 하다'라는 뜻으로, 두 가지 성질이나 상황을 함께 말할 때 써요. 여기서는 '학생증에 사진도 있고 이름도 있다'라는 뜻이에요. 예문: 这家店的菜又便宜又好吃。(이 가게 음식은 싸고 맛있어요.)",
+          "pinyin": "xuéshēngkǎ shang yòu yǒu zhàopiàn yòu yǒu míngzi de"
+        }
+      ],
+      "lenses": [
+        {
+          "id": "lens-mvxtui1j-gq8x9u",
+          "title": "'附中刘亦菲' — 스타 이름으로 하는 자기 농담",
+          "source": "附中刘亦菲同学",
+          "text": "'附中'은 '附属中学'의 줄임말로, 대학교에 딸린 부속 중·고등학교를 말해요. 중국에서는 명문대 부속고가 인기 있는 학교로 꼽혀요. 刘亦菲(유역비)는 아름다움의 상징처럼 여겨지는 배우이고, 吴彦祖(오언조)와 王祖贤(왕조현) 역시 미남·미녀의 대명사로 통하는 스타예요. 중국 젊은이들 사이에서는 '○○의 吴彦祖'처럼 자신이나 친구를 유명 스타에 빗대어 부르는 농담이 흔한데, 진지한 자랑이라기보다 일부러 과장해서 웃음을 주는 말이에요. 그래서 학생증에 '附中刘亦菲'라고 써 둔 사실이 방송으로 퍼지자 쑤짜이짜이가 몹시 민망해하는 거예요."
+        }
+      ],
+      "quiz": [
+        {
+          "id": "quiz-mvxtui1j-gg3h85",
+          "question": "'下雨了 还不跑起来'의 뜻으로 가장 알맞은 것은?",
+          "options": [
+            "비가 그쳤으니 이제 뛰자.",
+            "비가 오는데 아직도 안 뛰어?",
+            "비가 오니까 뛰지 마.",
+            "비가 오기 전에 뛰어야 해."
+          ],
+          "answer": 1,
+          "explanation": "'下雨了'는 '비가 온다', '还不 + 동사'는 '아직도 ~하지 않니?'라는 핀잔의 뜻이에요. 비를 맞으며 걷는 사람에게 왜 뛰지 않느냐고 하는 말이에요."
+        },
+        {
+          "id": "quiz-mvxtui1j-b26nvz",
+          "question": "'在学校门口被值日生拦下了'에서 주인공을 붙잡은 사람은 누구인가요?",
+          "options": [
+            "담임 선생님",
+            "같은 반 친구",
+            "매점 아주머니",
+            "당번 학생"
+          ],
+          "answer": 3,
+          "explanation": "'被 + B + 동사'는 'B에게 ~당하다'라는 피동문이에요. '值日生'은 당번 학생이므로, 교문에서 당번 학생에게 붙잡혔다는 뜻이에요."
+        },
+        {
+          "id": "quiz-mvxtui1k-n3stnv",
+          "question": "'幸会'는 어떤 상황에서 쓰는 말인가요?",
+          "options": [
+            "처음 만난 사람에게 반갑다고 인사할 때",
+            "헤어지면서 작별 인사를 할 때",
+            "상대에게 사과할 때",
+            "상대에게 고맙다고 할 때"
+          ],
+          "answer": 0,
+          "explanation": "'幸会'는 '만나서 반갑습니다'라는 뜻의 인사말이에요. 이 장면에서는 서로 스타 이름을 대며 장난스럽게 썼어요."
+        },
+        {
+          "id": "quiz-mvxtui1k-2s213o",
+          "question": "쑤짜이짜이가 갑자기 '那个钱包我先不找了'라며 지갑 찾기를 그만두려 한 이유는 무엇인가요?",
+          "options": [
+            "지갑 안에 돈이 없어서",
+            "지갑을 이미 찾아서",
+            "학생증에 '附中刘亦菲'라고 써 둔 게 방송돼서 민망해서",
+            "수업에 늦을까 봐 걱정돼서"
+          ],
+          "answer": 2,
+          "explanation": "학생증에 자기 이름 대신 '附中刘亦菲'라고 적어 두었는데, 그 이름이 방송으로 불리자 창피해서 지갑을 안 찾겠다며 자리를 피하려 한 거예요."
+        },
+        {
+          "id": "quiz-mvxtui1k-f2jv04",
+          "question": "'你学生卡有没有在钱包里呢'와 같은 의문문 형식은 무엇인가요?",
+          "options": [
+            "'吗'를 붙이는 일반 의문문",
+            "긍정형과 부정형을 붙인 정반의문문",
+            "'还是'를 쓰는 선택의문문",
+            "의문사 '什么'를 쓰는 의문문"
+          ],
+          "answer": 1,
+          "explanation": "'有没有'처럼 긍정형 '有'와 부정형 '没有'를 이어 붙인 정반의문문이에요. 이 형식에는 문장 끝에 '吗'를 붙이지 않아요."
+        }
+      ],
+      "level": "",
+      "createdAt": "2026-11-01T12:49:38.264Z",
+      "updatedAt": "2026-11-01T12:49:38.264Z"
+    }
+  },
+  {
+    "id": "course-campus-w02",
+    "courseId": "course-campus",
+    "week": 2,
+    "title": "친구를 돕고 응원하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=EXUSxAKaLmI",
+      "youtubeId": "EXUSxAKaLmI",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在被男生欺负，张陆让赢下篮球赛为她出头"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w03",
+    "courseId": "course-campus",
+    "week": 3,
+    "title": "함께 가기와 동행 제안하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=Ca3Hym5ASU0",
+      "youtubeId": "Ca3Hym5ASU0",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "张陆让陪苏在在一起走夜路"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w04",
+    "courseId": "course-campus",
+    "week": 4,
+    "title": "선택과 의견 표현하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/1TpuMnIGhE4",
+      "youtubeId": "1TpuMnIGhE4",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在竞选灰姑娘角色，张陆让投票给在在却死不承认"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w05",
+    "courseId": "course-campus",
+    "week": 5,
+    "title": "생일 축하와 감사",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=yhJZPFkK4ls",
+      "youtubeId": "yhJZPFkK4ls",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "张陆让准备生日礼物，小伙伴们给苏在在生日惊喜"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w06",
+    "courseId": "course-campus",
+    "week": 6,
+    "title": "공부와 도움 요청하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/WiHQF126-V8",
+      "youtubeId": "WiHQF126-V8",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在主动邀约张陆让补课"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w07",
+    "courseId": "course-campus",
+    "week": 7,
+    "title": "호의와 이유 표현하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=z50hQlKQVXw",
+      "youtubeId": "z50hQlKQVXw",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "张陆让雨夜专程给苏在在送伞却嘴硬不愿承认"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w08",
+    "courseId": "course-campus",
+    "week": 8,
+    "title": "상태 묻기와 친구 돌보기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=jMSiaSgsEtY",
+      "youtubeId": "jMSiaSgsEtY",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "姜佳照顾生病的顾然"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w09",
+    "courseId": "course-campus",
+    "week": 9,
+    "title": "공공장소 곤란 상황 대응",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/AoA-guQvuJ0",
+      "youtubeId": "AoA-guQvuJ0",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "公交车上偶遇猥琐大叔，张陆让为苏在在出头"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w10",
+    "courseId": "course-campus",
+    "week": 10,
+    "title": "서운함과 이유 묻기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=B8Yd507kL9I",
+      "youtubeId": "B8Yd507kL9I",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在发现张陆让转学没有告诉她"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w11",
+    "courseId": "course-campus",
+    "week": 11,
+    "title": "재회와 반가움",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=i_WSKKHZH2Y",
+      "youtubeId": "i_WSKKHZH2Y",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "“苏在在，回头！”张陆让与苏在在重逢"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w12",
+    "courseId": "course-campus",
+    "week": 12,
+    "title": "두려움과 안심",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=SQc_xiC91mk",
+      "youtubeId": "SQc_xiC91mk",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在走夜路害怕，张陆让及时出现"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w13",
+    "courseId": "course-campus",
+    "week": 13,
+    "title": "위로와 마음 표현",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=mu0n09BwhPU",
+      "youtubeId": "mu0n09BwhPU",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "让让轻轻抱抱害怕的在在，苏在在甜蜜告白“我觉得让让更好”"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w14",
+    "courseId": "course-campus",
+    "week": 14,
+    "title": "솔직한 감정 표현",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=1qqekOlp_Dk",
+      "youtubeId": "1qqekOlp_Dk",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在对张陆让直球说“我想要你”"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-campus-w15",
+    "courseId": "course-campus",
+    "week": 15,
+    "title": "안심시키고 약속하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=SWbbyNKRHnc",
+      "youtubeId": "SWbbyNKRHnc",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "当我飞奔向你",
+      "episode": "",
+      "videoTitle": "苏在在：“张陆让，你放心，我会对你负责到底的”"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
   {
     "id": "lesson-yjrzm-ep3",
     "week": 1,
@@ -3780,5 +5359,845 @@ export const SAVED_LESSONS: Lesson[] = [
     "createdAt": "2026-10-26T00:00:00.000Z",
     "updatedAt": "2026-10-26T00:00:00.000Z",
     "courseId": "course-legacy"
+  },
+  {
+    "id": "course-university-w01",
+    "courseId": "course-university",
+    "week": 1,
+    "title": "새로운 룸메이트와 기숙사 생활",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=mR4xiaNeyfs",
+      "youtubeId": "mR4xiaNeyfs",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "My roommate is such a spoiled princess"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w02",
+    "courseId": "course-university",
+    "week": 2,
+    "title": "친구들과 협력하고 역할 나누기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=GVmEncNtcac",
+      "youtubeId": "GVmEncNtcac",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "Langlang teams up with Wu Yan"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w03",
+    "courseId": "course-university",
+    "week": 3,
+    "title": "친구 사이의 생각과 감정 표현하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=rOCggaC38L0",
+      "youtubeId": "rOCggaC38L0",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "夏朗朗、皇甫议论范轻舟，杨嘉倩不开心"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w04",
+    "courseId": "course-university",
+    "week": 4,
+    "title": "교내 문제 상황을 설명하고 해명하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/T82vWnNBA2k",
+      "youtubeId": "T82vWnNBA2k",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "办公室激情视频传遍网络，嘉倩被老师约谈？！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w05",
+    "courseId": "course-university",
+    "week": 5,
+    "title": "문제에 대한 입장과 의견 표현하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/FinXR50tmHU",
+      "youtubeId": "FinXR50tmHU",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "嘉倩遭受网络暴力还要保护视频主角？！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w06",
+    "courseId": "course-university",
+    "week": 6,
+    "title": "발표하고 자신의 생각 전달하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/sNKLWf15eFU",
+      "youtubeId": "sNKLWf15eFU",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "白富美樊潇雨自信的演讲，气场霸气十足惊艳众人！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w07",
+    "courseId": "course-university",
+    "week": 7,
+    "title": "친구와 다투고 잘못 인정하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/Bj3gXUVaVFk",
+      "youtubeId": "Bj3gXUVaVFk",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "姐妹因为男人吵架！潇雨深刻反思自己的过错"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w08",
+    "courseId": "course-university",
+    "week": 8,
+    "title": "친구와 화해하고 관계 회복하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/mcIzM3NnAo8",
+      "youtubeId": "mcIzM3NnAo8",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "潇雨杨嘉倩重新和好！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w09",
+    "courseId": "course-university",
+    "week": 9,
+    "title": "경제적 독립과 돈 문제 이야기하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=NCXrWdP9hjU",
+      "youtubeId": "NCXrWdP9hjU",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "樊潇雨被后妈打，为赚钱又得罪嘉倩"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w10",
+    "courseId": "course-university",
+    "week": 10,
+    "title": "회의에서 아이디어를 제안하고 의견 나누기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/Djg24YNq0WY",
+      "youtubeId": "Djg24YNq0WY",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "白富美组织动员会，伙伴们纷纷献计想妙招！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w11",
+    "courseId": "course-university",
+    "week": 11,
+    "title": "방문하고 상대를 배려하며 대화하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/QPzuRdcc6Z4",
+      "youtubeId": "QPzuRdcc6Z4",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "姐妹们一起去看望老人"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w12",
+    "courseId": "course-university",
+    "week": 12,
+    "title": "가족과 갈등을 해결하고 화해하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/gcLCGSKsYBc",
+      "youtubeId": "gcLCGSKsYBc",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "潇雨和爸爸化解矛盾"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w13",
+    "courseId": "course-university",
+    "week": 13,
+    "title": "첫 직장생활에서 실수하고 대처하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/M08ALP64muQ",
+      "youtubeId": "M08ALP64muQ",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "朗朗刚工作就闯祸！但是遇到个高大帅气的师兄"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w14",
+    "courseId": "course-university",
+    "week": 14,
+    "title": "성과와 평가에 대해 이야기하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=LB6EERwX9go",
+      "youtubeId": "LB6EERwX9go",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "朗朗赢得第一，麦老师也在默默关注她"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-university-w15",
+    "courseId": "course-university",
+    "week": 15,
+    "title": "졸업과 작별, 미래 이야기하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://www.youtube.com/watch?v=WMDz4an9Zrc",
+      "youtubeId": "WMDz4an9Zrc",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "机智的上半场",
+      "episode": "",
+      "videoTitle": "It's graduation time! The girls really don't want to be apart"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w01",
+    "courseId": "course-workplace",
+    "week": 1,
+    "title": "상사와 처음 만나 직장 관계 파악하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/5WiXCsy_cGo",
+      "youtubeId": "5WiXCsy_cGo",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "打工人社死现场！成瑶以为的陪酒牛郎钱恒竟然是顶头上司 当面对质的尴尬程度不亚于脚趾抠地板"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w02",
+    "courseId": "course-workplace",
+    "week": 2,
+    "title": "전문적인 요청에 대응하고 입장 밝히기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/M9AY_hLeLvs",
+      "youtubeId": "M9AY_hLeLvs",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "油腻男试图白嫖成瑶法律建议，钱恒及时现身霸气劝退“她的时间都是我的”"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w03",
+    "courseId": "course-workplace",
+    "week": 3,
+    "title": "사건의 사실관계를 파악하고 상황 설명하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/4QoZAc63524",
+      "youtubeId": "4QoZAc63524",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "富豪装绝症晚期坚持要跟原配离婚，没想到被成瑶撞破小三即将生产"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w04",
+    "courseId": "course-workplace",
+    "week": 4,
+    "title": "업무 행사에서 소통하고 상황 파악하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/pYhtDs-87NE",
+      "youtubeId": "pYhtDs-87NE",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "商业活动变相亲？腹黑钱恒：跟成瑶一起也不是不行！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w05",
+    "courseId": "course-workplace",
+    "week": 5,
+    "title": "상사와 업무 관계 조율하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/3IodkcrIY2g",
+      "youtubeId": "3IodkcrIY2g",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "毒舌霸总一句话让小助理破防，成瑶故意和钱恒保持距离？"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w06",
+    "courseId": "course-workplace",
+    "week": 6,
+    "title": "회의에서 사건을 논의하고 의견 제시하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/EI6Qjxfsfm8",
+      "youtubeId": "EI6Qjxfsfm8",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "毒舌霸总钱恒开会盯着小助理成瑶发呆，完蛋了这动心的表情！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w07",
+    "courseId": "course-workplace",
+    "week": 7,
+    "title": "고객과의 문제 상황에 대응하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/zGxpsAvVxOM",
+      "youtubeId": "zGxpsAvVxOM",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "解气！钱恒暴打色狼客户，霸气牵手成瑶离开"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w08",
+    "courseId": "course-workplace",
+    "week": 8,
+    "title": "직업과 경력에 대해 설명하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/uHXK1PiXoBg",
+      "youtubeId": "uHXK1PiXoBg",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "成瑶爆改精英律师钱恒新人设“大专毕业 工厂打工 刚刚失业” 霸总表示很无语"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w09",
+    "courseId": "course-workplace",
+    "week": 9,
+    "title": "업무상 어려움과 감정 설명하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/LdVMQIGFSQk",
+      "youtubeId": "LdVMQIGFSQk",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "成瑶案件上受委屈，钱恒得知准备豪华大餐霸气安慰"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w10",
+    "courseId": "course-workplace",
+    "week": 10,
+    "title": "새로운 직원과 직장 관계 형성하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/Uq1YkuTHL3g",
+      "youtubeId": "Uq1YkuTHL3g",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "梁依然入职君恒第一天便频频向钱恒示好 成瑶疯狂吃醋"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w11",
+    "courseId": "course-workplace",
+    "week": 11,
+    "title": "팀 내 갈등과 의사결정 표현하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/bTlwzX0XYzA",
+      "youtubeId": "bTlwzX0XYzA",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "成瑶委屈退出钱恒团队 谁料这都是梁依然的恶毒计谋"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w12",
+    "courseId": "course-workplace",
+    "week": 12,
+    "title": "부당한 업무 요구와 직장 갈등에 대응하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/pKQ6gsAXdW0",
+      "youtubeId": "pKQ6gsAXdW0",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "心机女上司联合刁钻客户 趁钱恒不在联手逼成瑶辞职"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w13",
+    "courseId": "course-workplace",
+    "week": 13,
+    "title": "직장에서 겪은 어려움을 설명하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/zzj76T4sMQs",
+      "youtubeId": "zzj76T4sMQs",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "成瑶强颜欢笑装作工作顺利 钱恒看在眼里决心为老婆“复仇”"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w14",
+    "courseId": "course-workplace",
+    "week": 14,
+    "title": "해고 상황을 설명하고 문제에 대응하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/-7iyU8ZRDaU",
+      "youtubeId": "-7iyU8ZRDaU",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "钱恒出差归来发现成瑶被辞退 正面硬刚梁依然为老婆讨回公道"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "course-workplace-w15",
+    "courseId": "course-workplace",
+    "week": 15,
+    "title": "새로운 직장에 입사하고 적응하기",
+    "description": "",
+    "direction": "zh-ko",
+    "level": "",
+    "status": "draft",
+    "video": {
+      "youtubeUrl": "https://youtu.be/UmuqP7R7KS0",
+      "youtubeId": "UmuqP7R7KS0",
+      "startTime": 0,
+      "endTime": 0
+    },
+    "source": {
+      "dramaTitle": "你也有今天",
+      "episode": "",
+      "videoTitle": "成瑶入职新律所顾北青发出约会示好，钱恒危机感大爆发！"
+    },
+    "script": {
+      "source": "srt",
+      "cues": [],
+      "updatedAt": null
+    },
+    "createdAt": "2026-10-29T00:00:00.000Z",
+    "updatedAt": "2026-10-29T00:00:00.000Z"
   }
 ];

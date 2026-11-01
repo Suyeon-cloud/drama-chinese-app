@@ -20,6 +20,8 @@ const OverlayPlayer: React.FC<{ cue: MotionCue; time: number; playing: boolean }
   const entry = MOTION_REGISTRY[cue.motionType];
   const total = Math.max(1, Math.round(cue.duration * FPS));
   const ratio = cue.widthRatio ?? entry.widthRatio;
+  const heightFor = entry.heightFor as ((props: MotionCue["props"]) => number) | undefined;
+  const height = heightFor ? heightFor(cue.props) : entry.height;
 
   useEffect(() => {
     const p = ref.current;
@@ -41,7 +43,7 @@ const OverlayPlayer: React.FC<{ cue: MotionCue; time: number; playing: boolean }
   return (
     <div
       className={`overlay-slot ${cue.position}`}
-      style={{ "--ratio": ratio, "--wh": OVERLAY_WIDTH / entry.height } as React.CSSProperties}
+      style={{ "--ratio": ratio, "--wh": OVERLAY_WIDTH / height } as React.CSSProperties}
     >
       <Player
         ref={ref}
@@ -49,7 +51,7 @@ const OverlayPlayer: React.FC<{ cue: MotionCue; time: number; playing: boolean }
         inputProps={cue.props as unknown as Record<string, unknown>}
         durationInFrames={total}
         compositionWidth={OVERLAY_WIDTH}
-        compositionHeight={entry.height}
+        compositionHeight={height}
         fps={FPS}
         controls={false}
         clickToPlay={false}
