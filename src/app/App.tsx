@@ -20,6 +20,7 @@ import { CultureView } from "./views/CultureView";
 import { DramaLearningView } from "./views/DramaLearningView";
 import { HomeView } from "./views/HomeView";
 import { JoinView } from "./views/JoinView";
+import { LandingView } from "./views/LandingView";
 import { MyLearningView } from "./views/MyLearningView";
 import { WeeksView } from "./views/WeeksView";
 
@@ -66,16 +67,9 @@ const Shell: React.FC = () => {
       navigate(user.provider === "admin" ? "admin" : "teach");
     }
   }, [user, view]);
-  // 홈에서 승인된 학습자가 Google 로그인하면 ‘내 강의’로 이동한다. (새로고침으로 로그인 상태를 확인한 경우는 그대로 둔다)
-  const learnerPrev = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!ready) return;
-    const prev = learnerPrev.current;
-    learnerPrev.current = user?.id ?? null;
-    if (prev === null && user?.role === "learner" && user.member?.status === "approved" && view === "home") {
-      navigate("weeks");
-    }
-  }, [ready, user, view]);
+
+  // 로그인 전 첫 화면은 앱 메뉴 없는 서비스 소개 (로그인 상태를 확인하는 동안에는 비워 둔다)
+  if (view === "home" && (!ready || !user)) return ready ? <LandingView /> : null;
 
   const def = getView(view);
   const denied = !canAccessView(def, user);

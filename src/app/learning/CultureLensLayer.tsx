@@ -61,7 +61,7 @@ export const CultureLensLayer: React.FC<{
         ))}
         {lens.caution ? <p className="lens-caution">{lens.caution}</p> : null}
         <button className="btn btn-primary btn-sm" onClick={onMore}>
-          🇨🇳🇰🇷 한중문화 더 알아보기 →
+          자세히 보기 →
         </button>
       </div>
     );

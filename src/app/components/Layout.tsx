@@ -86,6 +86,9 @@ export const Sidebar: React.FC<{ active: ViewKey }> = ({ active }) => {
   );
 };
 
+// 지금 검색은 legacy 상황별 장면(situations.ts)만 찾는다. 공개 Lesson 기반 통합 검색을 만들 때까지 숨긴다.
+const SEARCH_ENABLED: boolean = false;
+
 export const Topbar: React.FC<{ active: ViewKey }> = ({ active }) => {
   const [q, setQ] = useState("");
   const { user } = useAuth();
@@ -103,7 +106,7 @@ export const Topbar: React.FC<{ active: ViewKey }> = ({ active }) => {
       </div>
       <form
         className="search"
-        hidden={user?.role === "instructor"}
+        hidden={!SEARCH_ENABLED || user?.role === "instructor"}
         onSubmit={(e) => {
           e.preventDefault();
           go("weeks", q.trim() ? { tab: "situations", q: q.trim() } : { tab: "situations" });

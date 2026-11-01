@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { DIRECTION_LABEL } from "../../content/course";
 import { draftNotePinyin, draftQuizToQuestions, lessonHeading } from "../../content/lessons";
-import { getLevel } from "../../content/levels";
+import { recommendedLevelLabel } from "../../content/levels";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { QuizCard } from "../learning/QuizCard";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { navigate } from "../router";
+import { CourseBackLink } from "./CourseView";
 import { progressStore } from "../store";
 import { nowIso } from "../store/localJson";
 import { emptyProgress } from "../store/progressStore";
@@ -19,7 +20,7 @@ export const TextLessonView: React.FC<{ lesson: Lesson }> = ({ lesson }) => {
   const { user } = useAuth();
   const pinyinReady = usePinyinReady();
   const py = (text: string) => (pinyinReady ? toPinyin(text) : "");
-  const level = getLevel(lesson.level);
+  const level = recommendedLevelLabel(lesson.level);
   const draft = lesson.draft;
   const lines = lesson.script.plain?.lines.map((l) => l.text) ?? lesson.script.cues.map((c) => c.zh ?? c.ko ?? "");
   const quiz = useMemo(() => draftQuizToQuestions(draft?.quiz ?? []), [draft]);
@@ -58,13 +59,12 @@ export const TextLessonView: React.FC<{ lesson: Lesson }> = ({ lesson }) => {
 
   return (
     <div className="page text-lesson">
+      <CourseBackLink courseId={lesson.courseId} />
       <section className="card">
         <span className="row-start">
           <span className="pill pill-sky">{lesson.week}주차</span>
           <span className="pill pill-lavender">{DIRECTION_LABEL[lesson.direction]}</span>
-          <span className={`pill pill-${level.tone}`} title={level.definition || undefined}>
-            {level.label}
-          </span>
+          {level ? <span className="pill pill-lavender">{level}</span> : null}
           {lesson.status !== "published" ? <span className="pill pill-pink">미리보기 · 비공개</span> : null}
         </span>
         <h2>{lessonHeading(lesson)}</h2>

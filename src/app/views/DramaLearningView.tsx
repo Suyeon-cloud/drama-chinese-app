@@ -3,7 +3,7 @@ import { formatTime } from "../../content";
 import { cultureTopics } from "../../content/culture";
 import { DIRECTION_LABEL } from "../../content/course";
 import { lessonHeading, resolveLessonContent } from "../../content/lessons";
-import { getLevel } from "../../content/levels";
+import { recommendedLevelLabel } from "../../content/levels";
 import type { CultureLensCue, Lesson, MotionCue } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
@@ -20,6 +20,7 @@ import { navigate } from "../router";
 import { useLessons } from "../store/hooks";
 import { isPlainSynced, playbackCues } from "../lib/subtitles";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
+import { CourseBackLink } from "./CourseView";
 import { TextLessonView } from "./TextLessonView";
 
 /** ?lesson=ID → ?ep=에피소드ID(1차 판본 링크) → 공개된 첫 강의자료 */
@@ -207,10 +208,9 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
     </>
   );
 
-  const level = getLevel(lesson.level);
-
   return (
     <div className="drama-page">
+      <CourseBackLink courseId={lesson.courseId} />
       <div className="drama-layout">
         <section className="card video-card">
           <div className="video-head">
@@ -218,18 +218,16 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               <span className="row-start">
                 <span className="pill pill-sky">{lesson.week}주차</span>
                 <span className="pill pill-lavender">{DIRECTION_LABEL[lesson.direction]}</span>
-                <span className={`pill pill-${level.tone}`} title={level.definition || undefined}>
-                  {level.label}
-                </span>
+                {recommendedLevelLabel(lesson.level) ? (
+                  <span className="pill pill-lavender">
+                    {recommendedLevelLabel(lesson.level)}
+                  </span>
+                ) : null}
                 {lesson.status !== "published" ? <span className="pill pill-pink">미리보기 · 비공개</span> : null}
               </span>
               <h2>{lessonHeading(lesson)}</h2>
               {lesson.source ? <p className="muted small">{lesson.title}</p> : null}
-              {level.definition ? (
-                <p className="level-def">
-                  <b>{level.label}</b> {level.definition}
-                </p>
-              ) : null}
+              {lesson.description ? <p className="lesson-desc">{lesson.description}</p> : null}
             </div>
             <div className="video-head-meta">
               학습 구간 <b>{formatTime(video.startTime)}</b> – <b>{endLabel}</b>

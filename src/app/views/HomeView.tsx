@@ -1,204 +1,69 @@
-import { Player } from "@remotion/player";
 import React from "react";
-import { featuredEpisode, formatTime, heroChips, todayExpression, youtubeThumbnail } from "../../content";
-import { recentScenes } from "../../content/myLearning";
-import { HeroMotion } from "../../motion/HeroMotion";
 import { useAuth } from "../auth/AuthContext";
-import { Icon } from "../components/Icon";
-import { useGuardedNavigate } from "../auth/LoginPrompt";
-import { computeMyStats } from "../learning/useMyStats";
-import { formatPercent } from "../lib/format";
-import { useLessons, useUserProgress } from "../store/hooks";
+import { navigate } from "../router";
+import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
+import { LandingContent } from "./LandingView";
+import { MyCoursesSection, courseStats } from "./MyCoursesView";
 
-const FEATURES = [
-  {
-    emoji: "🎬",
-    title: "드라마로 배우기",
-    text: "실제 대사와 함께 어휘·문법·실생활 표현을 익혀요.",
-    tone: "sky",
-    to: "weeks",
-  },
-  {
-    emoji: "🎭",
-    title: "상황으로 연습하기",
-    text: "비슷한 상황의 장면을 찾아보고 역할극으로 연습해요.",
-    tone: "pink",
-    to: "weeks",
-    params: { tab: "situations" },
-  },
-  {
-    emoji: "🔍",
-    title: "문화로 이해하기",
-    text: "문화 렌즈를 통해 드라마 속 문화적 맥락을 살펴봐요.",
-    tone: "mint",
-    to: "culture",
-  },
-] as const;
-
-/** 나의 학습 통계 (실제 학습 기록). 로그인 전에는 안내만 보여준다. */
-export const StatTiles: React.FC = () => {
-  const { user } = useAuth();
+/** 승인된 학생의 홈: 이어서 학습할 주차 + 내 강의 (강의코드 등록 포함) */
+const StudentHome: React.FC<{ userId: string; name: string }> = ({ userId, name }) => {
+  const courses = useMyCourses(userId);
   const lessons = useLessons();
-  const progress = useUserProgress(user?.role === "learner" ? user.id : null);
-  if (!user || user.role !== "learner") {
-    return <p className="muted small">로그인하면 나의 학습 통계가 여기에 표시돼요.</p>;
-  }
-  const s = computeMyStats(lessons ?? [], progress ?? []);
-  const tiles = [
-    { icon: "✅", label: "완료한 주차", value: `${s.completedCount} / ${s.totalWeeks}주`, tone: "sky" },
-    { icon: "🎬", label: "평균 진행률", value: formatPercent(s.avgProgress), tone: "pink" },
-    { icon: "📝", label: "퀴즈 정답률", value: s.quizRate === null ? "—" : formatPercent(s.quizRate), tone: "cream" },
-    { icon: "🔥", label: "연속 학습", value: `${s.streak}일째`, tone: "mint" },
-  ];
+  const progress = useUserProgress(userId);
+
+  // 가장 최근에 학습한 과목을 앞에 두고, 이어서 학습할 주차를 고른다.
+  const lastStudied = (courseId: string) =>
+    (progress ?? [])
+      .filter((p) => lessons?.some((l) => l.id === p.lessonId && l.courseId === courseId))
+      .reduce((latest, p) => ((p.lastStudiedAt ?? "") > latest ? (p.lastStudiedAt ?? "") : latest), "");
+  const next = [...(courses ?? [])]
+    .sort((a, b) => lastStudied(b.id).localeCompare(lastStudied(a.id)))
+    .map((c) => ({ course: c, stats: courseStats(c.id, lessons ?? [], progress ?? []) }))
+    .find((x) => x.stats.next);
+
   return (
-    <div className="stat-tiles">
-      {tiles.map((t) => (
-        <div key={t.label} className={`stat-tile ${t.tone}`}>
-          <span className="stat-icon">{t.icon}</span>
-          <span>
-            <small>{t.label}</small>
-            <b>{t.value}</b>
-          </span>
-        </div>
-      ))}
+    <div className="page">
+      <div className="page-intro">
+        <h2>{name}님, 오늘은 어떤 장면을 볼까요?</h2>
+      </div>
+
+      {next?.stats.next ? (
+        <section className="card continue-card">
+          <div className="continue-body">
+            <small className="muted">{next.stats.nextStarted ? "이어서 학습하기" : "다음 학습"}</small>
+            <h3>
+              {next.stats.next.week}주차 · {next.stats.next.title}
+            </h3>
+            <p className="muted">
+              《{next.course.drama}》 {next.course.title}
+            </p>
+          </div>
+          <button className="btn btn-primary" onClick={() => navigate("lesson", { lesson: next.stats.next!.id })}>
+            ▶ {next.stats.nextStarted ? "이어서 학습하기" : "학습 시작하기"}
+          </button>
+        </section>
+      ) : null}
+
+      <h3 className="section-title home-section-title">내 강의</h3>
+      <MyCoursesSection />
     </div>
   );
 };
 
+/** 로그인 후 홈. 학생은 학습 중심 화면, 교수자·관리자는 서비스 소개와 자기 화면으로 가는 버튼 */
 export const HomeView: React.FC = () => {
-  // 수업 콘텐츠로 가는 링크는 로그인 전이면 “로그인 후 이용하세요.” 안내
-  const go = useGuardedNavigate();
-  const ep = featuredEpisode;
+  const { user } = useAuth();
+  if (user?.role === "learner") return <StudentHome userId={user.id} name={user.name} />;
   return (
-    <div className="home-grid">
-      <div className="home-main">
-        <section className="hero card">
-          <div className="hero-text">
-            <h2 className="hero-title">《追剧学汉语》</h2>
-            <p className="hero-sub">드라마를 보며 중국어와 문화를 함께 배우다 💙</p>
-            <p className="hero-desc">
-              중국 드라마 속 실제 표현을 모션그래픽으로 학습하고,
-              <br className="br-desktop" />
-              장면에 담긴 문화적 맥락까지 탐색해보세요.
-            </p>
-            <button className="btn btn-primary btn-lg" onClick={() => go("lesson", { ep: ep.id })}>
-              ▶ 이어서 학습하기 <Icon name="arrow" size={18} />
-            </button>
-          </div>
-          <div className="hero-motion" aria-hidden>
-            <Player
-              component={HeroMotion}
-              inputProps={{ chips: heroChips }}
-              durationInFrames={240}
-              compositionWidth={600}
-              compositionHeight={420}
-              fps={30}
-              autoPlay
-              loop
-              controls={false}
-              clickToPlay={false}
-              acknowledgeRemotionLicense
-              style={{ width: "100%" }}
-            />
-          </div>
-        </section>
-
-        <section className="feature-row">
-          {FEATURES.map((f) => (
-            <button key={f.title} className={`feature card tone-${f.tone}`} onClick={() => go(f.to, "params" in f ? f.params : undefined)}>
-              <span className="feature-icon">{f.emoji}</span>
-              <span className="feature-body">
-                <b>{f.title}</b>
-                <small>{f.text}</small>
-              </span>
-              <span className="round-arrow">
-                <Icon name="arrow" size={16} />
-              </span>
-            </button>
-          ))}
-        </section>
-
-        <section className="card">
-          <div className="card-head">
-            <h3 className="card-title">추천 장면</h3>
-            <button className="more" onClick={() => go("mine")}>
-              더보기 ›
-            </button>
-          </div>
-          <div className="recent-scenes">
-            {recentScenes.map((s) => (
-              <button
-                key={s.expression}
-                className="scene-tile"
-                onClick={() => go("lesson", { ep: ep.id, t: s.time })}
-              >
-                <span className={`scene-thumb tone-${s.tone}`}>
-                  <span className="scene-zh">{s.expression}</span>
-                  <span className="scene-play">
-                    <Icon name="play" size={22} />
-                  </span>
-                  <span className="scene-time">{formatTime(s.time)}</span>
-                </span>
-                <small>{s.episode}</small>
-                <b>{s.expression}</b>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <div className="home-side">
-        <section className="card">
-          <div className="card-head">
-            <h3 className="card-title">오늘의 드라마</h3>
-          </div>
-          <div className="drama-thumb">
-            {/* eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion */}
-            <img src={youtubeThumbnail(ep.video.youtubeId)} alt={`${ep.dramaTitle} ${ep.episode}`} loading="lazy" />
-            <span className="ep-badge">{ep.episode}</span>
-          </div>
-          <h4 className="drama-name">
-            《{ep.dramaTitle}》 {ep.episode}
-          </h4>
-          <p className="muted">{ep.description}</p>
-          <div className="right">
-            <button className="btn btn-soft btn-sm" onClick={() => go("lesson", { ep: ep.id })}>
-              학습하기 →
-            </button>
-          </div>
-        </section>
-
-        <section className="card today-expr">
-          <div className="card-head">
-            <h3 className="card-title">오늘의 표현 💙</h3>
-          </div>
-          <div className="expr-bubble">
-            <b>{todayExpression.zh}</b>
-            <small>{todayExpression.pinyin}</small>
-          </div>
-          <p className="expr-ko">
-            {todayExpression.ko.map((k) => (
-              <span key={k}>{k}</span>
-            ))}
-          </p>
-          <button
-            className="btn btn-soft btn-block"
-            onClick={() => go("lesson", { ep: todayExpression.episodeId, t: todayExpression.sceneTime })}
-          >
-            이 표현이 나온 장면 보기 →
-          </button>
-        </section>
-
-        <section className="card">
-          <div className="card-head">
-            <h3 className="card-title">나의 학습 통계</h3>
-            <button className="more" onClick={() => go("mine")}>
-              더보기 ›
-            </button>
-          </div>
-          <StatTiles />
-        </section>
-      </div>
-    </div>
+    <LandingContent
+      cta={
+        <button
+          className="btn btn-primary btn-lg"
+          onClick={() => navigate(user?.provider === "admin" ? "admin" : "teach")}
+        >
+          {user?.provider === "admin" ? "전체 운영 관리로" : "내 담당 강의로"}
+        </button>
+      }
+    />
   );
 };

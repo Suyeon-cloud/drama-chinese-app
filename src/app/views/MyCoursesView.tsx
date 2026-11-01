@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { COURSE_SEEDS } from "../../content/courses";
+import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { Icon } from "../components/Icon";
 import { useToast } from "../components/Toast";
 import { ApiError } from "../lib/api";
 import { navigate } from "../router";
 import { enrollmentStore } from "../store";
-import { useMyCourses } from "../store/hooks";
-import type { CourseSummary } from "../store/models";
+import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
+import type { CourseSummary, LessonProgress } from "../store/models";
+import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 
 /** 과목 카드 색: 과목 순서대로 하늘·분홍·민트 */
 const TONES = ["sky", "pink", "mint"];
@@ -21,29 +23,65 @@ export const SectionLine: React.FC<{ section: NonNullable<CourseSummary["section
   </span>
 );
 
-/** 수강 중인 드라마 과목 카드 */
-const CourseCard: React.FC<{ course: CourseSummary }> = ({ course }) => (
-  <button
-    className={`card course-card tone-${courseTone(course.id)}`}
-    onClick={() => navigate("course", { id: course.id })}
-  >
-    <span className="course-cover">
-      <span className="course-drama">《{course.drama}》</span>
-      <span className="course-name">{course.title}</span>
-    </span>
-    <span className="course-body">
-      {course.section ? <SectionLine section={course.section} /> : null}
-      <span className="course-desc">{course.description}</span>
-      <small className="muted">{course.context}</small>
-      <span className="course-foot">
-        <span className="pill pill-cream">{course.weekCount}주 과정</span>
-        <span className="course-go">
-          과목 들어가기 <Icon name="arrow" size={16} />
-        </span>
-      </span>
-    </span>
-  </button>
-);
+/**
+ * 과목의 학습 현황: 학습자가 받은 공개 강의자료와 본인 학습 기록으로 계산한다.
+ * next: 이어서 볼 주차 (학습 중 → 아직 완료하지 않은 공개 주차 순). 모두 완료했으면 null
+ */
+export const courseStats = (courseId: string, lessons: Lesson[], progress: LessonProgress[]) => {
+  const open = lessons.filter((l) => l.courseId === courseId && l.status === "published").sort((a, b) => a.week - b.week);
+  const recordOf = (l: Lesson) => progress.find((p) => p.lessonId === l.id);
+  const completed = open.filter((l) => recordOf(l)?.completedAt).length;
+  const inProgress = open.find((l) => recordOf(l)?.startedAt && !recordOf(l)?.completedAt);
+  const next = inProgress ?? open.find((l) => !recordOf(l)?.completedAt) ?? null;
+  return { open, completed, started: open.some((l) => recordOf(l)?.startedAt), next, nextStarted: !!inProgress };
+};
+
+/** 수강 중인 드라마 과목 카드: 대표 이미지 · 분반 · 진도 · 학습 진입 */
+const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress: LessonProgress[] }> = ({
+  course,
+  lessons,
+  progress,
+}) => {
+  const v = COURSE_VISUALS[course.id];
+  const { open, completed, started, next, nextStarted } = courseStats(course.id, lessons, progress);
+  const allDone = open.length > 0 && !next;
+  const state = allDone ? "공개 주차 완료" : started ? "학습 중" : "학습 전";
+  const openCourse = () => navigate("course", { id: course.id });
+  return (
+    <article className="card course-card">
+      <button className="course-cover" onClick={openCourse} aria-label={`《${course.drama}》 과목 들어가기`}>
+        <CourseImage courseId={course.id} drama={course.drama} />
+      </button>
+      <div className="course-body">
+        {v ? <span className="journey-stage">{v.stage}</span> : null}
+        <h3 className="course-drama">《{course.drama}》</h3>
+        <p className="course-name">{course.title}</p>
+        {course.section ? <SectionLine section={course.section} /> : null}
+        <div className="course-progress">
+          <span className="row-between">
+            <small>
+              완료 {completed} / {course.weekCount}주
+            </small>
+            <span className={`pill ${started ? "pill-sky" : "pill-cream"}`}>{state}</span>
+          </span>
+          <span className="mini-bar" role="img" aria-label={`${course.weekCount}주 중 ${completed}주 완료`}>
+            <span style={{ width: `${(completed / course.weekCount) * 100}%` }} />
+          </span>
+        </div>
+        <div className="course-foot">
+          {next ? (
+            <button className="btn btn-primary btn-sm" onClick={() => navigate("lesson", { lesson: next.id })}>
+              ▶ {nextStarted ? "이어서 학습" : "학습 시작"} · {next.week}주차
+            </button>
+          ) : null}
+          <button className="btn btn-soft btn-sm" onClick={openCourse}>
+            과목 들어가기 <Icon name="arrow" size={16} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+};
 
 /** 강의코드 입력 → 수강 등록 (기존 수강 등록 API) */
 const CourseCodeForm: React.FC<{ compact?: boolean }> = ({ compact }) => {
@@ -114,6 +152,8 @@ const CourseCodeForm: React.FC<{ compact?: boolean }> = ({ compact }) => {
 export const MyCoursesSection: React.FC = () => {
   const { user } = useAuth();
   const courses = useMyCourses(user?.role === "learner" ? user.id : null);
+  const lessons = useLessons();
+  const progress = useUserProgress(user?.role === "learner" ? user.id : null);
 
   if (user?.role === "instructor") {
     return (
@@ -155,7 +195,7 @@ export const MyCoursesSection: React.FC = () => {
     <>
       <div className="course-grid">
         {courses.map((c) => (
-          <CourseCard key={c.id} course={c} />
+          <CourseCard key={c.id} course={c} lessons={lessons ?? []} progress={progress ?? []} />
         ))}
       </div>
       <CourseCodeForm />

@@ -90,6 +90,12 @@ export const LEGACY_LEVEL_IDS: Record<string, string> = {
   advanced: "hsk5",
 };
 
+/** 학생 화면 표시용: “권장 수준 · HSK 3급”. 수준이 정해지지 않았으면 null (표시하지 않는다) */
+export const recommendedLevelLabel = (id: string) => {
+  const hsk = LEVELS.find((l) => l.id === (LEGACY_LEVEL_IDS[id] ?? id))?.label.split(" · ")[0];
+  return hsk ? `권장 수준 · ${hsk}` : null;
+};
+
 export const getLevel = (id: string): LevelDef =>
   LEVELS.find((l) => l.id === (LEGACY_LEVEL_IDS[id] ?? id)) ?? {
     id,

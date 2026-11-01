@@ -116,7 +116,7 @@ export const MyLearningView: React.FC = () => {
           <h3 className="card-title">📈 주차별 학습 기록</h3>
           {list.length === 0 ? (
             <p className="muted">
-              아직 학습 기록이 없어요. ‘주차·상황별 학습’에서 강의를 열면 출석과 진행률이 기록돼요.
+              아직 학습 기록이 없어요. ‘내 강의’에서 강의를 열면 출석과 진행률이 기록돼요.
             </p>
           ) : (
             <ul className="progress-list">

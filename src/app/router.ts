@@ -56,7 +56,8 @@ export const VIEWS: ViewDef[] = [
   { key: "admin-feedback", ko: "피드백", access: "admin" },
 ];
 
-const LEARNER_MENU: ViewKey[] = ["home", "weeks", "culture", "mine"];
+// 한중문화(#/culture)는 legacy 《以家人之名》 전용이라 메뉴에서만 뺐다. 화면과 route는 남아 있다.
+const LEARNER_MENU: ViewKey[] = ["home", "weeks", "mine"];
 const INSTRUCTOR_MENU: ViewKey[] = ["teach"];
 const ADMIN_MENU: ViewKey[] = [
   "admin",

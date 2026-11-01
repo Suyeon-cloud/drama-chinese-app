@@ -8,13 +8,18 @@ import { SituationsSection } from "./SituationsView";
 
 type Tab = "weeks" | "situations";
 
+// 상황별 장면은 legacy 데이터라 새 Course와 연결되지 않는다. 새 Lesson 기반으로 다시 만들 때까지 탭을 숨긴다.
+const SITUATIONS_ENABLED: boolean = false;
+
 /** 내 강의(수강 중인 드라마 과목) + 상황별 장면을 한 화면에서 탭으로 오간다. */
 export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const { user } = useAuth();
   const query = params.get("q") ?? "";
   // 예전 상황별 장면 링크(#/situations)와 검색은 상황별 탭으로 연다.
   const tab: Tab =
-    params.get("tab") === "situations" || window.location.hash.startsWith("#/situations") ? "situations" : "weeks";
+    SITUATIONS_ENABLED && (params.get("tab") === "situations" || window.location.hash.startsWith("#/situations"))
+      ? "situations"
+      : "weeks";
   const tabs: [Tab, string, string][] = [
     ["weeks", "📚 내 강의", "드라마별 15주 과정"],
     ["situations", "🎭 상황별 장면", "표현 · 역할극"],
@@ -27,7 +32,7 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
         <p className="muted">수강 중인 드라마 과목을 골라 실제 장면과 대사로 중국어를 배워요.</p>
       </div>
 
-      <div className="learn-tabs" role="tablist" aria-label="학습 방식">
+      <div className="learn-tabs" role="tablist" aria-label="학습 방식" hidden={!SITUATIONS_ENABLED}>
         {tabs.map(([key, label, sub]) => (
           <button
             key={key}
