@@ -1,7 +1,10 @@
 // 새 3과목 45개 기본 강의자료 검증 (npm test)
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { buildDraftPrompt } from "../src/app/lib/aiDraft";
+import { pickLinesForLevel } from "../src/app/lib/draftPick";
 import { COURSE_LESSONS } from "../src/content/courseLessons";
+import { LEVELS, getLevel } from "../src/content/levels";
 import { COURSE_SEEDS, LEGACY_COURSE_ID } from "../src/content/courses";
 import { SEED_LESSONS } from "../src/content/lessons";
 import { SAVED_LESSONS } from "../src/content/savedLessons";
@@ -29,6 +32,33 @@ const LEGACY_IDS = [
   "lesson-yjrzm-ep3",
   ...Array.from({ length: 15 }, (_, i) => `lesson-week${String(i + 1).padStart(2, "0")}`),
 ];
+
+test("HSK 미지정 강의자료의 자동 생성 기준은 5·5·1·5, HSK 1~6급 기준은 그대로", () => {
+  const { expressions, grammar, lenses, quiz } = getLevel("").draft;
+  assert.deepEqual([expressions, grammar, lenses, quiz], [5, 5, 1, 5]);
+
+  // 규칙 기반 초안이 고르는 대사 수
+  const lines = Array.from({ length: 40 }, (_, i) => `第${i + 1}句台词${"很".repeat(i % 12)}`);
+  const picked = pickLinesForLevel(lines, getLevel("").draft);
+  assert.equal(picked.expressions.length, 5);
+  assert.equal(picked.grammar.length, 5);
+
+  // AI 프롬프트의 항목 수
+  const prompt = buildDraftPrompt({ lines, direction: "zh-ko", level: "", week: 2, title: "t", dramaTitle: "d" });
+  assert.ok(prompt.includes("핵심 표현 5개, 어휘·문법 5개, 문화렌즈 1개, 퀴즈 5문제"));
+
+  assert.deepEqual(
+    LEVELS.map((l) => [l.id, l.draft.expressions, l.draft.grammar, l.draft.lenses, l.draft.quiz]),
+    [
+      ["hsk1", 3, 2, 1, 3],
+      ["hsk2", 4, 2, 1, 3],
+      ["hsk3", 5, 3, 1, 3],
+      ["hsk4", 5, 3, 1, 4],
+      ["hsk5", 6, 4, 2, 4],
+      ["hsk6", 6, 4, 2, 5],
+    ],
+  );
+});
 
 test("새 강의자료는 정확히 45개, 과목마다 15개이고 주차 1~15가 한 번씩", () => {
   assert.equal(COURSE_LESSONS.length, 45);

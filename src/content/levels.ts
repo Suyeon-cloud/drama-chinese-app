@@ -97,5 +97,5 @@ export const getLevel = (id: string): LevelDef =>
     description: "",
     definition: "",
     tone: "cream",
-    draft: { window: [0, 1], expressions: 5, grammar: 3, lenses: 1, quiz: 3 },
+    draft: { window: [0, 1], expressions: 5, grammar: 5, lenses: 1, quiz: 5 },
   };
