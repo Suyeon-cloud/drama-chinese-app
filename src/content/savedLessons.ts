@@ -1,5 +1,5 @@
 // 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 `npm run export-lessons`로 다시 만듭니다.
-// data/db.json의 강의자료 61개 (2026-11-01T14:43:51.457Z)
+// data/db.json의 강의자료 61개 (2026-11-01T15:02:09.469Z)
 // 서버 DB에 처음 들어가는 기본 강의자료(SEED_LESSONS)에서 같은 id의 기본값을 이 내용으로 바꾼다.
 import type { Lesson } from "./types";
 
@@ -9,9 +9,9 @@ export const SAVED_LESSONS: Lesson[] = [
     "courseId": "course-campus",
     "week": 1,
     "title": "첫 만남과 첫인상",
-    "description": "",
+    "description": "등굣길 지각부터 잃어버린 지갑 찾기까지, 이름과 반을 말하고 친구와 함께 문제를 해결하는 학교생활 중국어를 배워요.",
     "direction": "zh-ko",
-    "level": "",
+    "level": "hsk3",
     "status": "published",
     "video": {
       "youtubeUrl": "https://youtu.be/d0msPNoywS8",
@@ -1044,7 +1044,7 @@ export const SAVED_LESSONS: Lesson[] = [
       }
     },
     "createdAt": "2026-10-29T00:00:00.000Z",
-    "updatedAt": "2026-11-01T12:51:00.010Z",
+    "updatedAt": "2026-11-01T15:01:50.373Z",
     "captionMask": {
       "enabled": true,
       "top": 78,
@@ -5364,10 +5364,10 @@ export const SAVED_LESSONS: Lesson[] = [
     "id": "course-university-w01",
     "courseId": "course-university",
     "week": 1,
-    "title": "새로운 룸메이트와 기숙사 생활",
-    "description": "",
+    "title": "룸메이트와 기숙사 갈등 해결하기",
+    "description": "기숙사 전기가 나간 소동을 따라가며, 사과하고 억울함을 말하고 룸메이트와의 갈등을 풀어 가는 기숙사 생활 중국어를 배워요.",
     "direction": "zh-ko",
-    "level": "",
+    "level": "hsk4",
     "status": "published",
     "video": {
       "youtubeUrl": "https://www.youtube.com/watch?v=mR4xiaNeyfs",
@@ -6336,7 +6336,7 @@ export const SAVED_LESSONS: Lesson[] = [
       }
     },
     "createdAt": "2026-10-29T00:00:00.000Z",
-    "updatedAt": "2026-11-01T13:46:32.045Z",
+    "updatedAt": "2026-11-01T15:01:50.415Z",
     "draft": {
       "expressions": [
         {
@@ -6879,10 +6879,10 @@ export const SAVED_LESSONS: Lesson[] = [
     "id": "course-workplace-w01",
     "courseId": "course-workplace",
     "week": 1,
-    "title": "상사와 처음 만나 직장 관계 파악하기",
-    "description": "",
+    "title": "상사와의 오해를 풀고 직장 관계 파악하기",
+    "description": "상사와의 민망한 오해를 따라가며, 사과하고 서로 지켜야 할 선을 확인하는 직장 생활 중국어를 배워요.",
     "direction": "zh-ko",
-    "level": "",
+    "level": "hsk5",
     "status": "published",
     "video": {
       "youtubeUrl": "https://youtu.be/5WiXCsy_cGo",
@@ -7599,7 +7599,7 @@ export const SAVED_LESSONS: Lesson[] = [
       }
     },
     "createdAt": "2026-10-29T00:00:00.000Z",
-    "updatedAt": "2026-11-01T14:41:45.152Z",
+    "updatedAt": "2026-11-01T15:01:50.437Z",
     "draft": {
       "expressions": [
         {
