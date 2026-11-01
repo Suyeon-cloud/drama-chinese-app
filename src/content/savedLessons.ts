@@ -1,5 +1,5 @@
 // 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 `npm run export-lessons`로 다시 만듭니다.
-// data/db.json의 강의자료 61개 (2026-11-01T13:49:12.116Z)
+// data/db.json의 강의자료 61개 (2026-11-01T14:43:51.457Z)
 // 서버 DB에 처음 들어가는 기본 강의자료(SEED_LESSONS)에서 같은 id의 기본값을 이 내용으로 바꾼다.
 import type { Lesson } from "./types";
 
@@ -6883,12 +6883,12 @@ export const SAVED_LESSONS: Lesson[] = [
     "description": "",
     "direction": "zh-ko",
     "level": "",
-    "status": "draft",
+    "status": "published",
     "video": {
       "youtubeUrl": "https://youtu.be/5WiXCsy_cGo",
       "youtubeId": "5WiXCsy_cGo",
       "startTime": 0,
-      "endTime": 0
+      "endTime": 207
     },
     "source": {
       "dramaTitle": "你也有今天",
@@ -6897,11 +6897,854 @@ export const SAVED_LESSONS: Lesson[] = [
     },
     "script": {
       "source": "srt",
-      "cues": [],
-      "updatedAt": null
+      "cues": [
+        {
+          "start": 0,
+          "end": 1.159,
+          "zh": "这个小隔间",
+          "ko": "이 작은 칸막이 방은",
+          "pinyin": "zhège xiǎo géjiān"
+        },
+        {
+          "start": 1.159,
+          "end": 3.7199999999999998,
+          "zh": "老板的战利品存放处",
+          "ko": "대표님 전리품 보관소야",
+          "pinyin": "lǎobǎn de zhànlìpǐn cúnfàngchù"
+        },
+        {
+          "start": 5.32,
+          "end": 6.52,
+          "zh": "这些都是老板的",
+          "ko": "이게 다 대표님 거야",
+          "pinyin": "zhèxiē dōu shì lǎobǎn de"
+        },
+        {
+          "start": 8.64,
+          "end": 9.72,
+          "zh": "这些也是",
+          "ko": "이것도 그렇고",
+          "pinyin": "zhèxiē yě shì"
+        },
+        {
+          "start": 10.88,
+          "end": 12.32,
+          "zh": "那大家应该很喜欢老板",
+          "ko": "그럼 다들 대표님을 엄청 좋아하겠네요",
+          "pinyin": "nà dàjiā yīnggāi hěn xǐhuan lǎobǎn"
+        },
+        {
+          "start": 12.32,
+          "end": 13.519,
+          "zh": "你们为什么那么说他",
+          "ko": "근데 왜 다들 그렇게 대표님 얘기를 해요?",
+          "pinyin": "nǐmen wèishénme nàme shuō tā"
+        },
+        {
+          "start": 14.28,
+          "end": 15.16,
+          "zh": "不要只看这边",
+          "ko": "이쪽만 보지 말고",
+          "pinyin": "búyào zhǐ kàn zhèbiān"
+        },
+        {
+          "start": 15.519,
+          "end": 16.32,
+          "zh": "看看这边",
+          "ko": "이쪽도 봐 봐",
+          "pinyin": "kànkan zhèbiān"
+        },
+        {
+          "start": 22.719,
+          "end": 25.199,
+          "zh": "这么多恐吓信跟恐吓物件",
+          "ko": "이렇게 많은 협박 편지랑 협박 물건들",
+          "pinyin": "zhème duō kǒnghè xìn gēn kǒnghè wùjiàn"
+        },
+        {
+          "start": 26.359,
+          "end": 27.199,
+          "zh": "怪不得钱恒",
+          "ko": "어쩐지 첸헝이",
+          "pinyin": "guàibude qián héng"
+        },
+        {
+          "start": 27.199,
+          "end": 28.8,
+          "zh": "总是得不到今天评奖",
+          "ko": "매번 상을 못 받더라",
+          "pinyin": "zǒngshì dé bu dào jīntiān píngjiǎng"
+        },
+        {
+          "start": 31,
+          "end": 33.92,
+          "zh": "这要是不被暗杀就不错了",
+          "ko": "이 정도면 암살 안 당한 게 다행이지",
+          "pinyin": "zhè yàoshi bú bèi ànshā jiù búcuò le"
+        },
+        {
+          "start": 33.92,
+          "end": 34.159,
+          "zh": "其实网上呢",
+          "ko": "사실 인터넷에서도",
+          "pinyin": "qíshí wǎngshàng ne"
+        },
+        {
+          "start": 34.439,
+          "end": 35.2,
+          "zh": "也不是没有讨论过",
+          "ko": "논의된 적이 없진 않아",
+          "pinyin": "yě bú shì méiyǒu tǎolùn guo"
+        },
+        {
+          "start": 35.2,
+          "end": 36,
+          "zh": "这种可能性",
+          "ko": "이런 가능성에 대해서",
+          "pinyin": "zhè zhǒng kěnéngxìng"
+        },
+        {
+          "start": 37.159,
+          "end": 38.159,
+          "zh": "那老板留着这些",
+          "ko": "그럼 대표님이 이걸 남겨 두는 건",
+          "pinyin": "nà lǎobǎn liúzhe zhèxiē"
+        },
+        {
+          "start": 38.159,
+          "end": 39.56,
+          "zh": "是为了要警醒自己吗",
+          "ko": "스스로 경각심을 가지려는 거예요?",
+          "pinyin": "shì wèile yào jǐngxǐng zìjǐ ma"
+        },
+        {
+          "start": 41.32,
+          "end": 42.6,
+          "zh": "万一这些人报复",
+          "ko": "혹시 이 사람들이 보복하면",
+          "pinyin": "wànyī zhèxiē rén bàofù"
+        },
+        {
+          "start": 42.88,
+          "end": 44.399,
+          "zh": "这些恐吓信就是罪证",
+          "ko": "이 협박 편지들이 바로 범죄 증거가 되잖아",
+          "pinyin": "zhèxiē kǒnghè xìn jiùshì zuìzhèng"
+        },
+        {
+          "start": 45,
+          "end": 46.92,
+          "zh": "方便给他们定罪",
+          "ko": "그 사람들 죄를 입증하기 편하게",
+          "pinyin": "fāngbiàn gěi tāmen dìngzuì"
+        },
+        {
+          "start": 46.92,
+          "end": 47.4,
+          "zh": "老板",
+          "ko": "대표님",
+          "pinyin": "lǎobǎn"
+        },
+        {
+          "start": 53.879,
+          "end": 54.64,
+          "zh": "这么巧",
+          "ko": "이런 우연이",
+          "pinyin": "zhème qiǎo"
+        },
+        {
+          "start": 55.4,
+          "end": 56.12,
+          "zh": "认识",
+          "ko": "아는 사이예요?",
+          "pinyin": "rènshi"
+        },
+        {
+          "start": 56.12,
+          "end": 57,
+          "zh": "不认识",
+          "ko": "모르는 사이예요",
+          "pinyin": "bú rènshi"
+        },
+        {
+          "start": 57,
+          "end": 57.92,
+          "zh": "怎么不认识",
+          "ko": "왜 몰라",
+          "pinyin": "zěnme bú rènshi"
+        },
+        {
+          "start": 58.6,
+          "end": 59.56,
+          "zh": "我们还就一房两组的",
+          "ko": "우리 둘이 한 집 이중 임대 건으로",
+          "pinyin": "wǒmen hái jiù yì fáng liǎng zǔ de"
+        },
+        {
+          "start": 59.56,
+          "end": 61.24,
+          "zh": "法律问题",
+          "ko": "법률 문제를",
+          "pinyin": "fǎlǜ wèntí"
+        },
+        {
+          "start": 61.24,
+          "end": 62.44,
+          "zh": "进行了深入的探讨",
+          "ko": "깊이 있게 토론했잖아",
+          "pinyin": "jìnxíng le shēnrù de tàntǎo"
+        },
+        {
+          "start": 62.64,
+          "end": 63.679,
+          "zh": "是不是 成律师",
+          "ko": "그렇지, 청 변호사?",
+          "pinyin": "shì bu shì chéng lǜshī"
+        },
+        {
+          "start": 68.159,
+          "end": 68.6,
+          "zh": "包锐",
+          "ko": "바오루이",
+          "pinyin": "bāo ruì"
+        },
+        {
+          "start": 69.64,
+          "end": 70.64,
+          "zh": "把这个存档一下",
+          "ko": "이거 보관해 둬",
+          "pinyin": "bǎ zhège cúndàng yíxià"
+        },
+        {
+          "start": 71,
+          "end": 72.879,
+          "zh": "这是上次那个家族信托纠纷案",
+          "ko": "지난번 그 가족 신탁 분쟁 사건에서",
+          "pinyin": "zhè shì shàng cì nàge jiāzú xìntuō jiūfēn àn"
+        },
+        {
+          "start": 72.879,
+          "end": 74.32,
+          "zh": "对方当事人寄来的恐吓信",
+          "ko": "상대 측 당사자가 보낸 협박 편지야",
+          "pinyin": "duìfāng dāngshìrén jì lái de kǒnghè xìn"
+        },
+        {
+          "start": 75.04,
+          "end": 75.879,
+          "zh": "好的 交给我",
+          "ko": "네, 저한테 주세요",
+          "pinyin": "hǎo de jiāo gěi wǒ"
+        },
+        {
+          "start": 78.56,
+          "end": 79.4,
+          "zh": "放在最外面",
+          "ko": "제일 바깥쪽에 둬",
+          "pinyin": "fàng zài zuì wàimiàn"
+        },
+        {
+          "start": 79.76,
+          "end": 81,
+          "zh": "最近他们刚输了官司",
+          "ko": "그쪽이 얼마 전에 소송에서 졌으니까",
+          "pinyin": "zuìjìn tāmen gāng shū le guānsi"
+        },
+        {
+          "start": 81,
+          "end": 81.76,
+          "zh": "可能闹事",
+          "ko": "소란을 피울 수도 있어",
+          "pinyin": "kěnéng nàoshì"
+        },
+        {
+          "start": 84.159,
+          "end": 85.4,
+          "zh": "如果这么喜欢蛇的话",
+          "ko": "그렇게 뱀을 좋아하면",
+          "pinyin": "rúguǒ zhème xǐhuan shé dehuà"
+        },
+        {
+          "start": 85.4,
+          "end": 86.48,
+          "zh": "明天我送你条真的",
+          "ko": "내일 진짜 뱀 한 마리 선물해 줄게",
+          "pinyin": "míngtiān wǒ sòng nǐ tiáo zhēn de"
+        },
+        {
+          "start": 87.599,
+          "end": 88.439,
+          "zh": "你 过来",
+          "ko": "너, 이리 와",
+          "pinyin": "nǐ guòlai"
+        },
+        {
+          "start": 92.4,
+          "end": 93,
+          "zh": "完了",
+          "ko": "망했다",
+          "pinyin": "wán le"
+        },
+        {
+          "start": 97.159,
+          "end": 97.799,
+          "zh": "我也完了",
+          "ko": "나도 망했어",
+          "pinyin": "wǒ yě wán le"
+        },
+        {
+          "start": 98.24,
+          "end": 100.079,
+          "zh": "你玩什么蛇呀",
+          "ko": "뱀은 왜 갖고 놀고 그래",
+          "pinyin": "nǐ wán shénme shé ya"
+        },
+        {
+          "start": 106.359,
+          "end": 107.32,
+          "zh": "你有什么想说的吗",
+          "ko": "할 말 있어?",
+          "pinyin": "nǐ yǒu shénme xiǎng shuō de ma"
+        },
+        {
+          "start": 108.48,
+          "end": 109.359,
+          "zh": "老板 我狭隘了",
+          "ko": "대표님, 제가 속이 좁았어요",
+          "pinyin": "lǎobǎn wǒ xiá'ài le"
+        },
+        {
+          "start": 109.359,
+          "end": 110.04,
+          "zh": "我格局小了",
+          "ko": "제 그릇이 작았어요",
+          "pinyin": "wǒ géjú xiǎo le"
+        },
+        {
+          "start": 110.04,
+          "end": 111.48,
+          "zh": "我井底之蛙 我鼠目寸光",
+          "ko": "저는 우물 안 개구리에 눈앞만 보는 사람이었어요",
+          "pinyin": "wǒ jǐng dǐ zhī wā wǒ shǔ mù cùn guāng"
+        },
+        {
+          "start": 112.12,
+          "end": 113.439,
+          "zh": "房租跟你平分好不好",
+          "ko": "월세는 너랑 반반 나누는 거 어때?",
+          "pinyin": "fángzū gēn nǐ píngfēn hǎo bu hǎo"
+        },
+        {
+          "start": 113.439,
+          "end": 114.52,
+          "zh": "我确实比较困难",
+          "ko": "제가 사정이 좀 어렵긴 해요",
+          "pinyin": "wǒ quèshí bǐjiào kùnnan"
+        },
+        {
+          "start": 115,
+          "end": 115.54,
+          "zh": "我不想靠强权",
+          "ko": "나는 힘으로 밀어붙여서",
+          "pinyin": "wǒ bù xiǎng kào qiángquán"
+        },
+        {
+          "start": 115.54,
+          "end": 117.64,
+          "zh": "剥夺你好不容易争取来的权利",
+          "ko": "네가 어렵게 얻어 낸 권리를 빼앗고 싶진 않아",
+          "pinyin": "bōduó nǐ hǎobù róngyì zhēngqǔ lái de quánlì"
+        },
+        {
+          "start": 117.84,
+          "end": 118.8,
+          "zh": "是不是有点感激我",
+          "ko": "좀 고맙지 않아?",
+          "pinyin": "shì bu shì yǒudiǎn gǎnjī wǒ"
+        },
+        {
+          "start": 119.119,
+          "end": 120.519,
+          "zh": "老板 你好好啊",
+          "ko": "대표님, 너무 좋으세요",
+          "pinyin": "lǎobǎn nǐ hǎo hǎo a"
+        },
+        {
+          "start": 122.84,
+          "end": 124.719,
+          "zh": "之前真的是我有眼无珠了",
+          "ko": "전에는 정말 제가 사람 볼 줄을 몰랐어요",
+          "pinyin": "zhīqián zhēn de shì wǒ yǒu yǎn wú zhū le"
+        },
+        {
+          "start": 125.599,
+          "end": 126.239,
+          "zh": "对不起啊",
+          "ko": "죄송해요",
+          "pinyin": "duìbuqǐ a"
+        },
+        {
+          "start": 126.56,
+          "end": 127.2,
+          "zh": "只不过",
+          "ko": "다만",
+          "pinyin": "zhǐbuguò"
+        },
+        {
+          "start": 127.2,
+          "end": 128.52,
+          "zh": "作为尊重彼此的前提",
+          "ko": "서로를 존중한다는 전제로",
+          "pinyin": "zuòwéi zūnzhòng bǐcǐ de qiántí"
+        },
+        {
+          "start": 128.759,
+          "end": 130.159,
+          "zh": "我希望你能尊重我的习惯",
+          "ko": "내 습관을 존중해 줬으면 해",
+          "pinyin": "wǒ xīwàng nǐ néng zūnzhòng wǒ de xíguàn"
+        },
+        {
+          "start": 130.439,
+          "end": 131.199,
+          "zh": "我们互不打扰",
+          "ko": "서로 방해하지 말자고",
+          "pinyin": "wǒmen hù bù dǎrǎo"
+        },
+        {
+          "start": 131.479,
+          "end": 132.079,
+          "zh": "当然了",
+          "ko": "당연하죠",
+          "pinyin": "dāngrán le"
+        },
+        {
+          "start": 132.56,
+          "end": 133.4,
+          "zh": "老板 你放心吧",
+          "ko": "대표님, 걱정 마세요",
+          "pinyin": "lǎobǎn nǐ fàngxīn ba"
+        },
+        {
+          "start": 133.599,
+          "end": 135.159,
+          "zh": "我这个人非常懂事",
+          "ko": "저 눈치 엄청 빠른 사람이에요",
+          "pinyin": "wǒ zhège rén fēicháng dǒngshì"
+        },
+        {
+          "start": 137.28,
+          "end": 138.079,
+          "zh": "我的意思是",
+          "ko": "내 말은",
+          "pinyin": "wǒ de yìsi shì"
+        },
+        {
+          "start": 138.519,
+          "end": 139.879,
+          "zh": "我们以后工作接触的机会",
+          "ko": "앞으로 우리가 일하면서 마주칠 일이",
+          "pinyin": "wǒmen yǐhòu gōngzuò jiēchù de jīhuì"
+        },
+        {
+          "start": 139.879,
+          "end": 140.439,
+          "zh": "非常多",
+          "ko": "아주 많을 거라는 거야",
+          "pinyin": "fēicháng duō"
+        },
+        {
+          "start": 141.12,
+          "end": 142.599,
+          "zh": "我希望你能守住自己的底线",
+          "ko": "네가 선을 잘 지켰으면 좋겠어",
+          "pinyin": "wǒ xīwàng nǐ néng shǒuzhù zìjǐ de dǐxiàn"
+        },
+        {
+          "start": 142.599,
+          "end": 143.439,
+          "zh": "把持住自己",
+          "ko": "자기 자신을 잘 붙잡고",
+          "pinyin": "bǎchí zhù zìjǐ"
+        },
+        {
+          "start": 144.12,
+          "end": 145.199,
+          "zh": "把持住自己",
+          "ko": "자기 자신을 붙잡으라고요?",
+          "pinyin": "bǎchí zhù zìjǐ"
+        },
+        {
+          "start": 145.479,
+          "end": 146.24,
+          "zh": "什么意思",
+          "ko": "무슨 뜻이에요?",
+          "pinyin": "shénme yìsi"
+        },
+        {
+          "start": 147.12,
+          "end": 148.759,
+          "zh": "我知道我这个人魅力非常大",
+          "ko": "나도 내가 매력이 넘친다는 건 알아",
+          "pinyin": "wǒ zhīdào wǒ zhège rén mèilì fēicháng dà"
+        },
+        {
+          "start": 148.96,
+          "end": 149.96,
+          "zh": "但是工作归工作",
+          "ko": "하지만 일은 일이야",
+          "pinyin": "dànshì gōngzuò guī gōngzuò"
+        },
+        {
+          "start": 149.96,
+          "end": 150.92,
+          "zh": "尤其是上下级",
+          "ko": "특히 상사와 부하 사이에",
+          "pinyin": "yóuqí shì shàngxiàjí"
+        },
+        {
+          "start": 151.2,
+          "end": 152.36,
+          "zh": "如果因为产生一些",
+          "ko": "만약 쓸데없는",
+          "pinyin": "rúguǒ yīnwèi chǎnshēng yìxiē"
+        },
+        {
+          "start": 152.36,
+          "end": 154.04,
+          "zh": "有的没的的感情而影响工作",
+          "ko": "감정이 생겨서 일에 영향을 준다면",
+          "pinyin": "yǒude méide de gǎnqíng ér yǐngxiǎng gōngzuò"
+        },
+        {
+          "start": 154.04,
+          "end": 154.92,
+          "zh": "这非常不专业",
+          "ko": "그건 아주 프로답지 못한 거야",
+          "pinyin": "zhè fēicháng bù zhuānyè"
+        },
+        {
+          "start": 155.68,
+          "end": 156.4,
+          "zh": "在你之前",
+          "ko": "너 이전에",
+          "pinyin": "zài nǐ zhīqián"
+        },
+        {
+          "start": 156.4,
+          "end": 157.16,
+          "zh": "十三个助理",
+          "ko": "비서 열세 명이",
+          "pinyin": "shísān gè zhùlǐ"
+        },
+        {
+          "start": 157.16,
+          "end": 158.56,
+          "zh": "都是因为这些不专业的行为",
+          "ko": "전부 이런 프로답지 못한 행동 때문에",
+          "pinyin": "dōu shì yīnwèi zhèxiē bù zhuānyè de xíngwéi"
+        },
+        {
+          "start": 158.56,
+          "end": 159.32,
+          "zh": "被我开除了",
+          "ko": "나한테 해고당했어",
+          "pinyin": "bèi wǒ kāichú le"
+        },
+        {
+          "start": 161.36,
+          "end": 162.2,
+          "zh": "你有什么问题吗",
+          "ko": "무슨 문제 있어?",
+          "pinyin": "nǐ yǒu shénme wèntí ma"
+        },
+        {
+          "start": 163.36,
+          "end": 164.12,
+          "zh": "没有问题",
+          "ko": "문제없어요",
+          "pinyin": "méiyǒu wèntí"
+        },
+        {
+          "start": 168.08,
+          "end": 168.8,
+          "zh": "对了 老板",
+          "ko": "참, 대표님",
+          "pinyin": "duì le lǎobǎn"
+        },
+        {
+          "start": 169.12,
+          "end": 169.88,
+          "zh": "你这么有钱",
+          "ko": "그렇게 돈이 많으시면서",
+          "pinyin": "nǐ zhème yǒu qián"
+        },
+        {
+          "start": 169.88,
+          "end": 170.92,
+          "zh": "为什么要住那里呀",
+          "ko": "왜 거기 사세요?",
+          "pinyin": "wèishénme yào zhù nàlǐ ya"
+        },
+        {
+          "start": 174.439,
+          "end": 175.96,
+          "zh": "你是在窥探我的隐私吗",
+          "ko": "지금 내 사생활을 캐는 거야?",
+          "pinyin": "nǐ shì zài kuītàn wǒ de yǐnsī ma"
+        },
+        {
+          "start": 178,
+          "end": 179,
+          "zh": "我很好奇",
+          "ko": "나는 궁금한데",
+          "pinyin": "wǒ hěn hàoqí"
+        },
+        {
+          "start": 180,
+          "end": 180.5,
+          "zh": "你是为什么觉得",
+          "ko": "넌 왜",
+          "pinyin": "nǐ shì wèishénme juéde"
+        },
+        {
+          "start": 180.5,
+          "end": 181.9,
+          "zh": "我会从事特殊服务的",
+          "ko": "내가 특수 서비스 일을 할 거라고 생각했어?",
+          "pinyin": "wǒ huì cóngshì tèshū fúwù de"
+        },
+        {
+          "start": 181.9,
+          "end": 182.68,
+          "zh": "我瞎了",
+          "ko": "제가 눈이 삐었었죠",
+          "pinyin": "wǒ xiā le"
+        },
+        {
+          "start": 187,
+          "end": 188.08,
+          "zh": "就是前两天",
+          "ko": "그게 며칠 전에",
+          "pinyin": "jiùshì qián liǎng tiān"
+        },
+        {
+          "start": 188.08,
+          "end": 190,
+          "zh": "在餐厅吃饭的时候",
+          "ko": "식당에서 밥 먹을 때",
+          "pinyin": "zài cāntīng chīfàn de shíhou"
+        },
+        {
+          "start": 189.76,
+          "end": 193.319,
+          "zh": "说要给你巨额时薪",
+          "ko": "엄청난 시급을 주겠다고 하는",
+          "pinyin": "shuō yào gěi nǐ jù'é shíxīn"
+        },
+        {
+          "start": 190,
+          "end": 191.76,
+          "zh": "看到一个富婆客户",
+          "ko": "돈 많은 여자 고객을 봤거든요",
+          "pinyin": "kàndào yí gè fùpó kèhù"
+        },
+        {
+          "start": 193.319,
+          "end": 195.5,
+          "zh": "让你陪她吃饭 陪她逛街",
+          "ko": "같이 밥 먹고 같이 쇼핑해 달라고 하면서",
+          "pinyin": "ràng nǐ péi tā chīfàn péi tā guàngjiē"
+        },
+        {
+          "start": 195.5,
+          "end": 196.5,
+          "zh": "离你特别近",
+          "ko": "대표님한테 엄청 가까이 붙어 있고",
+          "pinyin": "lí nǐ tèbié jìn"
+        },
+        {
+          "start": 196.5,
+          "end": 196.7,
+          "zh": "还靠",
+          "ko": "기대기까지 하고",
+          "pinyin": "hái kào"
+        },
+        {
+          "start": 196.7,
+          "end": 197.96,
+          "zh": "那是我妈",
+          "ko": "그건 우리 엄마야",
+          "pinyin": "nà shì wǒ mā"
+        },
+        {
+          "start": 203.64,
+          "end": 203.919,
+          "zh": "真的是偶像剧",
+          "ko": "진짜 로맨스 드라마 같네",
+          "pinyin": "zhēn de shì ǒuxiàngjù"
+        }
+      ],
+      "updatedAt": "2026-11-01T14:41:45.076Z",
+      "origin": {
+        "zh": {
+          "provider": "srt",
+          "fileName": "니야유금천_1주차.srt",
+          "fetchedAt": "2026-11-01T14:38:12.337Z"
+        },
+        "ko": {
+          "provider": "ai",
+          "fetchedAt": "2026-11-01T14:39:22.322Z"
+        }
+      }
     },
     "createdAt": "2026-10-29T00:00:00.000Z",
-    "updatedAt": "2026-10-29T00:00:00.000Z"
+    "updatedAt": "2026-11-01T14:41:45.152Z",
+    "draft": {
+      "expressions": [
+        {
+          "id": "note-mvxxt5yj-kh1dc0",
+          "source": "怪不得钱恒",
+          "note": "'怪不得'는 '어쩐지, 그러니까 ~하구나'라는 뜻으로, 이유를 알고 나서 그동안의 일이 이해될 때 써요. 이 장면에서는 협박 편지가 가득한 걸 보고 '어쩐지 첸헝이 (매번 상을 못 받더라)'라고 말하는 거예요. 같은 뜻으로 '难怪'도 자주 써요.",
+          "pinyin": "guàibude qián héng"
+        },
+        {
+          "id": "note-mvxxt5yj-faif1g",
+          "source": "我井底之蛙 我鼠目寸光",
+          "note": "'저는 우물 안 개구리고, 눈앞만 보는 사람이었어요'라는 뜻이에요. '井底之蛙'는 '우물 안 개구리', '鼠目寸光'은 '쥐의 눈처럼 한 치 앞만 본다', 즉 식견이 좁다는 뜻의 성어예요. 상사에게 자기 잘못을 과장되게 인정하며 비위를 맞추는 코믹한 장면이에요.",
+          "pinyin": "wǒ jǐng dǐ zhī wā wǒ shǔ mù cùn guāng"
+        },
+        {
+          "id": "note-mvxxt5yj-wgv229",
+          "source": "之前真的是我有眼无珠了",
+          "note": "'전에는 정말 제가 사람 볼 줄을 몰랐어요'라는 뜻이에요. '有眼无珠'는 '눈은 있는데 눈동자가 없다', 즉 사람이나 사물의 가치를 알아보는 안목이 없다는 성어예요. 상대를 오해했다가 사과할 때 자주 써요.",
+          "pinyin": "zhīqián zhēn de shì wǒ yǒu yǎn wú zhū le"
+        },
+        {
+          "id": "note-mvxxt5yj-tsp2v5",
+          "source": "我们互不打扰",
+          "note": "'우리 서로 방해하지 말자'라는 뜻이에요. '互'는 '서로'라는 뜻으로 '互相'의 줄임말처럼 쓰이고, '打扰'는 '방해하다, 폐를 끼치다'라는 뜻이에요. 함께 지내지만 서로의 생활에 간섭하지 않겠다는 선을 그을 때 쓰는 표현이에요.",
+          "pinyin": "wǒmen hù bù dǎrǎo"
+        },
+        {
+          "id": "note-mvxxt5yj-fsa4je",
+          "source": "但是工作归工作",
+          "note": "'A归A'는 'A는 A대로', 즉 'A는 A이고 다른 일과는 별개다'라는 뜻이에요. '工作归工作'는 '일은 일이다'라는 의미로, 사적인 감정과 업무를 구분하라고 할 때 써요. 예: 朋友归朋友，钱要还。(친구는 친구고, 돈은 갚아야지.)",
+          "pinyin": "dànshì gōngzuò guī gōngzuò"
+        }
+      ],
+      "grammar": [
+        {
+          "id": "note-mvxxt5yj-zlmxi4",
+          "source": "也不是没有讨论过",
+          "note": "'不是没有…'는 부정을 두 번 써서 '~한 적이 없는 건 아니다', 즉 '~한 적이 있다'를 완곡하게 말하는 이중부정이에요. '동사 + 过'는 경험을 나타내요. 예문: 我也不是没有想过这个问题。(나도 이 문제를 생각해 본 적이 없는 건 아니야.)",
+          "pinyin": "yě bú shì méiyǒu tǎolùn guo"
+        },
+        {
+          "id": "note-mvxxt5yj-81hpgd",
+          "source": "万一这些人报复",
+          "note": "'万一'는 '만약에, 혹시라도'라는 뜻으로, 일어날 가능성은 낮지만 좋지 않은 상황을 가정할 때 써요. '报复'는 '보복하다'라는 뜻이에요. 예문: 万一下雨了，我们就在家看电影。(혹시 비가 오면 우리 집에서 영화 보자.)",
+          "pinyin": "wànyī zhèxiē rén bàofù"
+        },
+        {
+          "id": "note-mvxxt5yj-q5fqe0",
+          "source": "如果这么喜欢蛇的话",
+          "note": "'如果…的话'는 '만약 ~라면'이라는 가정 문형이에요. 뒤 문장에는 흔히 '就'가 이어져요. 이 장면에서는 '그렇게 뱀을 좋아하면 (내일 진짜 뱀을 선물해 줄게)'라는 뜻이에요. 예문: 如果你有时间的话，我们一起去吧。(시간 있으면 우리 같이 가자.)",
+          "pinyin": "rúguǒ zhème xǐhuan shé dehuà"
+        },
+        {
+          "id": "note-mvxxt5yj-zk5hbm",
+          "source": "剥夺你好不容易争取来的权利",
+          "note": "'好不容易'는 '겨우, 간신히, 어렵게'라는 뜻이에요. 글자에 '不'가 있지만 '容易하지 않게', 즉 '힘들게 해냈다'는 의미라는 점에 주의하세요. '剥夺'는 '빼앗다, 박탈하다'라는 뜻이에요. 예문: 我好不容易才找到这家店。(나 이 가게 겨우 찾았어.)",
+          "pinyin": "bōduó nǐ hǎobù róngyì zhēngqǔ lái de quánlì"
+        },
+        {
+          "id": "note-mvxxt5yj-xy8q9t",
+          "source": "被我开除了",
+          "note": "'被 + 행위자 + 동사'는 '~에게 ~당하다'라는 피동문이에요. '开除'는 '해고하다, 제명하다'라는 뜻이고, '被我开除了'는 '나한테 해고당했다'라는 의미예요. 예문: 他被老师批评了。(그는 선생님께 꾸중을 들었어요.)",
+          "pinyin": "bèi wǒ kāichú le"
+        }
+      ],
+      "lenses": [
+        {
+          "id": "lens-mvxxt5yj-e6xbpj",
+          "title": "직장에서 부르는 '老板'",
+          "source": "老板",
+          "text": "'老板'은 원래 가게나 회사의 주인, 사장을 뜻하는 말이에요. 하지만 요즘 중국 직장에서는 실제 사장이 아니더라도 자신을 직접 이끄는 상사나 팀장을 '老板'이라고 부르는 경우가 많아요. 이 장면처럼 로펌에서도 조수나 신입 변호사가 자신을 지도하는 파트너 변호사를 '老板'이라고 불러요. 한국에서는 '부장님', '팀장님'처럼 직함을 정확히 부르는 문화가 강한 데 비해, 중국의 '老板'은 존중과 친근함이 함께 담긴 비교적 편한 호칭이에요. 대학원생이 지도 교수를 '老板'이라고 부르기도 할 만큼 쓰임이 넓어요."
+        }
+      ],
+      "quiz": [
+        {
+          "id": "quiz-mvxxt5yj-0xyutu",
+          "question": "'怪不得钱恒 总是得不到今天评奖'에서 '怪不得'의 뜻으로 알맞은 것은?",
+          "options": [
+            "이상하게도",
+            "탓할 수 없게도",
+            "다행히도",
+            "어쩐지"
+          ],
+          "answer": 3,
+          "explanation": "'怪不得'는 이유를 알고 나서 상황이 이해될 때 쓰는 '어쩐지'라는 뜻이에요. 협박 편지가 가득한 걸 보고 첸헝이 상을 못 받는 이유를 납득하는 장면이에요."
+        },
+        {
+          "id": "quiz-mvxxt5yk-9cp3to",
+          "question": "'之前真的是我有眼无珠了'에서 '有眼无珠'의 뜻으로 가장 알맞은 것은?",
+          "options": [
+            "눈이 나빠서 잘 안 보인다",
+            "사람이나 사물의 가치를 알아보는 안목이 없다",
+            "눈치가 매우 빠르다",
+            "보고도 못 본 척한다"
+          ],
+          "answer": 1,
+          "explanation": "'有眼无珠'는 '눈은 있지만 눈동자가 없다'라는 성어로, 상대의 진가를 알아보지 못했다는 뜻이에요. 대표를 오해했던 것을 사과하는 장면에서 쓰였어요."
+        },
+        {
+          "id": "quiz-mvxxt5yk-cexrq1",
+          "question": "'但是工作归工作'는 어떤 의미인가요?",
+          "options": [
+            "일은 일이고, 사적인 감정과는 구분해야 한다",
+            "일은 다시 돌려줘야 한다",
+            "일을 할수록 일이 늘어난다",
+            "일은 모두 같은 일이다"
+          ],
+          "answer": 0,
+          "explanation": "'A归A'는 'A는 A대로 별개다'라는 문형이에요. 대표는 업무와 사적인 감정을 섞지 말라는 뜻으로 이 말을 했어요."
+        },
+        {
+          "id": "quiz-mvxxt5yk-kp0yr5",
+          "question": "대표의 말에 따르면 이전 비서 13명이 해고된 이유는 무엇인가요?",
+          "options": [
+            "업무 실수가 많아서",
+            "지각을 자주 해서",
+            "업무와 상관없는 감정 때문에 프로답지 못하게 행동해서",
+            "월세를 내지 않아서"
+          ],
+          "answer": 2,
+          "explanation": "'都是因为这些不专业的行为 被我开除了'라는 대사에서 알 수 있듯이, 상사에게 쓸데없는 감정을 품고 일에 영향을 준 '프로답지 못한 행동' 때문에 해고되었다고 말해요."
+        },
+        {
+          "id": "quiz-mvxxt5yk-38gj6e",
+          "question": "'剥夺你好不容易争取来的权利'에서 '好不容易'의 뜻으로 알맞은 것은?",
+          "options": [
+            "아주 쉽게",
+            "어렵게, 간신히",
+            "전혀 쉽지 않아서 포기한",
+            "좋지 않게"
+          ],
+          "answer": 1,
+          "explanation": "'好不容易'는 글자에 '不'가 있지만 '어렵게, 간신히 해냈다'라는 뜻이에요. 네가 어렵게 얻어 낸 권리를 빼앗고 싶지 않다는 의미예요."
+        }
+      ],
+      "level": "",
+      "createdAt": "2026-11-01T14:40:34.412Z",
+      "updatedAt": "2026-11-01T14:40:34.412Z"
+    },
+    "captionMask": {
+      "enabled": true,
+      "top": 78,
+      "height": 12,
+      "width": 70
+    }
   },
   {
     "id": "course-workplace-w02",
