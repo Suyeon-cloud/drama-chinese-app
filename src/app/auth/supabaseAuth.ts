@@ -10,28 +10,6 @@ import { getSupabase } from "../lib/supabase";
 const RETURN_KEY = "zhuiju.supabaseAuth.return";
 const ERROR_KEY = "zhuiju.supabaseAuth.error";
 
-export type SupabaseProfile = {
-  id: string;
-  name: string;
-  university: string;
-  department: string;
-  grade: string;
-  student_id: string;
-  contact_email: string;
-  phone: string;
-  picture: string | null;
-  status: "pending" | "approved";
-  profile_completed: boolean;
-  approved_at: string | null;
-};
-
-export type SupabaseAccount = {
-  email: string;
-  /** 사전 등록된 교수자 이메일과 연결된 계정인지. 학생 승인 상태와는 별개다. */
-  isInstructor: boolean;
-  profile: SupabaseProfile;
-};
-
 const storage = () => {
   try {
     return window.sessionStorage;
@@ -60,7 +38,10 @@ export const startSupabaseGoogleSignIn = async () => {
  * 앱을 열 때 한 번: 이 앱이 시작한 Supabase 로그인에서 돌아온 경우에만 처리한다.
  * code 교환은 supabase-js(detectSessionInUrl)가 하고, 여기서는 끝나기를 기다린 뒤 주소를 정리한다.
  */
-export const completeSupabaseRedirect = async () => {
+let redirectDone: Promise<void> | null = null;
+export const completeSupabaseRedirect = () => (redirectDone ??= finishRedirect());
+
+const finishRedirect = async () => {
   const returnHash = storage()?.getItem(RETURN_KEY);
   const params = new URLSearchParams(window.location.search);
   if (!returnHash || (!params.has("code") && !params.has("error"))) return;
@@ -83,25 +64,6 @@ export const takeSupabaseRedirectError = () => {
   return message;
 };
 
-/** 현재 Supabase 세션의 계정. 세션이 없으면 null */
-export const loadSupabaseAccount = async (): Promise<SupabaseAccount | null> => {
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  const { data: sessionData } = await supabase.auth.getSession();
-  const user = sessionData.session?.user;
-  if (!user) return null;
-  // 프로필 확인·최종 접속·사전 등록 교수자 연결 (서버 함수가 인증된 이메일로만 연결한다)
-  const sync = await supabase.rpc("sync_my_account");
-  if (sync.error) throw sync.error;
-  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  if (error) throw error;
-  return {
-    email: user.email ?? "",
-    isInstructor: !!(sync.data as { is_instructor?: boolean } | null)?.is_instructor,
-    profile: profile as SupabaseProfile,
-  };
-};
-
 /** 학생 회원정보 입력 완료 (기존 가입 팝업과 같은 항목·검사) */
 export const completeSupabaseProfile = async (input: MemberProfileInput) => {
   const supabase = getSupabase();
@@ -121,3 +83,34 @@ export const completeSupabaseProfile = async (input: MemberProfileInput) => {
 export const signOutSupabase = async () => {
   await getSupabase()?.auth.signOut();
 };
+
+/** 메모리에 둔 현재 access token (만료 시각과 함께). 세션이 바뀔 때마다 supabase-js 알림으로 갱신한다. */
+let tokenCache: { token: string; expiresAt: number } | null = null;
+let watching = false;
+const remember = (session: { access_token: string; expires_at?: number } | null) => {
+  tokenCache = session ? { token: session.access_token, expiresAt: (session.expires_at ?? 0) * 1000 } : null;
+};
+
+/** 로그인·token 갱신·로그아웃을 따라가며 메모리의 token을 최신으로 둔다. (한 번만 등록) */
+export const watchSupabaseSession = () => {
+  const supabase = getSupabase();
+  if (!supabase || watching) return;
+  watching = true;
+  supabase.auth.onAuthStateChange((_event, session) => remember(session));
+};
+
+/** 서버 API 요청에 붙일 현재 access token (만료가 가까우면 supabase-js가 갱신한 값) */
+export const getSupabaseAccessToken = async () => {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  remember(data.session);
+  return data.session?.access_token ?? null;
+};
+
+/**
+ * 기다리지 않고 바로 쓸 수 있는 token (만료 60초 전까지). 없으면 null — 그때는 getSupabaseAccessToken을 기다린다.
+ * 화면을 떠날 때(keepalive)도 token을 다시 받느라 저장 요청이 늦어지지 않게 한다.
+ */
+export const peekSupabaseAccessToken = () =>
+  tokenCache && tokenCache.expiresAt - Date.now() > 60_000 ? tokenCache.token : null;

@@ -23,9 +23,7 @@ export type ViewKey =
   | "admin-learners"
   | "admin-progress"
   | "admin-feedback"
-  | "admin-instructors"
-  // 개발용: 학생·교수자 Supabase Google 로그인 확인 (메뉴에 없음)
-  | "supabase-auth";
+  | "admin-instructors";
 
 /** staff: 교수자·관리자 / admin: 관리자(아이디·비밀번호 로그인)만 / instructor: 교수자(Google)만 */
 export type ViewAccess = "staff" | "admin" | "instructor";
@@ -56,7 +54,6 @@ export const VIEWS: ViewDef[] = [
   { key: "admin-editor", ko: "학습자료 편집", access: "staff" },
   { key: "admin-progress", ko: "학습 현황", access: "admin" },
   { key: "admin-feedback", ko: "피드백", access: "admin" },
-  { key: "supabase-auth", ko: "Supabase 로그인 확인" },
 ];
 
 // 한중문화(#/culture)는 legacy 《以家人之名》 전용이라 메뉴에서만 뺐다. 화면과 route는 남아 있다.

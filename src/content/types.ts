@@ -332,4 +332,8 @@ export type Lesson = {
   /** ISO datetime */
   createdAt: string;
   updatedAt: string;
+  /** Supabase 저장소에서만: 동시 편집 확인용 버전 (저장할 때 그대로 돌려보낸다) */
+  version?: number;
+  /** Supabase 저장소에서만: 마지막으로 저장한 사람 표시 */
+  updatedByLabel?: string | null;
 };

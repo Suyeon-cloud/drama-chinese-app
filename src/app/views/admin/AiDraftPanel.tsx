@@ -3,6 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import { DraftResultError, buildDraftPrompt, parseDraftResult, type DraftPromptInput } from "../../lib/aiDraft";
 import { ApiError, api } from "../../lib/api";
+import { getAuthBackend } from "../../lib/runtimeConfig";
 import type { LessonDraft } from "../../../content/types";
 
 export type AiStatus = { connected: boolean; source: "app" | "env" | null; hint: string | null; model: string };
@@ -18,8 +19,21 @@ export const useAiStatus = () => {
   return { status, reload };
 };
 
-/** 관리자 모드: 본인 Anthropic API 키 연결·해제 */
-export const KeyForm: React.FC<{ status: AiStatus | null; onChanged: () => void }> = ({ status, onChanged }) => {
+/**
+ * 관리자 모드: 본인 Anthropic API 키 연결·해제.
+ * Supabase 저장소에서는 키를 화면에서 저장하지 않고 서버 환경변수(ANTHROPIC_API_KEY)만 쓰므로 설정 여부만 보여 준다.
+ */
+export const KeyForm: React.FC<{ status: AiStatus | null; onChanged: () => void }> = (props) =>
+  getAuthBackend() === "supabase" ? (
+    <p className="ai-key-form muted small">
+      AI 키는 서버 환경변수 <b>ANTHROPIC_API_KEY</b>로만 설정해요 (화면에서 저장하지 않아요). 현재:{" "}
+      <b>{props.status?.connected ? "설정됨" : "설정되지 않음"}</b>
+    </p>
+  ) : (
+    <AppKeyForm {...props} />
+  );
+
+const AppKeyForm: React.FC<{ status: AiStatus | null; onChanged: () => void }> = ({ status, onChanged }) => {
   const toast = useToast();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -186,7 +200,8 @@ export const AiDraftPanel: React.FC<
               {generating ? "생성 중… (1~2분 걸릴 수 있어요)" : "✨ AI로 바로 생성"}
             </button>
             <small className="muted">
-              {status.model} · 키 {status.hint}
+              {status.model}
+              {status.hint ? ` · 키 ${status.hint}` : ""}
               {status.source === "env" ? " (서버 환경변수)" : ""}
             </small>
           </div>

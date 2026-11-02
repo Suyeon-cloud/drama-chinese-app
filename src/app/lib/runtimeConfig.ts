@@ -5,6 +5,7 @@ import { api } from "./api";
 let config: PublicConfig = {
   googleClientId: (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "").trim(),
   adminLoginEnabled: false,
+  authBackend: "dbjson",
 };
 
 export const loadRuntimeConfig = async (): Promise<PublicConfig> => {
@@ -19,3 +20,4 @@ export const loadRuntimeConfig = async (): Promise<PublicConfig> => {
 
 export const getGoogleClientId = () => config.googleClientId;
 export const isAdminLoginEnabled = () => config.adminLoginEnabled;
+export const getAuthBackend = () => (config.authBackend === "supabase" ? "supabase" : "dbjson");

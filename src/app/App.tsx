@@ -22,7 +22,6 @@ import { HomeView } from "./views/HomeView";
 import { JoinView } from "./views/JoinView";
 import { LandingView } from "./views/LandingView";
 import { MyLearningView } from "./views/MyLearningView";
-import { SupabaseAuthView } from "./views/SupabaseAuthView";
 import { WeeksView } from "./views/WeeksView";
 
 /** 역할이 맞지 않는 화면(관리자·교수자 전용)에 들어왔을 때 */
@@ -112,7 +111,6 @@ const Shell: React.FC = () => {
               {view === "admin-progress" && <ProgressView params={params} />}
               {view === "admin-feedback" && <FeedbackView />}
               {view === "admin-instructors" && <InstructorsView params={params} />}
-              {view === "supabase-auth" && <SupabaseAuthView />}
             </>
           )}
         </main>

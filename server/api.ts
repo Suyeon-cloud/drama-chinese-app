@@ -36,6 +36,25 @@ import type {
 import type { Lesson } from "../src/content/types";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
+import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
+import {
+  bearerToken,
+  curriculumFor,
+  lessonFor,
+  listLessonsFor,
+  listProgressFor,
+  saveLessonAs,
+  saveMyProgress,
+  courseSummaryFromRow,
+  createSupabaseUserResolver,
+  enrollResult,
+  enrollWithCode,
+  learnerCourseCard,
+  sectionTeachersFor,
+  sessionUserFromAccess,
+  studentsOfSections,
+  type SupabaseAccess,
+} from "./supabaseUser";
 import {
   enrollmentKey,
   enrollmentsForSection,
@@ -61,6 +80,16 @@ export type ApiEnv = {
   sessionSecret: string;
   /** (선택) Anthropic API 키. 관리자가 화면에서 연결한 키가 있으면 그 키를 먼저 쓴다. */
   anthropicApiKey: string;
+  /**
+   * 회원·교수자·과목·분반·수강 데이터의 저장소. dbjson(기본): data/db.json / supabase: Supabase.
+   * Phase C3에서는 관리자 API만 이 값을 따른다. 학생·교수자 로그인은 C4에서 함께 바꾼다.
+   */
+  authBackend: "dbjson" | "supabase";
+  /** 서버 전용 Supabase 설정 (AUTH_BACKEND=supabase일 때 관리자 API가 사용). 브라우저로 보내지 않는다. */
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  /** 학생·교수자 token 확인과 그 사용자 권한의 조회에 쓰는 공개 키 (RLS 적용) */
+  supabaseAnonKey: string;
 };
 
 /** process.env(또는 Vite loadEnv 결과)에서 설정을 읽는다. VITE_ 이름도 함께 받는다. */
@@ -72,6 +101,10 @@ export const readApiEnv = (env: Record<string, string | undefined>): ApiEnv => (
   initialInstructorEmail: normalizeEmail(env.INITIAL_INSTRUCTOR_EMAIL || env.VITE_INITIAL_INSTRUCTOR_EMAIL || ""),
   sessionSecret: env.SESSION_SECRET || "",
   anthropicApiKey: (env.ANTHROPIC_API_KEY || "").trim(),
+  authBackend: (env.AUTH_BACKEND || "").trim().toLowerCase() === "supabase" ? "supabase" : "dbjson",
+  supabaseUrl: (env.SUPABASE_URL || "").trim(),
+  supabaseServiceRoleKey: (env.SUPABASE_SERVICE_ROLE_KEY || "").trim(),
+  supabaseAnonKey: (env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "").trim(),
 });
 
 const COOKIE = "zhuiju_sid";
@@ -120,8 +153,41 @@ const cleanProfile = (body: unknown): MemberProfileInput | null => {
 };
 
 export const createApi = (db: Db, env: ApiEnv) => {
-  const secret = env.sessionSecret || db.data.sessionSecret;
+  // supabase(Vercel처럼 서버 파일이 남지 않는 환경): 관리자 세션 서명 키는 SESSION_SECRET 환경변수만 쓴다.
+  // db.json에 만든 키는 재시작·인스턴스마다 달라질 수 있어 쓰지 않는다. 없으면 관리자 로그인을 막는다.
+  const secret = env.sessionSecret || (env.authBackend === "supabase" ? "" : db.data.sessionSecret);
   const sign = (payload: string) => createHmac("sha256", secret).update(payload).digest("base64url");
+
+  // AUTH_BACKEND=supabase: 관리자 API의 회원·교수자·과목·분반·수강을 Supabase(service-role, 서버 전용)로 처리한다.
+  const supabaseConfigured = !!(env.supabaseUrl && env.supabaseServiceRoleKey);
+  if (env.authBackend === "supabase" && !supabaseConfigured) {
+    console.error("AUTH_BACKEND=supabase인데 SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY가 없어요. 관리자 데이터 API는 503을 돌려줘요.");
+  }
+  const supa: SupabaseAdminStore | null =
+    env.authBackend === "supabase" && supabaseConfigured
+      ? createSupabaseAdminStore(createSupabaseAdminClient(env.supabaseUrl, env.supabaseServiceRoleKey))
+      : null;
+  const useSupabase = env.authBackend === "supabase";
+  /** Supabase 관리자 작업 실행 + 오류를 기존 API 형태({ error })로 돌려준다. */
+  const viaSupabase = async (res: Response, work: (store: SupabaseAdminStore) => Promise<unknown>) => {
+    if (!supa) {
+      return res.status(503).json({ error: "Supabase 서버 설정(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)이 없어요." });
+    }
+    try {
+      res.json(await work(supa));
+      // 관리자가 승인·분반·배정·회원을 바꿨을 수 있으므로 학생·교수자 권한을 다시 읽게 한다.
+      userResolver?.clear();
+    } catch (err) {
+      if (err instanceof AdminDataError) return res.status(err.status).json({ error: err.message, ...err.extra });
+      console.error("[supabase-admin]", err instanceof Error ? err.message : "unknown error");
+      res.status(500).json({ error: "Supabase 처리 중 오류가 났어요." });
+    }
+  };
+  const adminLabel = (req: Request & { user?: SessionUser }) => req.user?.email || req.user?.name || "관리자";
+  // AUTH_BACKEND=supabase: 학생·교수자는 Supabase access token(Bearer)으로만 확인한다. (서버 세션을 만들지 않는다)
+  const userResolver =
+    useSupabase && env.supabaseUrl && env.supabaseAnonKey ? createSupabaseUserResolver(env.supabaseUrl, env.supabaseAnonKey) : null;
+  if (useSupabase && !userResolver) console.error("AUTH_BACKEND=supabase인데 SUPABASE_URL 또는 SUPABASE_ANON_KEY가 없어 학생·교수자 로그인을 확인할 수 없어요.");
 
   const readSession = (req: Request): Session | null => {
     const raw = (req.headers.cookie ?? "")
@@ -129,7 +195,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
       .map((c) => c.trim())
       .find((c) => c.startsWith(`${COOKIE}=`))
       ?.slice(COOKIE.length + 1);
-    if (!raw) return null;
+    if (!raw || !secret) return null;
     const [payload, sig] = raw.split(".");
     if (!payload || !sig || !safeEqual(sign(payload), sig)) return null;
     try {
@@ -198,10 +264,30 @@ export const createApi = (db: Db, env: ApiEnv) => {
     };
   };
 
-  type Authed = Request & { user?: SessionUser };
+  type Authed = Request & { user?: SessionUser; access?: SupabaseAccess };
 
-  const withUser = (req: Authed, _res: Response, next: NextFunction) => {
-    req.user = sessionUser(readSession(req)) ?? undefined;
+  /**
+   * 요청자 확인. dbjson: 기존 쿠키 세션 / supabase: 관리자는 기존 쿠키, 학생·교수자는 Bearer token만.
+   * supabase에서는 이전 Google 쿠키 세션을 받지 않는다.
+   */
+  const withUser = async (req: Authed, _res: Response, next: NextFunction) => {
+    try {
+      const s = readSession(req);
+      if (!useSupabase) req.user = sessionUser(s) ?? undefined;
+      else if (s?.k === "admin") req.user = sessionUser(s) ?? undefined;
+      else {
+        const token = bearerToken(req.headers.authorization);
+        const access = token && userResolver ? await userResolver.resolve(token, req.path === "/auth/me") : null;
+        if (access) {
+          req.access = access;
+          req.user = sessionUserFromAccess(access);
+        }
+      }
+    } catch (err) {
+      console.error("[auth]", err instanceof Error ? err.message : "unknown error");
+      req.user = undefined;
+      req.access = undefined;
+    }
     next();
   };
   /** 교수자 또는 관리자 (세션 role이 instructor) */
@@ -233,11 +319,17 @@ export const createApi = (db: Db, env: ApiEnv) => {
       .filter((s) => !!s && isOpenCourse(db.data.courses[s.courseId]) && (!activeOnly || s.status === "active"));
   /** 요청자가 운영하는 분반 id — 수강생·진도·퀴즈 권한의 기준 (관리자: 모든 분반, 교수자: 배정된 분반, 과목을 주면 그 과목만) */
   const managedSectionIds = (req: Authed, courseId?: string) =>
-    new Set(
-      (isPlatformAdmin(req) ? Object.values(db.data.sections) : isStaff(req) ? instructorSections(req.user!.email) : [])
-        .filter((s) => !courseId || s.courseId === courseId)
-        .map((s) => s.id),
-    );
+    useSupabase && !isPlatformAdmin(req)
+      ? new Set(
+          (isStaff(req) ? (req.access?.mySections ?? []) : [])
+            .filter((s) => !courseId || s.course_id === courseId)
+            .map((s) => String(s.id)),
+        )
+      : new Set(
+          (isPlatformAdmin(req) ? Object.values(db.data.sections) : isStaff(req) ? instructorSections(req.user!.email) : [])
+            .filter((s) => !courseId || s.courseId === courseId)
+            .map((s) => s.id),
+        );
   /**
    * 과목 공통 학습자료 권한: 관리자는 모든 과목(기존 자료 포함),
    * 교수자는 그 과목에 운영 중인 담당 분반이 하나라도 있을 때. (분반이 달라도 같은 과목이면 같은 15주를 함께 관리한다)
@@ -245,10 +337,18 @@ export const createApi = (db: Db, env: ApiEnv) => {
   const canManageCourse = (req: Authed, courseId: string) =>
     isPlatformAdmin(req)
       ? !!db.data.courses[courseId]
-      : isStaff(req) && instructorSections(req.user!.email, true).some((s) => s.courseId === courseId);
+      : useSupabase
+        ? isStaff(req) && (req.access?.mySections ?? []).some((s) => s.course_id === courseId && s.status === "active")
+        : isStaff(req) && instructorSections(req.user!.email, true).some((s) => s.courseId === courseId);
   /** 교수자가 수강생 기록을 볼 수 있는 (과목, 학생) 쌍: 담당 분반 수강생 × 그 분반의 과목 */
   const visibleStudentPairs = (req: Authed) =>
-    new Set(
+    useSupabase && !isPlatformAdmin(req)
+      ? new Set(
+          (req.access?.enrollments ?? [])
+            .filter((e) => managedSectionIds(req).has(String(e.section_id)))
+            .map((e) => `${e.course_id}::${e.user_id}`),
+        )
+      : new Set(
       Object.values(db.data.enrollments)
         .filter((e) => e.sectionId && managedSectionIds(req).has(e.sectionId))
         .map((e) => `${e.courseId}::${e.userId}`),
@@ -261,6 +361,31 @@ export const createApi = (db: Db, env: ApiEnv) => {
         .map((e) => e.courseId)
         .filter((id) => isOpenCourse(db.data.courses[id])),
     );
+  /** 요청한 학습자가 수강 중인 운영 과목 (supabase: 승인된 학생의 Supabase 수강 기록) */
+  const learnerCourseIdsFor = (req: Authed) =>
+    useSupabase ? (req.access?.learnerCourseIds ?? new Set<string>()) : req.user ? learnerCourseIds(req.user.id) : new Set<string>();
+  /** Supabase 사용자 경로 실행 + 오류를 기존 API 형태로 */
+  const viaUser = async (req: Authed, res: Response, work: (a: SupabaseAccess) => Promise<unknown>) => {
+    if (!req.access) return res.status(401).json({ error: "로그인이 필요해요." });
+    try {
+      res.json(await work(req.access));
+    } catch (err) {
+      if (err instanceof AdminDataError) return res.status(err.status).json({ error: err.message, ...err.extra });
+      console.error("[supabase-user]", err instanceof Error ? err.message : "unknown error");
+      res.status(500).json({ error: "Supabase 처리 중 오류가 났어요." });
+    }
+  };
+  /**
+   * supabase 저장 전 Express 검사 (기존 화면과 같은 문구): 과목·주차 범위·공개 조건.
+   * 권한·주차 중복·동시 편집(version)은 저장 함수(save_lesson·admin_save_lesson)가 최종 확인한다.
+   */
+  const lessonSaveProblem = (lesson: Lesson, prev: Lesson | null, weekCount: number | null): string | null => {
+    if (weekCount === null) return "없는 과목이에요.";
+    if (!Number.isInteger(lesson.week) || lesson.week < 1 || lesson.week > weekCount) return `주차는 1~${weekCount}주차 중에서 골라 주세요.`;
+    const problems = lessonPublishProblems(lesson);
+    const alreadyInvalid = !!prev && prev.status === lesson.status && lessonPublishProblems(prev).length > 0;
+    return problems.length > 0 && !alreadyInvalid ? problems[0] : null;
+  };
   const courseSummary = ({ code: _code, ...c }: Course): CourseSummary => c;
   /** 분반 담당 교강사 (이름은 교강사가 로그인한 적이 있을 때만) */
   const sectionTeachers = (sectionId: string): SectionTeacher[] =>
@@ -282,7 +407,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
   api.get("/config", (_req, res) => {
     const body: PublicConfig = {
       googleClientId: env.googleClientId,
-      adminLoginEnabled: !!(env.adminId && env.adminPassword),
+      adminLoginEnabled: !!(env.adminId && env.adminPassword && secret),
+      authBackend: env.authBackend,
     };
     res.json(body);
   });
@@ -292,7 +418,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   api.get("/auth/me", (req: Authed, res) => {
     const s = readSession(req);
     if (s && !req.user) setSession(req, res, null); // 삭제된 회원의 쿠키 정리
-    if (req.user?.member) {
+    if (req.user?.member && !useSupabase) {
       req.user.member.lastSeenAt = nowIso();
       db.save();
     }
@@ -300,6 +426,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.post("/auth/google", async (req: Authed, res) => {
+    if (useSupabase) return res.status(400).json({ error: "이 서버는 Supabase Google 로그인을 사용해요." });
     const token = typeof req.body?.accessToken === "string" ? req.body.accessToken : "";
     if (!token) return res.status(400).json({ error: "토큰이 없어요." });
     try {
@@ -372,6 +499,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!env.adminId || !env.adminPassword) {
       return res.status(503).json({ error: "관리자 계정이 설정되지 않았어요. (ADMIN_ID, ADMIN_PASSWORD 환경변수)" });
     }
+    if (!secret) return res.status(503).json({ error: "관리자 세션 설정이 없어요. (SESSION_SECRET 환경변수)" });
     const id = typeof req.body?.id === "string" ? req.body.id.trim() : "";
     const password = typeof req.body?.password === "string" ? req.body.password : "";
     if (!safeEqual(id, env.adminId) || !safeEqual(password, env.adminPassword)) {
@@ -389,6 +517,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /** 구글 로그인 후 회원정보 입력 (본인) */
   api.put("/me/profile", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return res.status(400).json({ error: "회원정보는 Supabase(complete_my_profile)로 저장해요." });
     const m = req.user?.member;
     if (!m) return res.status(400).json({ error: "회원 계정이 아니에요." });
     const profile = cleanProfile(req.body);
@@ -402,10 +531,12 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   // 회원 목록·승인·수정·삭제는 관리자만. 교수자는 /courses/:id/students로 담당 과목 수강생만 본다.
   api.get("/members", requireAdminMode, (_req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.listMembers());
     res.json(Object.values(db.data.members).sort((a, b) => b.firstSeenAt.localeCompare(a.firstSeenAt)));
   });
 
   api.patch("/members/:id", requireAdminMode, (req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.updateMember(req.params.id, (req.body ?? {}) as Record<string, unknown>));
     const m = db.data.members[req.params.id];
     if (!m) return res.status(404).json({ error: "회원을 찾을 수 없어요." });
     const body = (req.body ?? {}) as Partial<LearnerProfile>;
@@ -424,6 +555,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.delete("/members/:id", requireAdminMode, (req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.deleteMember(req.params.id));
     const id = req.params.id;
     delete db.data.members[id];
     for (const [k, p] of Object.entries(db.data.progress)) if (p.userId === id) delete db.data.progress[k];
@@ -442,9 +574,15 @@ export const createApi = (db: Db, env: ApiEnv) => {
    */
   api.get("/lessons", (req: Authed, res) => {
     const courseId = typeof req.query.course === "string" ? req.query.course : "";
+    // supabase: 관리자는 service-role(이전 자료 포함), 교수자·학생은 본인 token으로 RLS 범위만. 로그인 전: 없음.
+    if (useSupabase) {
+      if (isPlatformAdmin(req)) return void viaSupabase(res, (st) => st.listLessons(courseId));
+      if (!req.access) return res.json([]);
+      return void viaUser(req, res, (a) => listLessonsFor(a, courseId));
+    }
     const all = courseId ? lessonsForCourse(db.data.lessons, courseId) : Object.values(db.data.lessons);
     if (isStaff(req)) return res.json(all.filter((l) => canManageCourse(req, l.courseId)));
-    const mine = req.user ? learnerCourseIds(req.user.id) : new Set<string>();
+    const mine = learnerCourseIdsFor(req);
     res.json(all.filter((l) => l.status === "published" && mine.has(l.courseId)));
   });
 
@@ -453,6 +591,27 @@ export const createApi = (db: Db, env: ApiEnv) => {
     const lesson = req.body as Lesson;
     if (!lesson || lesson.id !== req.params.id || typeof lesson.week !== "number") {
       return res.status(400).json({ error: "강의자료 형식이 올바르지 않아요." });
+    }
+    // supabase: 기존 Express 검사 후 저장 함수로 저장. 기존 학습자료는 lesson.version(편집을 시작한 버전)이 맞아야 저장된다.
+    if (useSupabase) {
+      if (isPlatformAdmin(req)) {
+        return void viaSupabase(res, async (st) => {
+          const prev = await st.getLesson(lesson.id);
+          const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
+          const problem = lessonSaveProblem(lesson, prev, (await st.getCourse(courseId))?.weekCount ?? null);
+          if (problem) throw new AdminDataError(400, problem);
+          return st.saveLesson({ ...lesson, courseId }, adminLabel(req));
+        });
+      }
+      return void viaUser(req, res, async (a) => {
+        const prev = await lessonFor(a, lesson.id);
+        const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
+        const course = a.courses.get(courseId);
+        if (!course || !canManageCourse(req, courseId)) throw new AdminDataError(403, "담당 강의의 학습자료만 저장할 수 있어요.");
+        const problem = lessonSaveProblem(lesson, prev, Number(course.week_count));
+        if (problem) throw new AdminDataError(400, problem);
+        return saveLessonAs(a, { ...lesson, courseId });
+      });
     }
     const prev = db.data.lessons[lesson.id];
     // 과목 정보가 없는 이전 화면의 저장은 원래 과목(없으면 기존 자료)으로 둔다.
@@ -485,6 +644,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /** 강의자료는 과목의 모든 분반이 함께 쓰므로 삭제는 관리자만 할 수 있다. 교수자는 ‘준비 중’으로 바꿔 비공개로 둔다. */
   api.delete("/lessons/:id", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.deleteLesson(req.params.id));
     if (!db.data.lessons[req.params.id]) return res.json({ ok: true });
     delete db.data.lessons[req.params.id];
     db.save();
@@ -499,6 +659,11 @@ export const createApi = (db: Db, env: ApiEnv) => {
    */
   api.get("/progress", requireLogin, (req: Authed, res) => {
     const courseId = typeof req.query.course === "string" ? req.query.course : "";
+    // supabase: 관리자는 service-role 전체, 학생·교수자는 본인 token으로 RLS 범위만 (학생 본인 / 교수자 운영 중 담당 분반 수강생)
+    if (useSupabase) {
+      if (isPlatformAdmin(req)) return void viaSupabase(res, (st) => st.listProgress(courseId));
+      return void viaUser(req, res, (a) => listProgressFor(a, courseId));
+    }
     const all = courseId
       ? progressForCourse(db.data.progress, db.data.lessons, courseId)
       : Object.values(db.data.progress);
@@ -517,9 +682,11 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!p || p.userId !== req.user!.id || typeof p.lessonId !== "string") {
       return res.status(400).json({ error: "학습 기록 형식이 올바르지 않아요." });
     }
+    // supabase: save_my_progress — 사용자는 token의 사용자, 승인·수강 과목·published 확인은 DB 함수가 최종 판단한다.
+    if (useSupabase) return void viaUser(req, res, (a) => saveMyProgress(a, p));
     // 수강 중인 과목의 공개 강의자료만 기록한다.
     const lesson = db.data.lessons[p.lessonId];
-    if (!lesson || lesson.status !== "published" || !learnerCourseIds(req.user!.id).has(lesson.courseId)) {
+    if (!lesson || lesson.status !== "published" || !learnerCourseIdsFor(req).has(lesson.courseId)) {
       return res.status(403).json({ error: "수강 중인 강의의 학습만 기록돼요." });
     }
     db.data.progress[`${p.userId}::${p.lessonId}`] = p;
@@ -529,12 +696,17 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 피드백 (관리자) ───────── */
 
-  // 피드백은 전체 회원 정보를 쓰므로 관리자만
-  api.get("/feedback", requireAdminMode, (_req, res) => res.json(Object.values(db.data.feedback)));
+  // 피드백은 전체 회원 정보를 쓰므로 관리자만. supabase: feedback_drafts(service-role 전용)에 저장한다.
+  // Gmail 발송 토큰은 브라우저 메모리에서만 쓰고 서버·초안에 저장하지 않는다.
+  api.get("/feedback", requireAdminMode, (_req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.listFeedback());
+    res.json(Object.values(db.data.feedback));
+  });
 
   api.put("/feedback/:id", requireAdminMode, (req, res) => {
     const draft = req.body as FeedbackDraft;
     if (!draft || draft.id !== req.params.id) return res.status(400).json({ error: "형식이 올바르지 않아요." });
+    if (useSupabase) return void viaSupabase(res, (st) => st.saveFeedback(draft));
     const saved = { ...draft, updatedAt: nowIso() };
     db.data.feedback[draft.id] = saved;
     db.save();
@@ -542,6 +714,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.delete("/feedback/:id", requireAdminMode, (req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.deleteFeedback(req.params.id));
     delete db.data.feedback[req.params.id];
     db.save();
     res.json({ ok: true });
@@ -550,12 +723,14 @@ export const createApi = (db: Db, env: ApiEnv) => {
   /* ───────── 교수자 이메일 (관리자) ───────── */
 
   api.get("/instructors", requireAdminMode, (_req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.listInstructors());
     const initial = env.initialInstructorEmail;
     const local = Object.values(db.data.instructors).filter((r) => r.email !== initial);
     res.json(initial ? [{ email: initial, source: "env", addedBy: null, addedAt: null }, ...local] : local);
   });
 
   api.post("/instructors", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.addInstructor(req.body?.email, adminLabel(req)));
     const email = normalizeEmail(typeof req.body?.email === "string" ? req.body.email : "");
     if (!isValidEmail(email)) return res.status(400).json({ error: "올바른 이메일 주소를 입력해 주세요." });
     if (email !== env.initialInstructorEmail && !db.data.instructors[email]) {
@@ -571,6 +746,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.delete("/instructors/:email", requireAdminMode, (req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.removeInstructor(req.params.email));
     delete db.data.instructors[normalizeEmail(req.params.email)];
     db.save();
     res.json({ ok: true });
@@ -578,20 +754,34 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── AI 학습 콘텐츠 생성 (본인 API 키 연결) ───────── */
 
-  const aiKey = () => db.data.anthropicApiKey || env.anthropicApiKey;
+  // supabase: 키는 서버 환경변수 ANTHROPIC_API_KEY만 쓴다. (DB·Supabase·Vault·db.json에 저장하지 않는다)
+  const aiKey = () => (useSupabase ? env.anthropicApiKey : db.data.anthropicApiKey || env.anthropicApiKey);
+  const ENV_ONLY_KEY = "Supabase 서버에서는 화면에서 API 키를 저장하지 않아요. 서버 환경변수 ANTHROPIC_API_KEY로 설정해 주세요.";
+  /**
+   * AI 사용 권한. supabase: 관리자 또는 운영 중인 담당 분반(Supabase 배정)이 있는 교수자만.
+   * 키 설정 여부보다 먼저 확인해, 권한 없는 사용자는 키가 있는지 알 수 없게 한다. dbjson: 기존대로 교수자·관리자.
+   */
+  const requireAiUser = (req: Authed, res: Response, next: NextFunction) => {
+    if (!useSupabase) return requireStaff(req, res, next);
+    const assigned = isStaff(req) && (req.access?.mySections ?? []).some((s) => s.status === "active");
+    if (isPlatformAdmin(req) || assigned) return next();
+    res.status(req.user ? 403 : 401).json({ error: "AI 생성은 관리자 또는 운영 중인 담당 분반이 있는 교수자만 사용할 수 있어요." });
+  };
 
-  api.get("/ai/status", requireStaff, (_req, res) => {
+  api.get("/ai/status", requireAiUser, (_req, res) => {
     const key = aiKey();
     res.json({
       connected: !!key,
-      source: db.data.anthropicApiKey ? "app" : env.anthropicApiKey ? "env" : null,
-      hint: key ? `…${key.slice(-4)}` : null,
+      source: useSupabase ? (key ? "env" : null) : db.data.anthropicApiKey ? "app" : env.anthropicApiKey ? "env" : null,
+      // supabase: 설정 여부만 알려 주고 키의 어떤 부분도 내려보내지 않는다.
+      hint: key && !useSupabase ? `…${key.slice(-4)}` : null,
       model: AI_MODEL,
     });
   });
 
-  // 키 연결·해제는 관리자 모드에서만. 키 값은 저장만 하고 다시 내려보내지 않는다.
+  // 키 연결·해제는 관리자 모드에서만. 키 값은 저장만 하고 다시 내려보내지 않는다. (supabase: 환경변수만, 화면 저장 없음)
   api.put("/ai/key", requireAdminMode, async (req, res) => {
+    if (useSupabase) return res.status(400).json({ error: ENV_ONLY_KEY });
     const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
     if (!apiKey.startsWith("sk-ant-")) return res.status(400).json({ error: "Anthropic API 키는 sk-ant- 로 시작해요." });
     try {
@@ -605,13 +795,15 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.delete("/ai/key", requireAdminMode, (_req, res) => {
+    if (useSupabase) return res.status(400).json({ error: ENV_ONLY_KEY });
     delete db.data.anthropicApiKey;
     db.save();
     res.json({ ok: true });
   });
 
-  api.post("/ai/draft", requireStaff, async (req, res) => {
+  api.post("/ai/draft", requireAiUser, async (req, res) => {
     const key = aiKey();
+    if (!key && useSupabase) return res.status(400).json({ error: "AI 키가 설정되지 않았어요. 서버 환경변수 ANTHROPIC_API_KEY를 설정해 주세요." });
     if (!key) return res.status(400).json({ error: "연결된 API 키가 없어요. 관리자 모드에서 먼저 연결해 주세요." });
     const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
     if (!prompt.trim() || prompt.length > 200_000) return res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
@@ -673,8 +865,50 @@ export const createApi = (db: Db, env: ApiEnv) => {
    * 학습자: 수강 중인 운영 과목만 (강의코드는 보내지 않는다, 기존 자료 과목 제외)
    */
   api.get("/courses", requireLogin, (req: Authed, res) => {
+    if (isPlatformAdmin(req)) {
+      if (useSupabase) return void viaSupabase(res, (st) => st.listCourses());
+      return res.json(Object.values(db.data.courses).map((c) => courseOverview(req, c)));
+    }
+    if (useSupabase) {
+      return void viaUser(req, res, async (a) => {
+        if (isStaff(req)) {
+          const out: CourseOverview[] = [];
+          for (const c of a.courses.values()) {
+            const mine = a.mySections.filter((s) => s.course_id === c.id);
+            if (mine.length === 0) continue;
+            const sections: SectionOverview[] = [];
+            for (const s of mine) {
+              sections.push({
+                id: String(s.id),
+                courseId: String(s.course_id),
+                name: String(s.name),
+                code: String(s.code),
+                status: s.status === "inactive" ? "inactive" : "active",
+                createdAt: String(s.created_at),
+                updatedAt: String(s.updated_at),
+                instructors: await sectionTeachersFor(a, String(s.id)),
+                enrolledCount: a.enrollments.filter((e) => e.section_id === s.id).length,
+              });
+            }
+            // 강의자료 수: 담당 과목의 주차 목록(course_curriculum, 준비 중 포함)
+            const lessons = await curriculumFor(a, String(c.id));
+            out.push({
+              ...courseSummaryFromRow(c),
+              code: String(c.legacy_code ?? ""),
+              sections,
+              enrolledCount: sections.reduce((n, s) => n + s.enrolledCount, 0),
+              lessonCount: lessons.length,
+              publishedCount: lessons.filter((l) => l.status === "published").length,
+            });
+          }
+          return out;
+        }
+        const out: CourseSummary[] = [];
+        for (const id of a.learnerCourseIds) out.push(await learnerCourseCard(a, id));
+        return out;
+      });
+    }
     const all = Object.values(db.data.courses);
-    if (isPlatformAdmin(req)) return res.json(all.map((c) => courseOverview(req, c)));
     if (isStaff(req)) {
       return res.json(all.filter((c) => managedSectionIds(req, c.id).size > 0).map((c) => courseOverview(req, c)));
     }
@@ -689,6 +923,23 @@ export const createApi = (db: Db, env: ApiEnv) => {
    */
   api.get("/courses/:id/students", requireLogin, (req: Authed, res) => {
     const courseId = req.params.id;
+    if (useSupabase && isPlatformAdmin(req)) {
+      const only = typeof req.query.section === "string" ? req.query.section : "";
+      return void viaSupabase(res, (st) => st.courseStudents(courseId, only));
+    }
+    if (useSupabase) {
+      const only = typeof req.query.section === "string" ? req.query.section : "";
+      return void viaUser(req, res, async (a) => {
+        const mine = isStaff(req) ? a.mySections.filter((s) => s.course_id === courseId) : [];
+        if (mine.length === 0 || (only && !mine.some((s) => s.id === only))) throw new AdminDataError(404, "담당 분반이 아니에요.");
+        const students = await studentsOfSections(a, only ? mine.filter((s) => s.id === only) : mine);
+        const body: CourseStudents = {
+          students,
+          progress: await listProgressFor(a, courseId, students.map((s) => s.userId)),
+        };
+        return body;
+      });
+    }
     const mine = managedSectionIds(req, courseId);
     const only = typeof req.query.section === "string" ? req.query.section : "";
     if (mine.size === 0 || (only && !mine.has(only))) {
@@ -737,6 +988,9 @@ export const createApi = (db: Db, env: ApiEnv) => {
    * 학습자료는 만들지 않는다 — 분반은 과목의 15주 학습자료를 함께 쓴다.
    */
   api.post("/courses/:id/sections", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) {
+      return void viaSupabase(res, (st) => st.createSection(req.params.id, (req.body ?? {}) as Record<string, unknown>, adminLabel(req)));
+    }
     const course = db.data.courses[req.params.id];
     if (!isOpenCourse(course)) return res.status(404).json({ error: "운영 중인 과목에만 분반을 만들 수 있어요." });
     const name = cleanSectionName(req.body?.name) || nextSectionName(db.data.sections, course.id);
@@ -768,6 +1022,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /** 분반 이름 변경 · 운영/비활성 전환. 비활성 분반은 신규 등록만 막고 수강·기록·배정은 그대로 둔다. */
   api.patch("/sections/:id", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.updateSection(req.params.id, (req.body ?? {}) as Record<string, unknown>));
     const s = db.data.sections[req.params.id];
     if (!s) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
     const name = req.body?.name === undefined ? s.name : cleanSectionName(req.body.name);
@@ -783,6 +1038,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /** 분반–교강사 배정 (관리자만). 같은 배정은 한 번만 생긴다. (키: sectionId::email) */
   api.put("/sections/:id/instructors/:email", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.assignInstructor(req.params.id, req.params.email, adminLabel(req)));
     const s = db.data.sections[req.params.id];
     const email = normalizeEmail(req.params.email);
     if (!s || !isOpenCourse(db.data.courses[s.courseId])) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
@@ -795,6 +1051,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   api.delete("/sections/:id/instructors/:email", requireAdminMode, (req, res) => {
+    if (useSupabase) return void viaSupabase(res, (st) => st.unassignInstructor(req.params.id, req.params.email));
     const key = sectionInstructorKey(req.params.id, normalizeEmail(req.params.email));
     if (db.data.sectionInstructors[key]) {
       delete db.data.sectionInstructors[key];
@@ -804,7 +1061,15 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   /** 분반 강의코드로 과목·분반 미리 보기 (참여 링크 화면). 운영 중인 분반만. */
-  api.get("/courses/lookup", (req, res) => {
+  api.get("/courses/lookup", (req: Authed, res) => {
+    // supabase: 로그인한 승인 학생만 (enroll_with_code 미리보기). 로그인 전에는 강의코드를 확인해 주지 않는다.
+    if (useSupabase) {
+      return void viaUser(req, res, async (a) => {
+        const { course, section } = await enrollWithCode(a, String(req.query.code ?? ""), false);
+        const body: CourseLookup = { ...course, sectionName: section.name };
+        return body;
+      });
+    }
     const s = findSectionByCode(db.data.sections, String(req.query.code ?? ""));
     const course = s ? db.data.courses[s.courseId] : undefined;
     if (!s || s.status !== "active" || !isOpenCourse(course)) {
@@ -819,6 +1084,37 @@ export const createApi = (db: Db, env: ApiEnv) => {
    * 학습자는 수강 중인 과목만, 교수자는 담당 분반이 있는 과목만 볼 수 있다. 그 밖의 과목은 없는 과목처럼 404.
    */
   api.get("/courses/:id/curriculum", requireLogin, (req: Authed, res) => {
+    if (useSupabase && !isPlatformAdmin(req)) {
+      return void viaUser(req, res, async (a) => {
+        const id = req.params.id;
+        const allowed = isStaff(req) ? managedSectionIds(req, id).size > 0 : a.learnerCourseIds.has(id);
+        if (!allowed || !a.courses.get(id)) throw new AdminDataError(404, "수강 중인 강의가 아니에요.");
+        const body: CourseCurriculum = {
+          course: isStaff(req) ? courseSummaryFromRow(a.courses.get(id)!) : await learnerCourseCard(a, id),
+          weeks: await curriculumFor(a, id),
+        };
+        return body;
+      });
+    }
+    if (useSupabase) {
+      return void viaSupabase(res, async (st) => {
+        const course = (await st.listCourses()).find((c) => c.id === req.params.id);
+        if (!course) throw new AdminDataError(404, "수강 중인 강의가 아니에요.");
+        const summary: CourseSummary = {
+          id: course.id,
+          drama: course.drama,
+          title: course.title,
+          context: course.context,
+          description: course.description,
+          weekCount: course.weekCount,
+          status: course.status,
+          createdAt: course.createdAt,
+          updatedAt: course.updatedAt,
+        };
+        const body: CourseCurriculum = { course: summary, weeks: await st.curriculumWeeks(course.id) };
+        return body;
+      });
+    }
     const course = db.data.courses[req.params.id];
     const allowed = isStaff(req)
       ? isPlatformAdmin(req)
@@ -845,6 +1141,25 @@ export const createApi = (db: Db, env: ApiEnv) => {
    */
   api.get("/enrollments", requireLogin, (req: Authed, res) => {
     const q = String(req.query.course ?? "");
+    if (useSupabase && isPlatformAdmin(req)) return void viaSupabase(res, (st) => st.listEnrollments(q));
+    if (useSupabase) {
+      return void viaUser(req, res, async (a) => {
+        const match = (e: Record<string, unknown>) => !q || e.course_id === q || e.section_id === q || e.course_code === q.trim().toUpperCase();
+        if (isStaff(req)) {
+          const students = await studentsOfSections(a, a.mySections);
+          return students.flatMap((st): Enrollment[] => {
+            const e = a.enrollments.find((x) => x.user_id === st.userId && x.section_id === st.sectionId);
+            return e && match(e)
+              ? [{ sectionId: st.sectionId, courseId: String(e.course_id), courseCode: String(e.course_code), userId: st.userId, name: st.name, email: st.email, joinedAt: st.joinedAt }]
+              : [];
+          });
+        }
+        const me = req.user!;
+        return a.enrollments
+          .filter((e) => e.user_id === a.userId && match(e))
+          .map((e) => ({ sectionId: String(e.section_id), courseId: String(e.course_id), courseCode: String(e.course_code), userId: a.userId, name: me.name, email: me.email, joinedAt: String(e.joined_at) }));
+      });
+    }
     const all = Object.values(db.data.enrollments);
     const list = q
       ? all.filter((e) => e.courseId === q || e.sectionId === q || e.courseCode === q)
@@ -866,6 +1181,16 @@ export const createApi = (db: Db, env: ApiEnv) => {
    * - 비활성 분반·기존 자료 코드: 등록하지 않는다
    */
   api.post("/enrollments", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      // 승인·교수자 거부·중복·비활성 검사는 enroll_with_code(DB 함수)가 한다.
+      const code = typeof req.body?.courseCode === "string" ? req.body.courseCode : "";
+      return void viaUser(req, res, async (a) => {
+        const result = await enrollResult(a, req.user!, code);
+        // 본인 수강 과목과 담당 교수자의 수강생 목록이 바뀐다.
+        userResolver?.clear();
+        return result;
+      });
+    }
     const u = req.user!;
     if (u.role !== "learner") return res.status(400).json({ error: "교수자 계정은 수강 등록하지 않아도 돼요." });
     if (!isApproved(req)) return res.status(403).json({ error: "관리자 승인 후 수강 등록할 수 있어요." });

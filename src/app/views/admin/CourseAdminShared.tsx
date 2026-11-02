@@ -6,11 +6,12 @@ import { COURSE_SEEDS, LEGACY_COURSE_ID, defaultDirectionFor } from "../../../co
 import { lessonHeading } from "../../../content/lessons";
 import type { Lesson } from "../../../content/types";
 import { useToast } from "../../components/Toast";
-import { ApiError } from "../../lib/api";
+import { ApiError, lessonConflictOf } from "../../lib/api";
 import { formatDateTime, formatPercent } from "../../lib/format";
 import { joinUrl, navigate } from "../../router";
 import { lessonStore } from "../../store";
 import { useCourseStudents } from "../../store/hooks";
+import { refreshAllStores } from "../../store/remote";
 import type { CourseOverview, LessonProgress, SectionOverview, SectionTeacher } from "../../store/models";
 import { CourseImage } from "../courseVisuals";
 import { courseTone } from "../MyCoursesView";
@@ -203,7 +204,11 @@ export const CourseLessonsTable: React.FC<{
         "success",
       );
     } catch (err) {
-      toast.show(err instanceof ApiError ? err.message : "주차를 옮기지 못했어요.", "error");
+      // 다른 사람이 먼저 저장했으면 옮기지 않고 목록을 최신으로 다시 읽는다. (입력한 내용이 없어 지울 것이 없다)
+      if (lessonConflictOf(err)) {
+        toast.show("다른 사용자가 이 강의자료를 먼저 수정해서 주차를 옮기지 않았어요. 목록을 새로 불러왔으니 다시 확인해 주세요.", "error");
+        refreshAllStores();
+      } else toast.show(err instanceof ApiError ? err.message : "주차를 옮기지 못했어요.", "error");
     } finally {
       setMoving(null);
       setPendingMove(null);

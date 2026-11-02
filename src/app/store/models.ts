@@ -279,4 +279,6 @@ export type PublicConfig = {
   googleClientId: string;
   /** ADMIN_ID·ADMIN_PASSWORD가 설정되어 관리자 로그인이 가능한지 */
   adminLoginEnabled: boolean;
+  /** 학생·교수자 로그인과 회원·수강 데이터의 저장소 (서버 AUTH_BACKEND). 공개해도 되는 값만 보낸다. */
+  authBackend: "dbjson" | "supabase";
 };

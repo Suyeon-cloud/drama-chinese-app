@@ -159,7 +159,8 @@ const CueFillPanel: React.FC<{
                   {busy ? "만드는 중… (1~2분 걸릴 수 있어요)" : `✨ ${name} 바로 만들기`}
                 </button>
                 <small className="muted">
-                  {status.model} · 키 {status.hint}
+                  {status.model}
+                  {status.hint ? ` · 키 ${status.hint}` : ""}
                 </small>
               </div>
             ) : (

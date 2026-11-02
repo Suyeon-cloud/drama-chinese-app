@@ -50,6 +50,8 @@ export interface AuthService {
   signInWithGoogle(): Promise<AuthUser>;
   signInAsAdmin(id: string, password: string): Promise<AuthUser>;
   signOut(): Promise<void>;
+  /** 다른 페이지로 다녀오는 로그인(Supabase)에서 생긴 오류 (한 번 읽으면 지운다) */
+  takeSignInError?(): string | null;
 }
 
 const SCOPES = "openid email profile";

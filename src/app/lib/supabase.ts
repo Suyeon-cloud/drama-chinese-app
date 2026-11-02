@@ -1,6 +1,6 @@
 // 학생·교강사용 브라우저 Supabase client. 공개 키(anon/publishable)와 로그인 사용자의 JWT로 요청하고, 접근은 RLS가 막는다.
-// service-role 키는 브라우저에서 절대 쓰지 않는다. (관리자 작업은 서버 전용 client — 이후 단계)
-// 지금은 Supabase 로그인 확인 화면(#/supabase-auth)에서만 쓴다. 기존 로그인은 전환을 확인할 때까지 그대로 둔다.
+// service-role 키는 브라우저에서 절대 쓰지 않는다. (관리자 작업은 서버 전용 client가 한다)
+// AUTH_BACKEND=supabase일 때 학생·교수자 로그인(supabaseAuthService)과 회원정보 저장에 쓴다.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const url = (import.meta.env.VITE_SUPABASE_URL ?? "").trim();

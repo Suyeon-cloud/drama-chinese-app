@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { api } from "../lib/api";
+import { getAuthBackend } from "../lib/runtimeConfig";
 import { EMPTY_PROFILE, type MemberProfileInput } from "../store/models";
 import { useAuth } from "./AuthContext";
 import type { AuthUser } from "./authService";
+import { completeSupabaseProfile } from "./supabaseAuth";
 
 export const PROFILE_LABELS: Record<keyof MemberProfileInput, string> = {
   name: "성명",
@@ -66,7 +68,7 @@ export const ProfileFields: React.FC<{
 
 /** 구글 로그인 직후 회원정보 입력 팝업 (입력을 마쳐야 닫힌다) */
 const ProfileModal: React.FC<{ user: AuthUser }> = ({ user }) => {
-  const { setUser, signOut } = useAuth();
+  const { setUser, refresh, signOut } = useAuth();
   const m = user.member!;
   const [form, setForm] = useState<MemberProfileInput>({
     ...EMPTY_PROFILE,
@@ -85,10 +87,16 @@ const ProfileModal: React.FC<{ user: AuthUser }> = ({ user }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api<{ user: AuthUser | null }>("/me/profile", { method: "PUT", body: form });
-      setUser(res.user);
+      if (getAuthBackend() === "supabase") {
+        // Supabase: 입력 검사·저장은 complete_my_profile(DB 함수), 저장 후 서버에서 내 정보를 다시 읽는다.
+        await completeSupabaseProfile(form);
+        await refresh();
+      } else {
+        const res = await api<{ user: AuthUser | null }>("/me/profile", { method: "PUT", body: form });
+        setUser(res.user);
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "저장하지 못했어요.");
+      setError((err as { message?: string } | null)?.message || "저장하지 못했어요.");
     } finally {
       setSaving(false);
     }

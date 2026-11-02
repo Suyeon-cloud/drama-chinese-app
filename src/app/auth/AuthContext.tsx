@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useToast } from "../components/Toast";
-import { loadRuntimeConfig } from "../lib/runtimeConfig";
+import { setApiTokenProvider } from "../lib/api";
+import { getAuthBackend, loadRuntimeConfig } from "../lib/runtimeConfig";
 import { refreshAllStores } from "../store/remote";
 import {
   AUTH_ERROR_MESSAGE,
@@ -10,6 +11,8 @@ import {
   type AuthUser,
 } from "./authService";
 import { gmailService } from "./gmailService";
+import { getSupabaseAccessToken, peekSupabaseAccessToken, watchSupabaseSession } from "./supabaseAuth";
+import { supabaseAuthService } from "./supabaseAuthService";
 
 type AuthState = {
   /** 로그인 사용자 (역할·회원정보 포함). 로그인 전이면 null */
@@ -42,8 +45,10 @@ const errorText = (err: unknown) => {
 export const AuthProvider: React.FC<{
   service?: AuthService;
   children: React.ReactNode;
-}> = ({ service = googleAuthService, children }) => {
+}> = ({ service: fixedService, children }) => {
   const toast = useToast();
+  // 서버 설정(AUTH_BACKEND)을 읽은 뒤 정해진다. 기본은 기존 Google 로그인.
+  const [service, setService] = useState<AuthService>(fixedService ?? googleAuthService);
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
   const [configured, setConfigured] = useState(service.configured);
@@ -55,24 +60,36 @@ export const AuthProvider: React.FC<{
     refreshAllStores();
   }, []);
 
-  // 설정(Client ID)과 로그인 상태를 서버에서 읽는다.
+  // 설정(Client ID·AUTH_BACKEND)과 로그인 상태를 서버에서 읽는다.
   useEffect(() => {
     let alive = true;
     void (async () => {
       const config = await loadRuntimeConfig();
-      const current = await service.getCurrentUser();
+      const supabase = !fixedService && getAuthBackend() === "supabase";
+      const active = fixedService ?? (supabase ? supabaseAuthService : googleAuthService);
+      // supabase: 서버 API 요청에 Supabase access token을 붙인다. (서버 세션으로 바꾸지 않는다)
+      // 메모리의 token을 세션 변화에 맞춰 두어, 화면을 떠날 때의 저장도 token을 다시 받느라 늦어지지 않게 한다.
+      if (supabase) watchSupabaseSession();
+      setApiTokenProvider(supabase ? getSupabaseAccessToken : null, supabase ? peekSupabaseAccessToken : null);
+      const current = await active.getCurrentUser();
       if (!alive) return;
-      setConfigured(service.configured);
+      setService(() => active);
+      setConfigured(active.configured);
       setAdminEnabled(config.adminLoginEnabled);
       setUserState(current);
       setReady(true);
+      // token이 준비되기 전에 불러온 목록이 있으면 다시 읽는다.
+      if (supabase) refreshAllStores();
+      const signInError = active.takeSignInError?.();
+      if (signInError) toast.show(signInError, "error");
       // GIS 스크립트를 미리 불러와 로그인 버튼 클릭 시 팝업이 바로 열리게 한다.
-      service.prepare();
+      active.prepare();
     })();
     return () => {
       alive = false;
     };
-  }, [service]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedService]);
 
   const refresh = useCallback(async () => {
     const u = await service.getCurrentUser();

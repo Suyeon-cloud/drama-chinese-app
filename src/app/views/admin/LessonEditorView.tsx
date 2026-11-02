@@ -34,10 +34,12 @@ import { LANG_NAME } from "../../lib/captionsApi";
 import { lessonPublishProblems, parseClock, scriptStatus } from "../../lib/subtitles";
 import { parseYouTubeId, parseYouTubeStart, youtubeWatchUrl } from "../../lib/youtube";
 import { useAuth } from "../../auth/AuthContext";
-import { ApiError } from "../../lib/api";
+import { ApiError, lessonConflictOf, type LessonConflict } from "../../lib/api";
+import { formatDateTime } from "../../lib/format";
 import { navigate, setNavigationGuard } from "../../router";
 import { lessonStore } from "../../store";
 import { useLessons } from "../../store/hooks";
+import { refreshAllStores } from "../../store/remote";
 import { createId, nowIso } from "../../store/localJson";
 import { PageIntro, StatusBadge } from "./AdminShared";
 import { SharedLessonNote } from "./CourseAdminShared";
@@ -359,6 +361,12 @@ const LessonEditor: React.FC<{
   const maskBase = useRef({ stored: existing?.captionMask, shown: form.captionMask });
   const formRef = useRef(form);
   formRef.current = form;
+  // 저장의 기준이 되는 서버 학습자료(version 포함). 처음 연 내용 → 내가 저장한 결과 → ‘최신본 다시 불러오기’로만 바뀐다.
+  // 목록이 새로고침되어도 바꾸지 않는다. (다른 사람이 먼저 저장한 내용을 모르고 덮어쓰지 않게)
+  const baseRef = useRef<Lesson | null>(existing);
+  // 저장 충돌(409): 먼저 저장한 사람 정보. 편집 중인 내용은 지우지 않는다.
+  const [conflict, setConflict] = useState<LessonConflict | null>(null);
+  const [reloading, setReloading] = useState(false);
   const isDirty = () => JSON.stringify(formRef.current) !== savedForm.current;
 
   useEffect(() => {
@@ -485,8 +493,10 @@ const LessonEditor: React.FC<{
     setErrors(errs);
     if (errs.length > 0) return goToStep("publish");
     const now = nowIso();
+    const base = baseRef.current;
     const lesson: Lesson = {
-      ...(existing ?? { id: createId("lesson"), createdAt: now }),
+      // base.version이 그대로 실려 서버가 편집을 시작한 버전과 비교한다. (Supabase 저장소)
+      ...(base ?? { id: createId("lesson"), createdAt: now }),
       courseId: form.courseId,
       week: form.week,
       direction: form.direction,
@@ -506,15 +516,15 @@ const LessonEditor: React.FC<{
               dramaTitle: form.dramaTitle.trim(),
               episode: form.episode.trim(),
               // 원본 영상 제목은 이 화면에서 고치지 않으므로 저장된 값을 그대로 둔다.
-              ...(existing?.source?.videoTitle ? { videoTitle: existing.source.videoTitle } : {}),
+              ...(base?.source?.videoTitle ? { videoTitle: base.source.videoTitle } : {}),
             }
           : undefined,
       script: {
         source: form.scriptSource,
         cues: form.cues,
         updatedAt:
-          existing && existing.script.cues === form.cues && (existing.script.plain ?? null) === form.plain
-            ? existing.script.updatedAt
+          base && base.script.cues === form.cues && (base.script.plain ?? null) === form.plain
+            ? base.script.updatedAt
             : now,
         origin: Object.keys(form.origin).length ? form.origin : undefined,
         plain: form.plain ?? undefined,
@@ -526,14 +536,49 @@ const LessonEditor: React.FC<{
     };
     try {
       const saved = await lessonStore.save(lesson);
+      baseRef.current = saved;
+      setConflict(null);
       savedForm.current = JSON.stringify(form);
       maskBase.current = { stored: lesson.captionMask, shown: form.captionMask };
       setNotice("학습자료를 저장했어요.");
       if (!existing) navigate("admin-editor", { id: saved.id, saved: 1, ...sectionParam });
     } catch (err) {
+      // 다른 사람이 먼저 저장한 경우: 편집 내용은 그대로 두고 안내한다. (강제 저장은 없다)
+      const c = lessonConflictOf(err);
+      if (c) {
+        setConflict(c);
+        setErrors([]);
+        return goToStep("publish");
+      }
       // 담당하지 않는 과목 등 서버가 거절한 경우
       setErrors([err instanceof ApiError ? err.message : "저장하지 못했어요. 잠시 후 다시 시도해 주세요."]);
       goToStep("publish");
+    }
+  };
+
+  /** 사용자가 고른 경우에만: 서버의 최신 학습자료로 편집 화면을 바꾼다. (저장하지 않은 편집 내용은 사라진다) */
+  const reloadLatest = async () => {
+    if (!baseRef.current) return;
+    setReloading(true);
+    try {
+      const latest = await lessonStore.get(baseRef.current.id);
+      if (!latest) {
+        setErrors(["학습자료를 찾을 수 없어요. 삭제되었을 수 있어요."]);
+        return;
+      }
+      const next = fromLesson(latest);
+      baseRef.current = latest;
+      maskBase.current = { stored: latest.captionMask, shown: next.captionMask };
+      savedForm.current = JSON.stringify(next);
+      setForm(next);
+      setConflict(null);
+      setErrors([]);
+      setNotice("최신본을 불러왔어요.");
+      refreshAllStores();
+    } catch (err) {
+      setErrors([err instanceof ApiError ? err.message : "최신본을 불러오지 못했어요. 잠시 후 다시 시도해 주세요."]);
+    } finally {
+      setReloading(false);
     }
   };
 
@@ -914,6 +959,24 @@ const LessonEditor: React.FC<{
                       취소
                     </button>
                   </span>
+                </div>
+              ) : null}
+              {conflict ? (
+                <div className="form-conflict" role="alert">
+                  <p className="form-conflict-title">다른 사용자가 이 강의자료를 먼저 수정했습니다.</p>
+                  {conflict.updatedByLabel || conflict.updatedAt ? (
+                    <p>
+                      {conflict.updatedByLabel ? `${conflict.updatedByLabel}님이` : "다른 사용자가"}
+                      {conflict.updatedAt ? ` ${formatDateTime(conflict.updatedAt)}에` : ""} 먼저 저장했습니다.
+                    </p>
+                  ) : null}
+                  <p className="small">
+                    지금 화면의 편집 내용은 그대로 남아 있지만, 이 상태로는 저장할 수 없어요. 최신본을 다시 불러오면 저장하지 않은
+                    편집 내용은 사라지니 필요한 내용은 먼저 따로 적어 두세요.
+                  </p>
+                  <button className="btn btn-primary btn-sm" onClick={() => void reloadLatest()} disabled={reloading}>
+                    {reloading ? "불러오는 중…" : "최신본 다시 불러오기"}
+                  </button>
                 </div>
               ) : null}
               {errors.length > 0 ? (

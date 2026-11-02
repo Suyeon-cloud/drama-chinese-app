@@ -78,6 +78,21 @@ export type Db = {
   file: string;
 };
 
+/**
+ * AUTH_BACKEND=supabase용: db.json을 열거나 만들지 않는 자리 표시자.
+ * 어떤 칸이든 읽거나 저장하려 하면 바로 오류를 내서, Supabase 운영 경로가 db.json에 기대는 곳이 없음을 보장한다.
+ */
+export const noDbForSupabase = (): Db =>
+  new Proxy({} as Db, {
+    get(_target, prop) {
+      throw new Error(`AUTH_BACKEND=supabase에서는 db.json을 쓰지 않아요. (db.${String(prop)})`);
+    },
+  });
+
+/** AUTH_BACKEND 값으로 저장소를 고른다: supabase면 db.json을 열지 않는다. */
+export const openDbFor = (authBackend: string | undefined, dataDir: string): Db =>
+  (authBackend ?? "").trim().toLowerCase() === "supabase" ? noDbForSupabase() : openDb(dataDir);
+
 export const openDb = (dataDir: string): Db => {
   mkdirSync(dataDir, { recursive: true });
   const file = path.join(dataDir, "db.json");

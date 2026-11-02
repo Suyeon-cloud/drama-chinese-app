@@ -55,6 +55,45 @@ test("Phase B migration: 교강사 연결은 인증된 이메일만, 이미 연�
   assert.match(code, /revoke all on function public\.handle_auth_email_confirmed\(\) from public, anon, authenticated/);
 });
 
+test("Phase C1 migration: 과목·분반·배정·수강 테이블과 RLS", () => {
+  assert.ok(files.some((f) => /_phase_c1_courses_sections_enrollments\.sql$/.test(f)));
+  for (const t of ["courses", "sections", "section_instructors", "enrollments"]) {
+    assert.match(code, new RegExp(`create table if not exists public\\.${t}\\b`));
+    assert.match(code, new RegExp(`alter table public\\.${t} enable row level security`));
+    assert.match(code, new RegExp(`revoke all on table public\\.${t} from anon, authenticated`));
+    assert.doesNotMatch(code, new RegExp(`grant (all|insert|update|delete)[^;]* on table public\\.${t} to (anon|authenticated)`));
+  }
+  // 분반은 지우지 않는다(FK restrict), 수강은 (분반, 과목) 쌍이 실제와 맞아야 한다.
+  assert.match(code, /course_id text not null references public\.courses \(id\) on delete restrict/);
+  assert.match(code, /foreign key \(section_id, course_id\) references public\.sections \(id, course_id\) on delete restrict/);
+  assert.match(code, /unique \(section_id, user_id\)/);
+  assert.match(code, /create unique index if not exists sections_active_name_uidx on public\.sections \(course_id, name\) where status = 'active'/);
+});
+
+test("Phase C1 migration: 학생에게 강의코드 칸을 열지 않고, 수강 등록은 RPC로만", () => {
+  const grant = /grant select \(([^)]*)\) on table public\.sections to authenticated/.exec(code);
+  assert.ok(grant);
+  assert.ok(!grant[1].split(",").map((c) => c.trim()).includes("code"));
+  assert.doesNotMatch(code, /grant select on table public\.sections to authenticated/);
+  assert.doesNotMatch(code, /create policy [^;]* on public\.enrollments\s+for (insert|update|delete|all)/);
+  assert.match(code, /grant execute on function public\.enroll_with_code\(text, boolean\) to authenticated/);
+});
+
+test("Phase C1 migration: 같은 과목 중복 수강은 잠금과 trigger로, 재활성화 때도 검사한다", () => {
+  assert.match(code, /before insert on public\.enrollments/);
+  assert.match(code, /pg_advisory_xact_lock\(public\.enrollment_lock_key\(new\.user_id, new\.course_id\)\)/);
+  assert.match(code, /pg_advisory_xact_lock\(public\.enrollment_lock_key\(v_uid, c\.id\)\)/);
+  assert.match(code, /pg_advisory_xact_lock\(public\.enrollment_lock_key\(r\.user_id, s\.course_id\)\)/);
+});
+
+test("Phase C1 migration: 관리자 함수는 service_role만 실행할 수 있다", () => {
+  for (const fn of ["admin_create_section\\(text, text, text\\[\\], text\\)", "admin_update_section\\(text, text, text\\)"]) {
+    assert.match(code, new RegExp(`revoke all on function public\\.${fn} from public, anon, authenticated`));
+    assert.match(code, new RegExp(`grant execute on function public\\.${fn} to service_role`));
+    assert.doesNotMatch(code, new RegExp(`grant execute on function public\\.${fn} to (anon|authenticated)`));
+  }
+});
+
 test("Supabase 파일에 실제 이메일·비밀 값이 없다", () => {
   assert.doesNotMatch(code, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
   assert.doesNotMatch(sql, /eyJ[A-Za-z0-9_-]{20,}|sk-ant-|service_role_key\s*=|GOCSPX-/i);
