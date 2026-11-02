@@ -78,7 +78,7 @@ const quiz = (question = ""): DraftQuiz => ({
 
 /**
  * 규칙·템플릿 기반 초안: 학습 수준(HSK)에 맞는 길이의 원문 문장을 골라 표현·어휘·문화렌즈·퀴즈 칸에 배치한다.
- * 낮은 급수는 짧은 대사, 높은 급수는 긴 대사에서 고르고, 항목 수도 급수에 따라 달라진다. (levels.ts의 draft)
+ * 낮은 급수는 짧은 대사, 높은 급수는 긴 대사에서 고른다. 항목 수는 급수와 관계없이 같다. (levels.ts의 DRAFT_COUNTS)
  * 번역·설명·정답 등 의미 정보는 만들지 않고 교수자가 채우도록 비워 둔다.
  */
 const buildDraft = (lines: string[], direction: LearningDirection, levelId: string): LessonDraft => {

@@ -101,7 +101,8 @@ export const AuthControls: React.FC = () => {
               {user.provider === "admin" ? "관리자" : ROLE_LABEL[user.role]}
             </span>
           </div>
-          {user.role === "instructor" ? (
+          {/* 회원 현황은 관리자 전용 (서버 /members도 관리자만 허용) */}
+          {user.provider === "admin" ? (
             <button
               role="menuitem"
               onClick={() => {
@@ -111,7 +112,7 @@ export const AuthControls: React.FC = () => {
             >
               회원 현황
             </button>
-          ) : (
+          ) : user.role === "instructor" ? null : (
             <button
               role="menuitem"
               onClick={() => {

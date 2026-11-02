@@ -110,6 +110,26 @@ export const plainToCues = (plain: PlainScript, segmentEnd: number): ParsedCue[]
 };
 
 /** 원문 확보 / 시간 동기화 상태 (원문 언어 기준) */
+/**
+ * ‘준비 완료’·‘공개’로 저장할 수 없는 이유. 편집 화면과 서버가 같은 기준을 쓴다. (‘준비 중’은 조건 없음)
+ */
+export const lessonPublishProblems = (
+  lesson: Pick<Lesson, "status" | "direction"> & { video: Pick<Lesson["video"], "youtubeId" | "endTime">; script: Pick<Lesson["script"], "cues" | "plain"> },
+): string[] => {
+  if (lesson.status === "draft") return [];
+  const zh = lesson.direction === "zh-ko";
+  const label = lesson.status === "published" ? "공개" : "준비 완료";
+  const problems: string[] = [];
+  if (!scriptStatus(lesson.script.cues, lesson.script.plain, zh ? "zh" : "ko").secured) {
+    problems.push(
+      `'${label}' 상태로 저장하려면 ${zh ? "중국어" : "한국어"} 원문 스크립트(자막 또는 원문 텍스트)가 1문장 이상 있어야 해요. (‘준비 중’으로는 저장할 수 있어요)`,
+    );
+  }
+  if (!lesson.video.youtubeId) problems.push(`'${label}' 상태로 저장하려면 YouTube URL이 필요해요.`);
+  if (!(lesson.video.endTime > 0)) problems.push(`'${label}' 상태로 저장하려면 학습 구간 끝 시간이 필요해요.`);
+  return problems;
+};
+
 export const scriptStatus = (cues: SubtitleCue[], plain: PlainScript | null | undefined, lang: CueLang) => {
   const timedCount = cues.filter((c) => c[lang]?.trim()).length;
   const plainCount = plain && plain.lang === lang ? plain.lines.length : 0;

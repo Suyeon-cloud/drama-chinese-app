@@ -163,7 +163,10 @@ export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, l
 export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] }> = ({ courseId, lessons }) => {
   const toast = useToast();
   const [moving, setMoving] = useState<string | null>(null);
+  // 주차 이동은 바로 저장하지 않고 한 번 확인한다.
+  const [pendingMove, setPendingMove] = useState<{ id: string; week: number } | null>(null);
   const items = lessons.filter((l) => l.courseId === courseId);
+  const takenWeeks = new Set(items.map((l) => l.week));
   const phases =
     courseId === LEGACY_COURSE_ID
       ? COURSE_PHASES
@@ -185,6 +188,7 @@ export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] 
       toast.show(err instanceof ApiError ? err.message : "주차를 옮기지 못했어요.", "error");
     } finally {
       setMoving(null);
+      setPendingMove(null);
     }
   };
 
@@ -247,11 +251,11 @@ export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] 
                     title="다른 주차로 옮기기"
                     value={lesson.week}
                     disabled={moving === lesson.id}
-                    onChange={(e) => void moveTo(lesson, Number(e.target.value))}
+                    onChange={(e) => setPendingMove({ id: lesson.id, week: Number(e.target.value) })}
                   >
                     {WEEKS.map((w) => (
-                      <option key={w} value={w}>
-                        {w === week ? `${w}주차` : `${w}주차로 이동`}
+                      <option key={w} value={w} disabled={w !== week && takenWeeks.has(w)}>
+                        {w === week ? `${w}주차` : takenWeeks.has(w) ? `${w}주차 (사용 중)` : `${w}주차로 이동`}
                       </option>
                     ))}
                   </select>
@@ -265,6 +269,23 @@ export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] 
                   >
                     미리보기
                   </button>
+                  {pendingMove?.id === lesson.id ? (
+                    <span className="week-move-confirm">
+                      <span className="small">
+                        {lesson.week}주차 → {pendingMove.week}주차로 옮길까요? 모든 분반에 반영돼요.
+                      </span>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        disabled={moving === lesson.id}
+                        onClick={() => void moveTo(lesson, pendingMove.week)}
+                      >
+                        옮기기
+                      </button>
+                      <button className="btn btn-soft btn-sm" disabled={moving === lesson.id} onClick={() => setPendingMove(null)}>
+                        취소
+                      </button>
+                    </span>
+                  ) : null}
                 </span>
               </div>
             ));

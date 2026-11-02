@@ -5,6 +5,7 @@ import { yijiarenzhimingEp3 } from "./episodes/yijiarenzhiming-ep3";
 import { SAVED_LESSONS } from "./savedLessons";
 import { WEEKLY_LESSONS } from "./weeklyLessons";
 import type {
+  CaptionMask,
   CultureLens,
   CultureLensCue,
   DraftNote,
@@ -80,6 +81,27 @@ export const SEED_LESSONS: Lesson[] = [
 /** 앱 학습 자막 위치: 강의자료에 저장된 값 → 기본 위치 설정값 → middle */
 export const lessonSubtitlePosition = (lesson: Lesson): SubtitlePosition =>
   lesson.subtitlePosition ?? SUBTITLE_POSITIONS[lesson.id] ?? "middle";
+
+/**
+ * 자막 위치별 패널 범위(영상 높이 대비 %). middle은 저장된 값을 그대로 쓴다.
+ * midLow는 원본 자막(77.6~90%, 긴 문장은 폭 약 80%)을 넉넉히 덮는다. 자막 줄은 패널 안 세로 가운데에 놓인다.
+ */
+const POSITION_RANGE: Record<SubtitlePosition, Partial<CaptionMask>> = {
+  high: { top: 70 },
+  middle: {},
+  midLow: { top: 75, height: 19, width: 82 },
+  low: { top: 85, width: 66 },
+};
+
+/**
+ * 자막 패널 위치의 기준 (학습 화면과 편집 화면이 함께 쓴다).
+ * 교수자가 직접 정한 값(custom) → 자막 위치 preset을 적용한 값 순서다.
+ */
+export const resolveCaptionMask = (lesson: Lesson): CaptionMask | null => {
+  const mask = lesson.captionMask;
+  if (!mask) return null;
+  return mask.custom ? mask : { ...mask, ...POSITION_RANGE[lessonSubtitlePosition(lesson)] };
+};
 
 const EMPTY_CONTENT: LessonContent = { cues: [], summary: [], quiz: [] };
 

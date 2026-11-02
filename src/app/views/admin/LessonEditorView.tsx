@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { formatTime, youtubeThumbnail } from "../../../content";
 import { DIRECTION_LABEL, STATUS_LABEL, WEEKS } from "../../../content/course";
 import { LEGACY_COURSE_ID, defaultDirectionFor, isCourseId } from "../../../content/courses";
-import { baseLessonContent, sourceTimeline, type TimelineLine } from "../../../content/lessons";
+import { baseLessonContent, resolveCaptionMask, sourceTimeline, type TimelineLine } from "../../../content/lessons";
 import { useYouTubeClock } from "../../learning/useVideoClock";
 import { formatClock } from "../../lib/subtitles";
 import { DEFAULT_LEVEL_ID, LEVELS, getLevel } from "../../../content/levels";
@@ -24,11 +24,11 @@ import type {
   SubtitleCue,
 } from "../../../content/types";
 import { LANG_NAME } from "../../lib/captionsApi";
-import { parseClock, scriptStatus } from "../../lib/subtitles";
+import { lessonPublishProblems, parseClock, scriptStatus } from "../../lib/subtitles";
 import { parseYouTubeId, parseYouTubeStart, youtubeWatchUrl } from "../../lib/youtube";
 import { useAuth } from "../../auth/AuthContext";
 import { ApiError } from "../../lib/api";
-import { navigate } from "../../router";
+import { navigate, setNavigationGuard } from "../../router";
 import { lessonStore } from "../../store";
 import { useLessons } from "../../store/hooks";
 import { createId, nowIso } from "../../store/localJson";
@@ -81,7 +81,8 @@ const fromLesson = (l: Lesson): FormState => ({
   origin: l.script.origin ?? {},
   plain: l.script.plain ?? null,
   draft: l.draft ?? null,
-  captionMask: normalizeMask(l.captionMask),
+  // 학습 화면과 같은 위치를 보여준다.
+  captionMask: normalizeMask(resolveCaptionMask(l)),
 });
 
 const blankForm = (courseId: string, week: number): FormState => ({
@@ -166,6 +167,8 @@ const CaptionMaskSettings: React.FC<{
   sampleText: string;
 }> = ({ mask, onChange, youtubeId, startAt, timeline, sampleText }) => {
   const set = (patch: Partial<CaptionMask>) => onChange(normalizeMask({ ...mask, ...patch }));
+  // 슬라이더로 직접 정한 위치·크기는 자막 위치 preset보다 우선한다.
+  const setPosition = (patch: Partial<CaptionMask>) => set({ ...patch, custom: true });
   const { width } = normalizeMask(mask);
   return (
     <div className="mask-settings">
@@ -199,7 +202,7 @@ const CaptionMaskSettings: React.FC<{
               max={Math.min(MASK_TOP_RANGE.max, 100 - mask.height)}
               step={0.5}
               value={mask.top}
-              onChange={(e) => set({ top: Number(e.target.value) })}
+              onChange={(e) => setPosition({ top: Number(e.target.value) })}
             />
           </label>
           <label className="range-field">
@@ -212,7 +215,7 @@ const CaptionMaskSettings: React.FC<{
               max={MASK_HEIGHT_RANGE.max}
               step={0.5}
               value={mask.height}
-              onChange={(e) => set({ height: Number(e.target.value) })}
+              onChange={(e) => setPosition({ height: Number(e.target.value) })}
             />
           </label>
           <label className="range-field">
@@ -225,7 +228,7 @@ const CaptionMaskSettings: React.FC<{
               max={MASK_WIDTH_RANGE.max}
               step={1}
               value={width}
-              onChange={(e) => set({ width: Number(e.target.value) })}
+              onChange={(e) => setPosition({ width: Number(e.target.value) })}
             />
           </label>
           </div>
@@ -339,6 +342,30 @@ const LessonEditor: React.FC<{
   const [errors, setErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(justSaved ? "강의자료를 생성했어요." : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteWord, setDeleteWord] = useState("");
+  // 저장 후 바뀐 내용이 있으면 화면을 벗어나기 전에 확인한다.
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  const savedForm = useRef(JSON.stringify(form));
+  const formRef = useRef(form);
+  formRef.current = form;
+  const isDirty = () => JSON.stringify(formRef.current) !== savedForm.current;
+
+  useEffect(() => {
+    setNavigationGuard((next) => {
+      if (!isDirty()) return false;
+      setLeaveTo(next);
+      return true;
+    });
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty()) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      setNavigationGuard(null);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -384,15 +411,14 @@ const LessonEditor: React.FC<{
     if (startSec !== null && endSec !== null && endSec <= startSec) {
       errs.push("학습 구간 끝 시간은 시작 시간보다 뒤여야 해요.");
     }
-    if (form.status !== "draft") {
-      if (!sourceSecured) {
-        errs.push(
-          `'${STATUS_LABEL[form.status]}' 상태로 저장하려면 ${sourceName} 원문 스크립트(자막 또는 원문 텍스트)가 1문장 이상 있어야 해요. (‘준비 중’으로는 저장할 수 있어요)`,
-        );
-      }
-      if (!youtubeId) errs.push(`'${STATUS_LABEL[form.status]}' 상태로 저장하려면 YouTube URL이 필요해요.`);
-      if (endSec === null) errs.push(`'${STATUS_LABEL[form.status]}' 상태로 저장하려면 학습 구간 끝 시간이 필요해요.`);
-    }
+    errs.push(
+      ...lessonPublishProblems({
+        status: form.status,
+        direction: form.direction,
+        video: { youtubeId: youtubeId ?? "", endTime: endSec ?? 0 },
+        script: { cues: form.cues, plain: form.plain ?? undefined },
+      }),
+    );
     return errs;
   };
 
@@ -442,6 +468,7 @@ const LessonEditor: React.FC<{
     };
     try {
       const saved = await lessonStore.save(lesson);
+      savedForm.current = JSON.stringify(form);
       setNotice("강의자료를 저장했어요.");
       if (!existing) navigate("admin-editor", { id: saved.id, saved: 1 });
     } catch (err) {
@@ -461,6 +488,7 @@ const LessonEditor: React.FC<{
     if (!existing) return;
     try {
       await lessonStore.remove(existing.id);
+      setNavigationGuard(null);
       backToList();
     } catch (err) {
       setErrors([err instanceof ApiError ? err.message : "삭제하지 못했어요."]);
@@ -715,22 +743,11 @@ const LessonEditor: React.FC<{
           </select>
         </label>
         <div className="save-actions">
-          {existing ? (
-            confirmDelete ? (
-              <span className="row-start">
-                <span className="small">정말 삭제할까요?</span>
-                <button className="btn btn-sm btn-danger" onClick={remove}>
-                  삭제
-                </button>
-                <button className="btn btn-soft btn-sm" onClick={() => setConfirmDelete(false)}>
-                  취소
-                </button>
-              </span>
-            ) : (
-              <button className="link-btn danger" onClick={() => setConfirmDelete(true)}>
-                강의자료 삭제
-              </button>
-            )
+          {/* 삭제는 관리자만 (서버도 관리자만 허용). 교수자는 ‘준비 중’으로 바꿔 비공개로 둔다. */}
+          {existing && isAdmin && !confirmDelete ? (
+            <button className="link-btn danger" onClick={() => setConfirmDelete(true)}>
+              강의자료 삭제
+            </button>
           ) : null}
           {existing && existing.video.youtubeId ? (
             <button className="btn btn-soft" onClick={() => navigate("lesson", { lesson: existing.id })}>
@@ -741,6 +758,33 @@ const LessonEditor: React.FC<{
             {existing ? "저장" : "강의자료 생성"}
           </button>
         </div>
+        {existing && isAdmin && confirmDelete ? (
+          <div className="delete-confirm" role="alert">
+            <b>이 학습자료를 삭제할까요?</b>
+            <span className="small">
+              학습자료는 과목의 모든 분반이 함께 쓰는 공통 콘텐츠예요. 삭제하면 같은 과목의 모든 교강사와 학생에게서 사라지고
+              되돌릴 수 없어요. 잠시 숨기려면 공개 상태를 ‘준비 중’으로 바꿔 주세요.
+            </span>
+            <label className="field">
+              <span>확인을 위해 ‘삭제’를 입력해 주세요</span>
+              <input value={deleteWord} onChange={(e) => setDeleteWord(e.target.value)} autoComplete="off" />
+            </label>
+            <span className="row-start">
+              <button className="btn btn-sm btn-danger" disabled={deleteWord.trim() !== "삭제"} onClick={remove}>
+                영구 삭제
+              </button>
+              <button
+                className="btn btn-soft btn-sm"
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeleteWord("");
+                }}
+              >
+                취소
+              </button>
+            </span>
+          </div>
+        ) : null}
         {errors.length > 0 ? (
           <ul className="form-errors">
             {errors.map((e) => (
@@ -750,6 +794,31 @@ const LessonEditor: React.FC<{
         ) : null}
         {notice ? <p className="form-notice">✅ {notice}</p> : null}
       </section>
+
+      {leaveTo !== null ? (
+        <div className="modal-backdrop">
+          <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="leave-title">
+            <h3 id="leave-title" className="card-title">
+              저장하지 않은 변경 내용이 있어요
+            </h3>
+            <p className="muted small">이 화면을 나가면 저장하지 않은 내용이 사라져요.</p>
+            <div className="row-start" style={{ marginTop: 14 }}>
+              <button className="btn btn-primary btn-sm" onClick={() => setLeaveTo(null)}>
+                계속 편집
+              </button>
+              <button
+                className="btn btn-soft btn-sm"
+                onClick={() => {
+                  setNavigationGuard(null);
+                  window.location.hash = leaveTo;
+                }}
+              >
+                저장하지 않고 나가기
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -4,9 +4,10 @@ import { test } from "node:test";
 import { buildDraftPrompt } from "../src/app/lib/aiDraft";
 import { pickLinesForLevel } from "../src/app/lib/draftPick";
 import { COURSE_LESSONS } from "../src/content/courseLessons";
-import { LEVELS, getLevel } from "../src/content/levels";
+import { lessonPublishProblems } from "../src/app/lib/subtitles";
+import { DEFAULT_LEVEL_ID, LEVELS, getLevel } from "../src/content/levels";
 import { COURSE_SEEDS, LEGACY_COURSE_ID } from "../src/content/courses";
-import { SEED_LESSONS } from "../src/content/lessons";
+import { SEED_LESSONS, resolveCaptionMask } from "../src/content/lessons";
 import { SAVED_LESSONS } from "../src/content/savedLessons";
 
 /** 확정 목록의 영상 id (데이터 파일과 따로 적어 서로 대조한다) */
@@ -33,31 +34,64 @@ const LEGACY_IDS = [
   ...Array.from({ length: 15 }, (_, i) => `lesson-week${String(i + 1).padStart(2, "0")}`),
 ];
 
-test("HSK 미지정 강의자료의 자동 생성 기준은 5·5·1·5, HSK 1~6급 기준은 그대로", () => {
-  const { expressions, grammar, lenses, quiz } = getLevel("").draft;
-  assert.deepEqual([expressions, grammar, lenses, quiz], [5, 5, 1, 5]);
-
-  // 규칙 기반 초안이 고르는 대사 수
+test("콘텐츠 생성량은 HSK 수준과 관계없이 5·5·1·5", () => {
   const lines = Array.from({ length: 40 }, (_, i) => `第${i + 1}句台词${"很".repeat(i % 12)}`);
-  const picked = pickLinesForLevel(lines, getLevel("").draft);
-  assert.equal(picked.expressions.length, 5);
-  assert.equal(picked.grammar.length, 5);
+  for (const level of ["", ...LEVELS.map((l) => l.id)]) {
+    const { expressions, grammar, lenses, quiz } = getLevel(level).draft;
+    assert.deepEqual([expressions, grammar, lenses, quiz], [5, 5, 1, 5], level);
 
-  // AI 프롬프트의 항목 수
-  const prompt = buildDraftPrompt({ lines, direction: "zh-ko", level: "", week: 2, title: "t", dramaTitle: "d" });
-  assert.ok(prompt.includes("핵심 표현 5개, 어휘·문법 5개, 문화렌즈 1개, 퀴즈 5문제"));
+    // 규칙 기반 초안이 고르는 대사 수
+    const picked = pickLinesForLevel(lines, getLevel(level).draft);
+    assert.equal(picked.expressions.length, 5, level);
+    assert.equal(picked.grammar.length, 5, level);
 
-  assert.deepEqual(
-    LEVELS.map((l) => [l.id, l.draft.expressions, l.draft.grammar, l.draft.lenses, l.draft.quiz]),
-    [
-      ["hsk1", 3, 2, 1, 3],
-      ["hsk2", 4, 2, 1, 3],
-      ["hsk3", 5, 3, 1, 3],
-      ["hsk4", 5, 3, 1, 4],
-      ["hsk5", 6, 4, 2, 4],
-      ["hsk6", 6, 4, 2, 5],
-    ],
-  );
+    // AI 프롬프트의 항목 수
+    const prompt = buildDraftPrompt({ lines, direction: "zh-ko", level, week: 2, title: "t", dramaTitle: "d" });
+    assert.ok(prompt.includes("핵심 표현 5개, 어휘·문법 5개, 문화렌즈 1개, 퀴즈 5문제"), level);
+  }
+  // 수준은 고르는 대사의 난이도만 바꾼다.
+  assert.notDeepEqual(getLevel("hsk1").draft.window, getLevel("hsk6").draft.window);
+});
+
+test("새 강의자료 기본 HSK는 미지정, 대표 1주차의 HSK와 콘텐츠 수는 그대로", () => {
+  assert.equal(DEFAULT_LEVEL_ID, "");
+  const expected: Record<string, string> = {
+    "course-campus-w01": "hsk3",
+    "course-university-w01": "hsk4",
+    "course-workplace-w01": "hsk5",
+  };
+  for (const [id, level] of Object.entries(expected)) {
+    const lesson = SEED_LESSONS.find((l) => l.id === id)!;
+    assert.equal(lesson.level, level);
+    const { expressions, grammar, lenses, quiz } = lesson.draft!;
+    assert.deepEqual([expressions.length, grammar.length, lenses.length, quiz.length], [5, 5, 1, 5], id);
+  }
+});
+
+test("자막 패널: 직접 저장한 위치가 preset보다 우선, 설정이 없으면 preset, 대표 1주차 위치 유지", () => {
+  const lesson = (id: string) => SEED_LESSONS.find((l) => l.id === id)!;
+  const range = (id: string) => {
+    const { top, height, width } = resolveCaptionMask(lesson(id))!;
+    return [top, height, width];
+  };
+  assert.deepEqual(range("course-campus-w01"), [85, 12, 66]);
+  assert.deepEqual(range("course-university-w01"), [75, 19, 82]);
+  assert.deepEqual(range("course-workplace-w01"), [78, 12, 70]);
+
+  // 교수자가 슬라이더로 정한 값은 preset(midLow)보다 우선한다.
+  const custom = { enabled: true, top: 60, height: 20, width: 50, custom: true };
+  assert.deepEqual(resolveCaptionMask({ ...lesson("course-university-w01"), captionMask: custom }), custom);
+  // 패널이 없는 강의자료는 그대로 패널 없음
+  assert.equal(resolveCaptionMask({ ...lesson("course-university-w01"), captionMask: undefined }), null);
+});
+
+test("공개 조건: 원문·영상·학습 구간 끝이 있어야 하고 ‘준비 중’은 조건 없음", () => {
+  const w1 = SEED_LESSONS.find((l) => l.id === "course-campus-w01")!;
+  assert.deepEqual(lessonPublishProblems(w1), []);
+  assert.deepEqual(lessonPublishProblems({ ...w1, status: "draft", video: { ...w1.video, youtubeId: "", endTime: 0 } }), []);
+  assert.equal(lessonPublishProblems({ ...w1, video: { ...w1.video, youtubeId: "" } }).length, 1);
+  assert.equal(lessonPublishProblems({ ...w1, video: { ...w1.video, endTime: 0 } }).length, 1);
+  assert.equal(lessonPublishProblems({ ...w1, script: { ...w1.script, cues: [] } }).length, 1);
 });
 
 test("새 강의자료는 정확히 45개, 과목마다 15개이고 주차 1~15가 한 번씩", () => {

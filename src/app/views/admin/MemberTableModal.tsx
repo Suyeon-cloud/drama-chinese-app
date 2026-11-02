@@ -57,7 +57,7 @@ const EditMember: React.FC<{ member: LearnerProfile; onClose: () => void }> = ({
 export const MemberTableModal: React.FC = () => {
   const open = useMemberPopupOpen();
   const { user } = useAuth();
-  if (!open || user?.role !== "instructor") return null;
+  if (!open || user?.provider !== "admin") return null;
   return <MemberTable />;
 };
 

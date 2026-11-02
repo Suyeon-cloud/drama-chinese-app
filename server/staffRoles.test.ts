@@ -377,3 +377,56 @@ test("학습자: 내 강의·분반 표시·15주·draft 차단·다른 과목·
   // 수강하지 않는 과목의 공개 주차 기록은 남길 수 없다.
   assert.equal((await call("PUT", "/progress", s3, record("s3", "course-university-w01", 1))).status, 403);
 });
+
+test("회원 현황은 관리자 전용, 강의자료 삭제도 관리자만", async () => {
+  assert.equal((await get("/members", google(A))).status, 403);
+  assert.equal((await get("/members", adminCookie)).status, 200);
+
+  // 담당 과목의 강의자료라도 교수자는 삭제할 수 없다.
+  const w15 = "course-campus-w15";
+  assert.equal((await call("DELETE", `/lessons/${w15}`, google(A))).status, 403);
+  assert.ok(db.data.lessons[w15]);
+  assert.equal((await call("DELETE", `/lessons/${w15}`, adminCookie)).status, 200);
+  assert.equal(db.data.lessons[w15], undefined);
+});
+
+test("같은 과목의 같은 주차 중복은 서버가 거부, 빈 주차로는 이동 가능", async () => {
+  // 앞 테스트에서 15주차가 비었다.
+  const w14 = db.data.lessons["course-campus-w14"];
+  const dup = await call<{ error: string }>("PUT", `/lessons/${w14.id}`, google(A), { ...w14, week: 13 });
+  assert.equal(dup.status, 409);
+  assert.match(dup.body.error, /13주차/);
+  assert.equal(db.data.lessons[w14.id].week, 14);
+
+  // 새 강의자료도 차 있는 주차에는 만들 수 없다.
+  assert.equal((await call("PUT", "/lessons/lesson-new", google(A), { ...w14, id: "lesson-new" })).status, 409);
+  assert.equal((await call("PUT", `/lessons/${w14.id}`, google(A), { ...w14, week: 16 })).status, 400);
+
+  assert.equal((await call("PUT", `/lessons/${w14.id}`, google(A), { ...w14, week: 15 })).status, 200);
+  assert.equal(db.data.lessons[w14.id].week, 15);
+  // 다른 과목의 같은 주차는 상관없다.
+  assert.equal(db.data.lessons["course-university-w02"].week, 2);
+
+  // 이전 자료에 이미 있던 같은 주차 중복은 그대로 저장할 수 있다.
+  const legacy = db.data.lessons["lesson-week01"];
+  assert.equal(db.data.lessons["lesson-yjrzm-ep3"].week, legacy.week);
+  assert.equal((await call("PUT", `/lessons/${legacy.id}`, adminCookie, legacy)).status, 200);
+});
+
+test("공개 조건은 서버도 검사, 정상 1주차의 공개는 유지", async () => {
+  const empty = db.data.lessons["course-campus-w10"];
+  assert.equal(empty.status, "draft");
+  const bad = await call<{ error: string }>("PUT", `/lessons/${empty.id}`, google(A), { ...empty, status: "published" });
+  assert.equal(bad.status, 400);
+  assert.match(bad.body.error, /공개/);
+  assert.equal(db.data.lessons[empty.id].status, "draft");
+
+  const w1 = db.data.lessons["course-campus-w01"];
+  assert.equal((await call("PUT", `/lessons/${w1.id}`, google(A), { ...w1, script: { ...w1.script, cues: [] } })).status, 400);
+  assert.equal((await call("PUT", `/lessons/${w1.id}`, google(A), w1)).status, 200);
+  assert.equal(db.data.lessons[w1.id].status, "published");
+
+  // 준비 중으로 바꾸는 것은 교수자도 할 수 있다.
+  const uni = db.data.lessons["course-university-w01"];
+  assert.equal((await call("PUT", `/lessons/${uni.id}`, google(B), { ...uni, status: "draft" })).status, 200);
+});

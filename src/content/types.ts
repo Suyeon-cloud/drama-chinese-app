@@ -256,7 +256,14 @@ export type LessonContent = Pick<EpisodeContent, "cues" | "summary" | "quiz"> & 
  * 원본 영상 자막 가리기: 영상 하단의 지정 영역을 불투명하게 덮고 앱 자막을 그 안에 표시한다.
  * top·height는 영상 높이 대비 %, width는 영상 너비 대비 % (가로 중앙 정렬, 없으면 기본값).
  */
-export type CaptionMask = { enabled: boolean; top: number; height: number; width?: number };
+export type CaptionMask = {
+  enabled: boolean;
+  top: number;
+  height: number;
+  width?: number;
+  /** 교수자가 위치·크기를 직접 정했으면 true. 이 값이 있으면 자막 위치 preset보다 우선한다. */
+  custom?: boolean;
+};
 
 /**
  * 영상 위 앱 학습 자막의 세로 위치. 원본 영상 자막의 위치가 영상마다 달라 강의자료별로 고른다.

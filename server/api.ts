@@ -12,6 +12,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { isValidEmail, normalizeEmail } from "../src/app/auth/roles";
+import { lessonPublishProblems } from "../src/app/lib/subtitles";
 import { LEGACY_COURSE_ID } from "../src/content/courses";
 import type {
   Course,
@@ -460,18 +461,31 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!canManageCourse(req, courseId) || (prev && !canManageCourse(req, prev.courseId))) {
       return res.status(403).json({ error: "담당 강의의 학습자료만 저장할 수 있어요." });
     }
+    const course = db.data.courses[courseId];
+    if (!Number.isInteger(lesson.week) || lesson.week < 1 || lesson.week > course.weekCount) {
+      return res.status(400).json({ error: `주차는 1~${course.weekCount}주차 중에서 골라 주세요.` });
+    }
+    // 같은 과목의 같은 주차에는 강의자료 하나만. 이미 그 주차에 있던 강의자료(이전 자료의 중복 포함)를 그대로 저장하는 것은 막지 않는다.
+    const sameSlot = prev?.courseId === courseId && prev.week === lesson.week;
+    const taken = Object.values(db.data.lessons).some(
+      (l) => l.id !== lesson.id && l.courseId === courseId && l.week === lesson.week,
+    );
+    if (taken && !sameSlot) {
+      return res.status(409).json({ error: `${lesson.week}주차에는 이미 학습자료가 있어요. 다른 주차를 골라 주세요.` });
+    }
+    // 공개 조건은 편집 화면과 같다. 이미 조건에 맞지 않던 이전 자료가 같은 상태로 다시 저장되는 것은 막지 않는다.
+    const problems = lessonPublishProblems(lesson);
+    const alreadyInvalid = prev?.status === lesson.status && lessonPublishProblems(prev).length > 0;
+    if (problems.length > 0 && !alreadyInvalid) return res.status(400).json({ error: problems[0] });
     const saved = { ...lesson, courseId, updatedAt: nowIso() };
     db.data.lessons[lesson.id] = saved;
     db.save();
     res.json(saved);
   });
 
-  api.delete("/lessons/:id", requireStaff, (req: Authed, res) => {
-    const prev = db.data.lessons[req.params.id];
-    if (!prev) return res.json({ ok: true });
-    if (!canManageCourse(req, prev.courseId)) {
-      return res.status(403).json({ error: "담당 강의의 학습자료만 삭제할 수 있어요." });
-    }
+  /** 강의자료는 과목의 모든 분반이 함께 쓰므로 삭제는 관리자만 할 수 있다. 교수자는 ‘준비 중’으로 바꿔 비공개로 둔다. */
+  api.delete("/lessons/:id", requireAdminMode, (req: Authed, res) => {
+    if (!db.data.lessons[req.params.id]) return res.json({ ok: true });
     delete db.data.lessons[req.params.id];
     db.save();
     res.json({ ok: true });

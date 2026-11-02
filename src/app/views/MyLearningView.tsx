@@ -22,7 +22,12 @@ export const MyLearningView: React.FC = () => {
       <div className="page">
         <div className="card empty">
           <span>🧑‍🏫</span>
-          <p>관리자 계정에는 학습 기록이 없어요. 학습자 현황은 ‘학습 현황’ 메뉴에서 확인해요.</p>
+          <p>
+            이 계정에는 학습 기록이 없어요.{" "}
+            {user.provider === "admin"
+              ? "학습자 현황은 ‘학습 현황’ 메뉴에서 확인해요."
+              : "수강생 현황은 ‘내 담당 강의’에서 확인해요."}
+          </p>
         </div>
       </div>
     );

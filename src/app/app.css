@@ -752,6 +752,9 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .course-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .week-move { height: 36px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--sky-700); cursor: pointer; }
 .week-move:disabled { opacity: 0.6; cursor: default; }
+.week-move-confirm { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.delete-confirm { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--pink); }
+.delete-confirm input { max-width: 200px; }
 
 .pipeline { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .pipeline li { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
@@ -1041,20 +1044,15 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .video-frame .lens-panel h3 { font-size: 13px; line-height: 1.35; margin-bottom: 6px; }
   .video-frame .lens-panel .lens-sub, .video-frame .lens-panel .lens-text, .video-frame .lens-panel .lens-caution, .video-frame .lens-panel .relation { display: none; }
   .video-frame .lens-close { width: 24px; height: 24px; }
-  .caption-mask { left: 3% !important; width: 94% !important; }
+  .video-frame .caption-mask { left: 3% !important; width: 94% !important; }
 }
-/* 자막 패널: 작은 영상에서는 3줄이 잘리지 않도록 높이를 내용에 맞추고, 아래쪽 위치만 자막 위치 설정을 따른다. */
+/* 자막 패널: 학습 화면의 작은 영상에서는 3줄이 잘리지 않도록 패널을 위로 늘린다. 아래쪽 위치와 최소 높이는 패널 설정(CaptionMaskBox)을 따른다.
+   편집 화면 미리보기는 슬라이더 값 그대로 보여준다. */
 @container (max-width: 700px) {
-  .overlay-layer { --mask-bottom: 10%; }
-  .overlay-layer[data-sub-position="high"] { --mask-bottom: 18%; }
-  .overlay-layer[data-sub-position="midLow"] { --mask-bottom: 6%; }
-  .overlay-layer[data-sub-position="low"] { --mask-bottom: 3%; }
-  .caption-mask { top: auto !important; bottom: var(--mask-bottom, 10%); height: auto !important; min-height: 12%; padding: 3px 8px; }
-  /* midLow: 작은 영상에서도 패널이 원본 자막까지 덮는 75~94%를 유지한다. */
-  .overlay-layer[data-sub-position="midLow"] .caption-mask { min-height: 19%; }
-  .ko-subtitle.in-mask span { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 2; }
-  .ko-subtitle.in-mask.multi span + span { font-size: 11px; }
-  .ko-subtitle.in-mask.multi span.sub-py { font-size: 10.5px; -webkit-line-clamp: 1; }
+  .video-frame .caption-mask { top: auto !important; bottom: var(--mask-bottom, 10%); height: auto !important; min-height: var(--mask-height, 12%); padding: 3px 8px; }
+  .video-frame .ko-subtitle.in-mask span { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 2; }
+  .video-frame .ko-subtitle.in-mask.multi span + span { font-size: 11px; }
+  .video-frame .ko-subtitle.in-mask.multi span.sub-py { font-size: 10.5px; -webkit-line-clamp: 1; }
 }
 .script-py { display: block; color: var(--sky-600); font-size: 12px; }
 .script-py.veiled { filter: blur(5px); user-select: none; }

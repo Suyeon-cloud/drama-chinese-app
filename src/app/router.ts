@@ -125,11 +125,26 @@ export const navigate = (view: ViewKey, params?: Record<string, string | number>
   window.location.hash = `/${view}${qs}`;
 };
 
+/** 화면 이동을 막을지 정하는 함수. 막으면 true를 돌려준다. (저장하지 않은 편집 내용 보호) */
+type NavigationGuard = (nextHash: string) => boolean;
+let navigationGuard: NavigationGuard | null = null;
+export const setNavigationGuard = (guard: NavigationGuard | null) => {
+  navigationGuard = guard;
+};
+
 /** Hash-based routing so the browser back button works without a router dependency. */
 export const useRoute = (): Route => {
   const [route, setRoute] = useState(parse);
   useEffect(() => {
+    let currentHash = window.location.hash;
     const onChange = () => {
+      const nextHash = window.location.hash;
+      if (navigationGuard?.(nextHash)) {
+        // hash는 이미 바뀌었으므로 화면은 그대로 두고 주소만 되돌린다.
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${currentHash}`);
+        return;
+      }
+      currentHash = nextHash;
       setRoute(parse());
       document.querySelector(".main")?.scrollTo({ top: 0 });
       window.scrollTo({ top: 0 });

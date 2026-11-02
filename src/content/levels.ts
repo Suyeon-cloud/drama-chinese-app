@@ -30,6 +30,11 @@ export type DraftPlan = {
   quiz: number;
 };
 
+/** 학습 콘텐츠 기본 생성량. 수준과 관계없이 항상 같다. (규칙 기반 초안·AI 프롬프트 공통) */
+export const DRAFT_COUNTS = { expressions: 5, grammar: 5, lenses: 1, quiz: 5 } as const;
+
+const draftPlan = (window: DraftPlan["window"]): DraftPlan => ({ window, ...DRAFT_COUNTS });
+
 export const LEVELS: LevelDef[] = [
   {
     id: "hsk1",
@@ -37,7 +42,7 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 150개 · 인사·자기소개",
     definition: "인사, 자기소개, 숫자·시간처럼 아주 짧고 자주 쓰는 대사를 알아듣는 단계 (어휘 약 150개)",
     tone: "mint",
-    draft: { window: [0, 0.35], expressions: 3, grammar: 2, lenses: 1, quiz: 3 },
+    draft: draftPlan([0, 0.35]),
   },
   {
     id: "hsk2",
@@ -45,7 +50,7 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 300개 · 짧은 일상 대사",
     definition: "가족·학교·쇼핑처럼 익숙한 장면의 짧고 명확한 대사를 이해하는 단계 (어휘 약 300개)",
     tone: "mint",
-    draft: { window: [0.1, 0.45], expressions: 4, grammar: 2, lenses: 1, quiz: 3 },
+    draft: draftPlan([0.1, 0.45]),
   },
   {
     id: "hsk3",
@@ -53,7 +58,7 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 600개 · 일상 대화",
     definition: "생활·학업·직장의 일상 대화를 이해하고 기본 문형으로 상황을 설명하는 단계 (어휘 약 600개)",
     tone: "sky",
-    draft: { window: [0.25, 0.6], expressions: 5, grammar: 3, lenses: 1, quiz: 3 },
+    draft: draftPlan([0.25, 0.6]),
   },
   {
     id: "hsk4",
@@ -61,7 +66,7 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 1,200개 · 관용 표현",
     definition: "관용 표현과 말투가 섞인 대화를 이해하고 장면의 상황·맥락과 연결하는 단계 (어휘 약 1,200개)",
     tone: "sky",
-    draft: { window: [0.4, 0.75], expressions: 5, grammar: 3, lenses: 1, quiz: 4 },
+    draft: draftPlan([0.4, 0.75]),
   },
   {
     id: "hsk5",
@@ -69,7 +74,7 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 2,500개 · 긴 대사·문화 맥락",
     definition: "긴 대사와 복합적인 표현을 이해하고 문화적 맥락까지 해석하는 단계 (어휘 약 2,500개)",
     tone: "lavender",
-    draft: { window: [0.55, 0.9], expressions: 6, grammar: 4, lenses: 2, quiz: 4 },
+    draft: draftPlan([0.55, 0.9]),
   },
   {
     id: "hsk6",
@@ -77,11 +82,12 @@ export const LEVELS: LevelDef[] = [
     description: "어휘 5,000개 이상 · 화용·격식 표현",
     definition: "빠르고 격식 있는 대화, 함축·완곡 표현까지 화용적으로 해석하는 단계 (어휘 5,000개 이상)",
     tone: "lavender",
-    draft: { window: [0.65, 1], expressions: 6, grammar: 4, lenses: 2, quiz: 5 },
+    draft: draftPlan([0.65, 1]),
   },
 ];
 
-export const DEFAULT_LEVEL_ID = "hsk2";
+/** 새 강의자료는 수준 미지정으로 시작한다. HSK는 실제 대본을 확인한 뒤 정하는 권장 학습 수준이다. */
+export const DEFAULT_LEVEL_ID = "";
 
 /** HSK 이전의 초급·중급·고급 id → HSK 등급 (저장된 강의자료를 옮길 때 사용) */
 export const LEGACY_LEVEL_IDS: Record<string, string> = {
@@ -103,5 +109,5 @@ export const getLevel = (id: string): LevelDef =>
     description: "",
     definition: "",
     tone: "cream",
-    draft: { window: [0, 1], expressions: 5, grammar: 5, lenses: 1, quiz: 5 },
+    draft: draftPlan([0, 1]),
   };
