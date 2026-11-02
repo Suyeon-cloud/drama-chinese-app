@@ -2,6 +2,7 @@
 // 다음 단계의 YouTube 자막 가져오기도 결과를 이 구조로 맞춘 뒤 mergeTrack을 사용한다.
 
 import type { Lesson, PlainScript, PlainScriptLine, SubtitleCue } from "../../content/types";
+import { createId } from "../store/localJson";
 
 export type CueLang = "zh" | "ko";
 
@@ -65,6 +66,48 @@ export const mergeTrack = (
   return result
     .filter((c) => c.zh || c.ko || c.pinyin)
     .sort((a, b) => a.start - b.start);
+};
+
+/* ───────── cue 식별자 · 편집 ───────── */
+
+export const createCueId = () => createId("cue");
+
+/**
+ * 지정한 cue에만 식별자를 부여한다. 이미 있으면 그대로 두고, 바뀐 것이 없으면 같은 배열을 돌려준다.
+ * 회화 연습 제작처럼 명시적인 작업에서만 호출한다. (렌더링 경로인 mergeTrack·playbackCues에서는 만들지 않는다)
+ */
+export const ensureCueIds = (cues: SubtitleCue[], indexes: number[]): SubtitleCue[] => {
+  const targets = new Set(indexes.filter((i) => cues[i] && !cues[i].id));
+  if (targets.size === 0) return cues;
+  return cues.map((c, i) => (targets.has(i) ? { ...c, id: createCueId() } : c));
+};
+
+/** cue 한 개의 내용 수정 (식별자 등 나머지 값은 유지) */
+export const updateCue = (cues: SubtitleCue[], index: number, patch: Partial<Omit<SubtitleCue, "id">>): SubtitleCue[] =>
+  cues.map((c, i) => (i === index ? { ...c, ...patch } : c));
+
+/** 시간 수정 후 시작 시각 순서로 다시 정렬한다. 식별자는 cue와 함께 움직인다. */
+export const retimeCue = (cues: SubtitleCue[], index: number, field: "start" | "end", value: number): SubtitleCue[] =>
+  updateCue(cues, index, { [field]: value }).sort((a, b) => a.start - b.start || a.end - b.end);
+
+/** 번역·병음 결과 채우기. lines[n].index의 cue에 values의 (n+1)번째 값을 넣는다. */
+export const fillCueField = (
+  cues: SubtitleCue[],
+  lines: { index: number }[],
+  field: "zh" | "ko" | "pinyin",
+  values: Map<number, string>,
+) => {
+  const next = cues.map((c) => ({ ...c }));
+  let count = 0;
+  lines.forEach((t, i) => {
+    if (!next[t.index]) return;
+    const value = values.get(i + 1);
+    if (value) {
+      next[t.index] = { ...next[t.index], [field]: value };
+      count += 1;
+    }
+  });
+  return { cues: next, count };
 };
 
 /* ───────── 원문 텍스트(타임코드 없음) ───────── */

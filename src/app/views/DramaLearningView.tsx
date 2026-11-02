@@ -9,15 +9,17 @@ import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import { CaptionMaskBox } from "../learning/CaptionMask";
 import { CultureLensLayer } from "../learning/CultureLensLayer";
+import { DialoguePractice, type DialoguePlayer } from "../learning/DialoguePractice";
 import { LessonStudyPanel, TYPE_LABEL, type StudyTab } from "../learning/LessonStudyPanel";
 import { MotionOverlayLayer } from "../learning/MotionOverlayLayer";
 import { QuizCard } from "../learning/QuizCard";
 import { SubtitleLayer } from "../learning/SubtitleLayer";
 import { useFullscreen } from "../learning/useFullscreen";
 import { useLessonProgress } from "../learning/useLessonProgress";
-import { useSimulatedClock, useYouTubeClock } from "../learning/useVideoClock";
+import { holdsPracticeEnd, reachedLessonEnd, useSegmentPlayback, useSimulatedClock, useYouTubeClock } from "../learning/useVideoClock";
 import { navigate } from "../router";
 import { useLessons } from "../store/hooks";
+import { studentDialogues } from "../lib/dialogues";
 import { isPlainSynced, playbackCues } from "../lib/subtitles";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { CourseBackLink } from "./CourseView";
@@ -86,7 +88,9 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
 
   // 학습 기록: 학습자 계정 + 실제 영상 재생일 때만
   const recordFor = user?.role === "learner" && !simMode ? user.id : null;
-  const { progress, markCompleted, recordQuiz } = useLessonProgress(lesson, clock, recordFor, endTime);
+  // 회화 연습의 구간 재생은 일반 학습 기록·완료 판정에서 뺀다.
+  const segment = useSegmentPlayback(clock);
+  const { progress, markCompleted, recordQuiz } = useLessonProgress(lesson, clock, recordFor, endTime, segment.practice);
 
   const [completed, setCompleted] = useState(false);
   const [showSubs, setShowSubs] = useState(true);
@@ -154,9 +158,42 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
     if (!(await stage.enter())) toast.show("전체화면으로 전환하지 못했어요. 다시 시도해 주세요.", "error");
   };
 
+  // 회화 연습: 학습 구간 끝에 있는 대사를 들어도 학습 완료로 처리하지 않는다.
+  const practiceAtEnd = useRef(false);
+  practiceAtEnd.current = holdsPracticeEnd(practiceAtEnd.current, {
+    practice: segment.practice,
+    playing: clock.playing,
+    time: clock.time,
+    endTime: video.endTime,
+  });
+  const dialogues = useMemo(
+    () => studentDialogues(lesson.dialogues, lesson.script.cues),
+    [lesson.dialogues, lesson.script.cues],
+  );
+  const player: DialoguePlayer = {
+    ready: clock.ready,
+    playing: clock.playing,
+    segment,
+    play: (start, end, opts) => {
+      practiceAtEnd.current = end >= video.endTime;
+      segment.play(start, end);
+      // 영상이 패널 위쪽에 쌓이는 좁은 화면에서만 장면을 보러 올라간다.
+      const stacked = (studyRef.current?.offsetTop ?? 0) > (stageRef.current?.offsetTop ?? 0) + 40;
+      if (opts?.showVideo && stacked) stageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+  };
+
   // 학습 구간 종료 → 영상 정지 + 학습 완료 기록 + 학습 완료/복습 영역 표시
   useEffect(() => {
-    if (!completed && clock.ready && clock.time >= video.endTime) {
+    if (
+      reachedLessonEnd({
+        completed,
+        ready: clock.ready,
+        time: clock.time,
+        endTime: video.endTime,
+        practiceHeld: practiceAtEnd.current,
+      })
+    ) {
       clock.pause();
       setCompleted(true);
       markCompleted();
@@ -429,6 +466,16 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               if (completed) completionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
               else setCompleted(true);
             }}
+            practice={
+              dialogues.length > 0 ? (
+                <DialoguePractice
+                  dialogues={dialogues}
+                  cues={lesson.script.cues}
+                  player={player}
+                  active={tab === "dialogue"}
+                />
+              ) : undefined
+            }
           />
         </aside>
       </div>

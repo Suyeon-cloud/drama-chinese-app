@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { formatTime, youtubeThumbnail } from "../../../content";
 import { DIRECTION_LABEL, STATUS_LABEL, WEEKS } from "../../../content/course";
 import { LEGACY_COURSE_ID, defaultDirectionFor, isCourseId } from "../../../content/courses";
-import { baseLessonContent, resolveCaptionMask, sourceTimeline, type TimelineLine } from "../../../content/lessons";
+import {
+  baseLessonContent,
+  captionMaskToSave,
+  resolveCaptionMask,
+  sourceTimeline,
+  type TimelineLine,
+} from "../../../content/lessons";
 import { useYouTubeClock } from "../../learning/useVideoClock";
 import { formatClock } from "../../lib/subtitles";
 import { DEFAULT_LEVEL_ID, LEVELS, getLevel } from "../../../content/levels";
@@ -18,6 +24,7 @@ import type {
   CaptionMask,
   LearningDirection,
   Lesson,
+  LessonDialogue,
   LessonDraft,
   LessonStatus,
   PlainScript,
@@ -34,6 +41,7 @@ import { useLessons } from "../../store/hooks";
 import { createId, nowIso } from "../../store/localJson";
 import { PageIntro, StatusBadge } from "./AdminShared";
 import { SharedLessonNote } from "./CourseAdminShared";
+import { DialogueSection } from "./DialogueSection";
 import { EditorSection, EditorSectionsContext } from "./EditorSection";
 import { ContentDraftSection } from "./ContentDraftSection";
 import { ScriptSection, VideoCheckPanel, sourceLangFor, type ScriptOrigin } from "./ScriptSection";
@@ -61,6 +69,8 @@ type FormState = {
   plain: PlainScript | null;
   /** 학습 콘텐츠 초안 */
   draft: LessonDraft | null;
+  /** 회화 연습 (없어도 공개할 수 있다) */
+  dialogues: LessonDialogue[];
   /** 원본 영상 자막 가리기 */
   captionMask: CaptionMask;
 };
@@ -83,6 +93,7 @@ const fromLesson = (l: Lesson): FormState => ({
   origin: l.script.origin ?? {},
   plain: l.script.plain ?? null,
   draft: l.draft ?? null,
+  dialogues: l.dialogues ?? [],
   // 학습 화면과 같은 위치를 보여준다.
   captionMask: normalizeMask(resolveCaptionMask(l)),
 });
@@ -105,6 +116,7 @@ const blankForm = (courseId: string, week: number): FormState => ({
   origin: {},
   plain: null,
   draft: null,
+  dialogues: [],
   captionMask: DEFAULT_CAPTION_MASK,
 });
 
@@ -343,6 +355,8 @@ const LessonEditor: React.FC<{
   // 저장 후 바뀐 내용이 있으면 화면을 벗어나기 전에 확인한다.
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const savedForm = useRef(JSON.stringify(form));
+  // 자막 가리기는 preset을 적용한 값을 보여 주므로, 바꾸지 않았을 때 되돌려 저장할 원래 값을 기억한다.
+  const maskBase = useRef({ stored: existing?.captionMask, shown: form.captionMask });
   const formRef = useRef(form);
   formRef.current = form;
   const isDirty = () => JSON.stringify(formRef.current) !== savedForm.current;
@@ -401,6 +415,7 @@ const LessonEditor: React.FC<{
     { id: "sync", label: "시간 동기화", done: pipelineDone[2], later: pipelineLater[2] },
     { id: "content", label: "콘텐츠", done: pipelineDone[3] },
     { id: "review", label: "검토", done: pipelineDone[4] },
+    { id: "dialogue", label: "회화 연습", done: form.dialogues.length > 0, later: form.dialogues.length === 0 },
     { id: "publish", label: "공개", done: pipelineDone[5] },
   ];
   // 처음에는 아직 끝나지 않은 첫 단계만 펼친다.
@@ -505,13 +520,14 @@ const LessonEditor: React.FC<{
         plain: form.plain ?? undefined,
       },
       draft: form.draft ?? undefined,
-      captionMask:
-        form.captionMask.enabled || existing?.captionMask ? normalizeMask(form.captionMask) : undefined,
+      dialogues: form.dialogues.length ? form.dialogues : undefined,
+      captionMask: captionMaskToSave(maskBase.current, form.captionMask),
       updatedAt: now,
     };
     try {
       const saved = await lessonStore.save(lesson);
       savedForm.current = JSON.stringify(form);
+      maskBase.current = { stored: lesson.captionMask, shown: form.captionMask };
       setNotice("학습자료를 저장했어요.");
       if (!existing) navigate("admin-editor", { id: saved.id, saved: 1, ...sectionParam });
     } catch (err) {
@@ -757,6 +773,7 @@ const LessonEditor: React.FC<{
         >
           <ScriptSection
             cues={form.cues}
+            hasDialogues={form.dialogues.length > 0}
             origin={form.origin}
             direction={form.direction}
             youtubeId={youtubeId}
@@ -818,7 +835,15 @@ const LessonEditor: React.FC<{
           reviewStatus={stepStatus("review")}
         />
 
-        <EditorSection id="publish" step={6} title="저장 · 공개" summary={STATUS_LABEL[form.status]} status={stepStatus("publish")}>
+        <DialogueSection
+          cues={form.cues}
+          dialogues={form.dialogues}
+          youtubeId={youtubeId}
+          status={stepStatus("dialogue")}
+          onChange={({ cues, dialogues }) => setForm((f) => ({ ...f, cues: cues ?? f.cues, dialogues }))}
+        />
+
+        <EditorSection id="publish" step={7} title="저장 · 공개" summary={STATUS_LABEL[form.status]} status={stepStatus("publish")}>
           <div className="publish-panel">
             <p className="publish-state">
               지금 저장된 상태 {existing ? <StatusBadge status={existing.status} /> : <span className="muted">아직 저장 전</span>}

@@ -14,7 +14,7 @@ import { cuePinyin } from "./SubtitleLayer";
 import type { LessonProgress } from "../store/models";
 import { RelationDiagram } from "./CultureLensLayer";
 
-export type StudyTab = "script" | "points" | "culture" | "quiz";
+export type StudyTab = "script" | "points" | "culture" | "quiz" | "dialogue";
 
 const TABS: { key: StudyTab; label: string }[] = [
   { key: "script", label: "스크립트" },
@@ -156,8 +156,10 @@ export const LessonStudyPanel: React.FC<{
   onSeek: (t: number) => void;
   progress: LessonProgress | null;
   onOpenReview: () => void;
+  /** 회화 연습 화면. 보여줄 회화 연습이 있을 때만 전달하며, 없으면 탭도 나오지 않는다. */
+  practice?: React.ReactNode;
 }> = ({
-  tab,
+  tab: requestedTab,
   onTab,
   content,
   script,
@@ -169,6 +171,7 @@ export const LessonStudyPanel: React.FC<{
   onSeek,
   progress,
   onOpenReview,
+  practice,
 }) => {
   usePinyinReady(); // 병음 사전이 준비되면 다시 그린다.
   const lensCues = useMemo(
@@ -184,11 +187,13 @@ export const LessonStudyPanel: React.FC<{
   const sourceClass = direction === "zh-ko" ? "zh" : "";
   // 등장 시점이 있는 초안 항목은 학습 cue(draft-{id})로 변환되어 있다.
   const draftTime = (id: string) => content.cues.find((c) => c.id === `draft-${id}`)?.time;
+  const tabs = practice ? [...TABS, { key: "dialogue" as const, label: "회화 연습" }] : TABS;
+  const tab = requestedTab === "dialogue" && !practice ? "script" : requestedTab;
 
   return (
     <div className="card study-panel">
-      <div className="study-tabs" role="tablist">
-        {TABS.map((t) => (
+      <div className={`study-tabs ${practice ? "five" : ""}`} role="tablist">
+        {tabs.map((t) => (
           <button
             key={t.key}
             role="tab"
@@ -202,6 +207,9 @@ export const LessonStudyPanel: React.FC<{
       </div>
 
       <div className="study-body" role="tabpanel">
+        {/* 다른 탭을 보고 돌아와도 연습 위치가 남도록 가리기만 한다. */}
+        {practice ? <div hidden={tab !== "dialogue"}>{practice}</div> : null}
+
         {tab === "script" ? (
           script.length === 0 && untimed.length > 0 ? (
             <UntimedScript lines={untimed} direction={direction} showPinyin={showPinyin} />

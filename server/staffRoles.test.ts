@@ -430,3 +430,33 @@ test("공개 조건은 서버도 검사, 정상 1주차의 공개는 유지", as
   const uni = db.data.lessons["course-university-w01"];
   assert.equal((await call("PUT", `/lessons/${uni.id}`, google(B), { ...uni, status: "draft" })).status, 200);
 });
+
+test("강의자료 저장은 dialogues와 cue 식별자를 그대로 보존한다", async () => {
+  const lesson = db.data.lessons["course-workplace-w02"];
+  const body: Lesson = {
+    ...lesson,
+    script: { ...lesson.script, cues: [{ id: "cue-a", start: 1, end: 2, zh: "你好" }] },
+    dialogues: [
+      {
+        id: "dlg-1",
+        title: "t",
+        situation: "s",
+        roles: [{ id: "r1", name: "A" }],
+        lines: [{ id: "l1", roleId: "r1", cueId: "cue-a", zh: "你好", start: 1, end: 2 }],
+        status: "draft",
+      },
+    ],
+  };
+  const saved = await call<Lesson>("PUT", `/lessons/${lesson.id}`, adminCookie, body);
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.dialogues, body.dialogues);
+  assert.equal(saved.body.script.cues[0].id, "cue-a");
+  const read = (await get<Lesson[]>("/lessons?course=course-workplace", adminCookie)).body.find((l) => l.id === lesson.id)!;
+  assert.deepEqual(read.dialogues, body.dialogues);
+
+  // 회화 연습이 없는 강의자료는 필드 없이 그대로 저장된다.
+  const plain = db.data.lessons["course-workplace-w03"];
+  const again = await call<Lesson>("PUT", `/lessons/${plain.id}`, adminCookie, plain);
+  assert.equal(again.status, 200);
+  assert.equal("dialogues" in again.body, false);
+});

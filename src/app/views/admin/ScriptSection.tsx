@@ -14,8 +14,9 @@ import {
   type CaptionFailure,
 } from "../../lib/captionsApi";
 import type { CaptionLang, CaptionTrackSummary } from "../../lib/captionTypes";
+import { useToast } from "../../components/Toast";
 import { SpeechToSubtitle } from "./SpeechToSubtitle";
-import { mergeTrack, parsePlainText, parseSrt, scriptStatus, type CueLang } from "../../lib/subtitles";
+import { createCueId, mergeTrack, parsePlainText, parseSrt, retimeCue, scriptStatus, updateCue, type CueLang } from "../../lib/subtitles";
 import { nowIso } from "../../store/localJson";
 import { TimeInput } from "./ScriptSyncPanel";
 import { PinyinPanel, TranslatePanel } from "./TranslatePanel";
@@ -106,6 +107,8 @@ const PREVIEW_LIMIT = 40;
  */
 export const ScriptSection: React.FC<{
   cues: SubtitleCue[];
+  /** 회화 연습이 있으면 자막을 다시 적용할 때 안내한다. */
+  hasDialogues: boolean;
   origin: ScriptOrigin;
   direction: LearningDirection;
   youtubeId: string | null;
@@ -122,6 +125,7 @@ export const ScriptSection: React.FC<{
   dramaTitle: string;
 }> = ({
   cues,
+  hasDialogues,
   origin,
   direction,
   youtubeId,
@@ -185,6 +189,7 @@ export const ScriptSection: React.FC<{
     const nextOrigin = { ...origin };
     delete nextOrigin[sourceLang];
     onChange(sourceCount > 0 ? mergeTrack(cues, [], sourceLang) : cues, nextOrigin, "text");
+    if (sourceCount > 0) warnDialogues();
     onPlainChange({ lang: sourceLang, lines, updatedAt: nowIso() });
     setPlainMessage(`${sourceName} 원문 ${lines.length}문장을 등록했어요. 3단계에서 시간을 맞출 수 있어요.`);
     setPlainText("");
@@ -242,6 +247,7 @@ export const ScriptSection: React.FC<{
       },
       "youtube",
     );
+    warnDialogues();
     onPlainChange(null); // 타임코드 원문 자막이 원문 텍스트를 대체한다.
     setHighlightSrt(false);
     setFetchState({ status: "success", track, count: imported.length });
@@ -258,6 +264,7 @@ export const ScriptSection: React.FC<{
       { ...origin, [srtLang]: { provider: "srt", fileName, fetchedAt: nowIso() } },
       "srt",
     );
+    warnDialogues();
     setMessage(`${langLabel(srtLang)} 자막 ${parsed.length}개를 변환했어요.`);
     if (srtLang === sourceLang) {
       setHighlightSrt(false);
@@ -276,27 +283,25 @@ export const ScriptSection: React.FC<{
     return next;
   };
 
+  const toast = useToast();
+  const warnDialogues = () => {
+    if (hasDialogues) toast.show("연결된 회화 연습의 대사가 변경되거나 자막 연결이 끊길 수 있습니다. 적용 후 회화 연습을 확인해주세요.", "error");
+  };
+
   const editCue = (index: number, lang: CueLang, value: string) => {
-    const next = cues.map((c, i) => (i === index ? { ...c, [lang]: value || undefined } : c));
-    onChange(next, markEdited([lang]));
+    onChange(updateCue(cues, index, { [lang]: value || undefined }), markEdited([lang]));
   };
 
   /** 병음은 소문자로 저장한다. 비우면 자동 변환값으로 돌아간다. */
   const editPinyin = (index: number, value: string) => {
     const v = lowerPinyin(value);
-    onChange(
-      cues.map((c, i) => (i === index ? { ...c, pinyin: v.trim() ? v : undefined } : c)),
-      origin,
-    );
+    onChange(updateCue(cues, index, { pinyin: v.trim() ? v : undefined }), origin);
   };
 
   // 시간을 바꾸면 시작 시각 순서로 다시 정렬한다. (입력 칸을 벗어날 때 반영)
   const editTime = (index: number, field: "start" | "end", value: number | null) => {
     if (value === null) return;
-    const next = cues
-      .map((c, i) => (i === index ? { ...c, [field]: value } : c))
-      .sort((a, b) => a.start - b.start || a.end - b.end);
-    onChange(next, markEdited([sourceLang, targetLang]));
+    onChange(retimeCue(cues, index, field, value), markEdited([sourceLang, targetLang]));
   };
 
   /** index 다음에 빈 자막을 넣는다. (-1이면 맨 앞) 앞 자막이 끝나는 시각부터 최대 2초, 다음 자막 시작 전까지. */
@@ -305,7 +310,7 @@ export const ScriptSection: React.FC<{
     const nextCue = cues[index + 1];
     const start = prev ? prev.end : 0;
     const end = Math.max(start + 0.5, Math.min(start + 2, nextCue ? nextCue.start : start + 2));
-    const next = [...cues.slice(0, index + 1), { start, end }, ...cues.slice(index + 1)];
+    const next = [...cues.slice(0, index + 1), { id: createCueId(), start, end }, ...cues.slice(index + 1)];
     onChange(next, markEdited([sourceLang, targetLang]));
     if (!showAll && index + 1 >= PREVIEW_LIMIT) setShowAll(true);
   };
@@ -355,6 +360,7 @@ export const ScriptSection: React.FC<{
         {direction === "zh-ko" ? "1~8주차형(중국어 → 한국어)" : "9~15주차형(한국어 → 중국어)"} 학습자료는{" "}
         <b>{sourceName} 원문</b>이 있어야 표현·문화렌즈·퀴즈 제작과 공개를 진행할 수 있어요.
       </p>
+      {hasDialogues ? <p className="scope-note">자막을 다시 가져오면 연결된 회화 연습의 대사가 변경되거나 자막 연결이 끊길 수 있습니다. 적용 후 회화 연습을 확인해주세요.</p> : null}
 
       {/* 자동 가져오기 */}
       <div className="caption-auto">
@@ -442,6 +448,7 @@ export const ScriptSection: React.FC<{
             "srt",
           );
           setHighlightSrt(false);
+          warnDialogues();
           onPlainChange(null); // 타임코드 원문 자막이 원문 텍스트를 대체한다.
         }}
       />

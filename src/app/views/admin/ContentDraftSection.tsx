@@ -366,8 +366,6 @@ export const ContentDraftSection: React.FC<{
       )}
       </EditorSection>
 
-      {/* 새 제작 단계(예: 회화 연습)는 콘텐츠와 검토 사이의 이 자리에 EditorSection으로 추가한다. */}
-
       <EditorSection id="review" step={5} title="검토·편집" summary={draft ? counts : "초안을 만들면 편집할 수 있어요"} status={reviewStatus}>
           {draft ? (
             <div className="draft-editor">

@@ -8,7 +8,7 @@ export const EditorSectionsContext = createContext<{ isOpen: (id: string) => boo
 
 /**
  * 학습자료 편집의 접고 펼치는 영역. 접혀도 안의 입력·영상 상태는 그대로 유지된다.
- * 새 제작 단계(예: 회화 연습)는 이 컴포넌트로 감싸고 LessonEditorView의 EDITOR_STEPS에 추가하면 된다.
+ * 새 제작 단계는 이 컴포넌트로 감싸고 LessonEditorView의 EDITOR_STEPS에 추가하면 된다.
  */
 export const EditorSection: React.FC<{
   id: string;

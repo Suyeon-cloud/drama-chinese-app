@@ -4,7 +4,7 @@ import { progressStore } from "../store";
 import { nowIso } from "../store/localJson";
 import type { LessonProgress } from "../store/models";
 import { addWatchedRange, emptyProgress, watchedSeconds } from "../store/progressStore";
-import type { VideoClock } from "./useVideoClock";
+import { watchedStep, type VideoClock } from "./useVideoClock";
 
 /** 재생 중 시간 차이가 이보다 크면 이동(seek)으로 보고 시청 구간에 넣지 않는다. */
 const MAX_STEP_SEC = 1.5;
@@ -20,6 +20,8 @@ export const useLessonProgress = (
   userId: string | null,
   /** 학습 구간 끝(초). 끝 시각을 비워 둔 강의자료는 영상 길이를 넘겨받는다. */
   endTime: number = lesson.video.endTime,
+  /** 회화 연습의 구간 재생 중이면 시청 기록에 넣지 않는다. */
+  practice = false,
 ) => {
   const { startTime } = lesson.video;
   const ref = useRef<LessonProgress | null>(null);
@@ -66,12 +68,10 @@ export const useLessonProgress = (
     const prev = lastTime.current;
     const t = clock.time;
     lastTime.current = t;
-    if (!clock.playing || prev === null || !ref.current) return;
-    const step = t - prev;
-    if (step <= 0 || step > MAX_STEP_SEC) return;
-    const a = Math.max(startTime, prev);
-    const b = Math.min(endTime, t);
-    if (b <= a) return;
+    if (!ref.current) return;
+    const watched = watchedStep(prev, t, { playing: clock.playing, practice, startTime, endTime, maxStep: MAX_STEP_SEC });
+    if (!watched) return;
+    const [a, b] = watched;
     const span = Math.max(1, endTime - startTime);
     update((p) => {
       const watchedRanges = addWatchedRange(p.watchedRanges, a, b);
@@ -83,7 +83,7 @@ export const useLessonProgress = (
         maxPosition: Math.max(p.maxPosition, b),
       };
     }, !ref.current.startedAt);
-  }, [clock.time, clock.playing, startTime, endTime, update]);
+  }, [clock.time, clock.playing, practice, startTime, endTime, update]);
 
   // 주기적으로, 일시정지·화면 이탈 시 저장
   useEffect(() => {

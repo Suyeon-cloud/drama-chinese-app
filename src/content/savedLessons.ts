@@ -1,5 +1,5 @@
 // 자동 생성 파일 — 직접 고치지 마세요. 웹앱에서 강의자료를 고친 뒤 `npm run export-lessons`로 다시 만듭니다.
-// data/db.json의 강의자료 61개 (2026-11-01T15:02:09.469Z)
+// data/db.json의 강의자료 61개 (2026-11-02T08:13:04.185Z)
 // 서버 DB에 처음 들어가는 기본 강의자료(SEED_LESSONS)에서 같은 id의 기본값을 이 내용으로 바꾼다.
 import type { Lesson } from "./types";
 
@@ -399,6 +399,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "gěi nǐ bǎi hǎo le"
         },
         {
+          "id": "cue-mvytv4bi-5xmm9l",
           "start": 190,
           "end": 191,
           "zh": "今天怎么这么晚",
@@ -406,6 +407,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "jīntiān zěnme zhème wǎn"
         },
         {
+          "id": "cue-mvytv4bi-5qrdvy",
           "start": 191,
           "end": 194,
           "zh": "迟到了 在学校门口被值日生拦下了",
@@ -413,6 +415,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "chídào le zài xuéxiào ménkǒu bèi zhírìshēng lán xià le"
         },
         {
+          "id": "cue-mvytv4bi-zra9sa",
           "start": 194,
           "end": 195,
           "zh": "啊",
@@ -420,13 +423,15 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "á"
         },
         {
+          "id": "cue-mvytv4bi-jev5e9",
           "start": 195,
           "end": 198,
           "zh": "那 那怎么办",
-          "ko": "그, 그래서 어떻게 됐어?",
+          "ko": "그럼 어떡해?",
           "pinyin": "nà nà zěnme bàn"
         },
         {
+          "id": "cue-mvytv4bi-5rfovg",
           "start": 198,
           "end": 199,
           "zh": "很紧张",
@@ -434,6 +439,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "hěn jǐnzhāng"
         },
         {
+          "id": "cue-mvytv4bi-s3390t",
           "start": 200,
           "end": 202,
           "zh": "啊 没事啊",
@@ -441,6 +447,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "à méishì a"
         },
         {
+          "id": "cue-mvytv4bi-w27d0u",
           "start": 202,
           "end": 204,
           "zh": "这不关心你吗",
@@ -448,6 +455,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "zhè bú guānxīn nǐ ma"
         },
         {
+          "id": "cue-mvytv4bi-fy2ncj",
           "start": 204,
           "end": 205,
           "zh": "主要是我听说",
@@ -455,20 +463,23 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "zhǔyào shì wǒ tīngshuō"
         },
         {
+          "id": "cue-mvytv4bi-0bqwkh",
           "start": 205,
-          "end": 207,
+          "end": 207.7,
           "zh": "咱们学校如果迟到的话会被记名字的",
           "ko": "우리 학교는 지각하면 이름 적힌다던데",
           "pinyin": "zánmen xuéxiào rúguǒ chídào dehuà huì bèi jì míngzi de"
         },
         {
-          "start": 207,
-          "end": 208,
+          "id": "cue-mvytv4bi-jrshct",
+          "start": 207.7,
+          "end": 208.7,
           "zh": "没记我",
           "ko": "나 안 적혔어",
           "pinyin": "méi jì wǒ"
         },
         {
+          "id": "cue-mvytv4bi-iy5xk5",
           "start": 209,
           "end": 211,
           "zh": "啊 没记你啊",
@@ -476,6 +487,7 @@ export const SAVED_LESSONS: Lesson[] = [
           "pinyin": "à méi jì nǐ a"
         },
         {
+          "id": "cue-mvytv4bi-ejxb9u",
           "start": 213,
           "end": 215.4,
           "zh": "那就好 差点出现两个张陆让",
@@ -1044,7 +1056,7 @@ export const SAVED_LESSONS: Lesson[] = [
       }
     },
     "createdAt": "2026-10-29T00:00:00.000Z",
-    "updatedAt": "2026-11-01T15:01:50.373Z",
+    "updatedAt": "2026-11-02T05:37:56.194Z",
     "captionMask": {
       "enabled": true,
       "top": 78,
@@ -1189,7 +1201,147 @@ export const SAVED_LESSONS: Lesson[] = [
       "level": "",
       "createdAt": "2026-11-01T12:49:38.264Z",
       "updatedAt": "2026-11-01T12:49:38.264Z"
-    }
+    },
+    "dialogues": [
+      {
+        "id": "dialogue-mvytv4bi-rzhz7y",
+        "title": "지각 상황을 묻고 설명하기",
+        "situation": "친구가 평소보다 늦게 온 이유를 묻고, 지각 상황과 학교 규칙에 대해 이야기하는 장면이에요.",
+        "roles": [
+          {
+            "id": "role-mvytv4bi-kjrebn",
+            "name": "구란"
+          },
+          {
+            "id": "role-mvytv4bi-dj1ulp",
+            "name": "장루랑"
+          }
+        ],
+        "lines": [
+          {
+            "id": "line-mvytv4bi-l53gzb",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-5xmm9l",
+            "zh": "今天怎么这么晚",
+            "pinyin": "jīntiān zěnme zhème wǎn",
+            "ko": "오늘은 왜 이렇게 늦었어?",
+            "start": 190,
+            "end": 191
+          },
+          {
+            "id": "line-mvytv4bi-vs26z2",
+            "roleId": "role-mvytv4bi-dj1ulp",
+            "cueId": "cue-mvytv4bi-5qrdvy",
+            "zh": "迟到了 在学校门口被值日生拦下了",
+            "pinyin": "chídào le zài xuéxiào ménkǒu bèi zhírìshēng lán xià le",
+            "ko": "지각했어. 교문에서 당번한테 붙잡혔어",
+            "start": 191,
+            "end": 194
+          },
+          {
+            "id": "line-mvytv4bi-4k0tjx",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-zra9sa",
+            "zh": "啊",
+            "pinyin": "á",
+            "ko": "아?",
+            "start": 194,
+            "end": 195
+          },
+          {
+            "id": "line-mvytv4bi-ejdwaa",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-jev5e9",
+            "zh": "那 那怎么办",
+            "pinyin": "nà nà zěnme bàn",
+            "ko": "그럼 어떡해?",
+            "start": 195,
+            "end": 198
+          },
+          {
+            "id": "line-mvytv4bi-9fc22z",
+            "roleId": "role-mvytv4bi-dj1ulp",
+            "cueId": "cue-mvytv4bi-5rfovg",
+            "zh": "很紧张",
+            "pinyin": "hěn jǐnzhāng",
+            "ko": "되게 긴장하네",
+            "start": 198,
+            "end": 199
+          },
+          {
+            "id": "line-mvytv4bi-6dambl",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-s3390t",
+            "zh": "啊 没事啊",
+            "pinyin": "à méishì a",
+            "ko": "아, 아니야",
+            "start": 200,
+            "end": 202
+          },
+          {
+            "id": "line-mvytv4bi-7d5bou",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-w27d0u",
+            "zh": "这不关心你吗",
+            "pinyin": "zhè bú guānxīn nǐ ma",
+            "ko": "걱정돼서 그러지",
+            "start": 202,
+            "end": 204
+          },
+          {
+            "id": "line-mvytv4bi-tbbm45",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-fy2ncj",
+            "zh": "主要是我听说",
+            "pinyin": "zhǔyào shì wǒ tīngshuō",
+            "ko": "그게, 내가 듣기로는",
+            "start": 204,
+            "end": 205
+          },
+          {
+            "id": "line-mvytv4bi-5sq7v5",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-0bqwkh",
+            "zh": "咱们学校如果迟到的话会被记名字的",
+            "pinyin": "zánmen xuéxiào rúguǒ chídào dehuà huì bèi jì míngzi de",
+            "ko": "우리 학교는 지각하면 이름 적힌다던데",
+            "start": 205,
+            "end": 207.7
+          },
+          {
+            "id": "line-mvytv4bi-xy1rug",
+            "roleId": "role-mvytv4bi-dj1ulp",
+            "cueId": "cue-mvytv4bi-jrshct",
+            "zh": "没记我",
+            "pinyin": "méi jì wǒ",
+            "ko": "나 안 적혔어",
+            "start": 207.7,
+            "end": 208.7
+          },
+          {
+            "id": "line-mvytv4bi-m8ut8w",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-iy5xk5",
+            "zh": "啊 没记你啊",
+            "pinyin": "à méi jì nǐ a",
+            "ko": "아, 안 적혔구나",
+            "start": 209,
+            "end": 211
+          },
+          {
+            "id": "line-mvytv4bi-ieae95",
+            "roleId": "role-mvytv4bi-kjrebn",
+            "cueId": "cue-mvytv4bi-ejxb9u",
+            "zh": "那就好 差点出现两个张陆让",
+            "pinyin": "nà jiù hǎo chàdiǎn chūxiàn liǎng gè zhāng lùràng",
+            "ko": "다행이다. 하마터면 장루랑이 두 명 될 뻔했네",
+            "start": 213,
+            "end": 215.4
+          }
+        ],
+        "status": "published"
+      }
+    ]
   },
   {
     "id": "course-campus-w02",

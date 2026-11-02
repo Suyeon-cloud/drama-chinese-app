@@ -11,6 +11,7 @@ import {
 import { ApiError, api } from "../../lib/api";
 import type { CueLang } from "../../lib/subtitles";
 import type { LearningDirection, SubtitleCue } from "../../../content/types";
+import { fillCueField } from "../../lib/subtitles";
 import { KeyForm, useAiStatus } from "./AiDraftPanel";
 
 type CueField = CueLang | "pinyin";
@@ -56,16 +57,7 @@ const CueFillPanel: React.FC<{
     try {
       const byNumber = parse(text);
       const lines = sent ?? targets;
-      const next = cues.map((c) => ({ ...c }));
-      let count = 0;
-      lines.forEach((t, i) => {
-        if (!next[t.index]) return;
-        const value = byNumber.get(i + 1);
-        if (value) {
-          next[t.index] = { ...next[t.index], [to]: value };
-          count += 1;
-        }
-      });
+      const { cues: next, count } = fillCueField(cues, lines, to, byNumber);
       onApply(next);
       const missing = lines.length - count;
       toast.show(

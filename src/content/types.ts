@@ -69,6 +69,8 @@ export type SummaryItem = {
  * 원문(zh)과 번역(ko)을 같은 cue에 담는다. SRT·YouTube 자막도 이 구조로 변환한다.
  */
 export type SubtitleCue = {
+  /** 안정적인 식별자 (선택). 회화 연습 등이 참조할 때 부여하며, 내용·시간이 바뀌어도 유지된다. */
+  id?: string;
   start: number;
   end: number;
   ko?: string;
@@ -271,6 +273,34 @@ export type CaptionMask = {
  */
 export type SubtitlePosition = "high" | "middle" | "midLow" | "low";
 
+/** 회화 연습의 등장 역할 */
+export type DialogueRole = { id: string; name: string };
+
+/**
+ * 회화 연습의 대사 한 줄. cueId로 자막과 연결하고, 나머지 값은 연결이 끊겼을 때 쓰는 복사본이다.
+ * 자막이 있는 동안에는 자막의 최신 값을 보여준다. (lib/dialogues.ts의 resolveDialogueLine)
+ */
+export type DialogueLine = {
+  id: string;
+  roleId: string;
+  cueId?: string;
+  zh: string;
+  pinyin?: string;
+  ko?: string;
+  start: number;
+  end: number;
+};
+
+/** 회화 연습: 강의 공통 학습자료(Lesson)에 속하며 분반별로 복제하지 않는다. */
+export type LessonDialogue = {
+  id: string;
+  title: string;
+  situation: string;
+  roles: DialogueRole[];
+  lines: DialogueLine[];
+  status: "draft" | "published";
+};
+
 export type Lesson = {
   id: string;
   /** 속한 과목 (courses.ts). 3과목 개편 전 자료는 LEGACY_COURSE_ID */
@@ -295,6 +325,8 @@ export type Lesson = {
   content?: LessonContent;
   /** 원문 기반 학습 콘텐츠 초안 (교수자 편집). 학습 화면의 표현·문화렌즈·퀴즈에 더해진다. */
   draft?: LessonDraft;
+  /** 회화 연습 (선택). 초안을 다시 만들어도 덮어써지지 않도록 draft 밖에 둔다. */
+  dialogues?: LessonDialogue[];
   /** 기존 번들 에피소드(episodes/)의 학습 콘텐츠를 재사용할 때 */
   episodeId?: string;
   /** ISO datetime */

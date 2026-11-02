@@ -103,6 +103,22 @@ export const resolveCaptionMask = (lesson: Lesson): CaptionMask | null => {
   return mask.custom ? mask : { ...mask, ...POSITION_RANGE[lessonSubtitlePosition(lesson)] };
 };
 
+const sameMask = (a: CaptionMask, b: CaptionMask) =>
+  a.enabled === b.enabled && a.top === b.top && a.height === b.height && a.width === b.width && !!a.custom === !!b.custom;
+
+/**
+ * 편집 화면에서 저장할 captionMask. 편집 화면은 preset을 적용한 값(resolveCaptionMask)을 보여 주므로,
+ * 교수자가 바꾸지 않았으면 저장값을 그대로 둔다. (preset 값이 원래 저장값을 덮어쓰지 않게)
+ * base: 마지막으로 저장된 값(stored)과 그때 화면에 보인 값(shown), current: 지금 화면의 값
+ */
+export const captionMaskToSave = (
+  base: { stored: CaptionMask | undefined; shown: CaptionMask },
+  current: CaptionMask,
+): CaptionMask | undefined => {
+  if (sameMask(current, base.shown)) return base.stored;
+  return current.enabled || base.stored ? current : undefined;
+};
+
 const EMPTY_CONTENT: LessonContent = { cues: [], summary: [], quiz: [] };
 
 /** 강의자료의 기본 학습 콘텐츠: 직접 작성한 content → 번들 에피소드 → 빈 콘텐츠 순 (초안 제외) */

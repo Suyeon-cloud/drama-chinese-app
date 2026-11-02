@@ -1488,3 +1488,68 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 @media (max-width: 520px) {
   .section-admin-grid { padding-left: 8px; }
 }
+
+/* ───────── 회화 연습 제작 ───────── */
+.dialogue-panel { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sky-50); min-width: 0; }
+.dialogue-player { display: flex; flex-direction: column; gap: 8px; max-width: 480px; margin: 8px 0; }
+.dialogue-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dialogue-list > li { display: flex; flex-direction: column; gap: 8px; }
+.dialogue-item { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; }
+.dialogue-item-main { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.cue-picker { list-style: none; margin: 0; padding: 4px; max-height: 340px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.cue-picker button { width: 100%; display: grid; grid-template-columns: 34px 52px minmax(0, 1fr); gap: 6px; align-items: start; padding: 6px 8px; border-radius: 8px; text-align: left; font-size: 13.5px; }
+.cue-picker button:hover { background: var(--sky-50); }
+.cue-picker button.selected { background: var(--sky-100); }
+.cue-picker-no, .cue-picker-time { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.cue-picker-text { font-family: "Noto Sans SC", var(--font); overflow-wrap: anywhere; }
+.dialogue-roles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.dialogue-role { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 1px solid var(--line); border-radius: 12px; background: #fff; max-width: 100%; }
+.dialogue-role input { width: 110px; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13.5px; }
+.dialogue-lines { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dialogue-lines > li { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.dialogue-line-text { display: flex; flex-direction: column; gap: 1px; flex: 1 1 220px; min-width: 0; align-items: flex-start; overflow-wrap: anywhere; }
+.dialogue-line-text b { font-family: "Noto Sans SC", var(--font); font-size: 14.5px; }
+.dialogue-line-roles { display: flex; gap: 4px; flex-wrap: wrap; }
+.dialogue-line-roles button { min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.dialogue-line-roles button.active { background: var(--sky-500); border-color: var(--sky-500); color: #fff; }
+@media (max-width: 520px) {
+  .dialogue-panel { padding: 10px; }
+  .dialogue-line-roles button { min-height: 38px; }
+}
+
+/* ───────── 학생 회화 연습 ───────── */
+.study-tabs.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.study-tabs.five button { font-size: 12.5px; letter-spacing: -0.02em; padding-inline: 2px; }
+.practice { display: flex; flex-direction: column; gap: 12px; align-items: stretch; min-width: 0; }
+.practice > .link-btn { align-self: flex-start; }
+.practice-title { margin: 0; font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+.practice-situation { margin: 0; font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere; }
+.practice-scene { align-self: flex-start; }
+.practice-roles { display: flex; flex-direction: column; gap: 6px; }
+.practice-roles button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 14px; font-weight: 700; color: var(--ink-2); text-align: left; overflow-wrap: anywhere; }
+.practice-roles button.active { background: var(--sky-100); border-color: var(--sky-500); color: var(--sky-700); }
+.practice-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; }
+.practice-me { font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.practice-count { color: var(--muted); font-weight: 700; }
+.practice-bar-actions { display: flex; gap: 10px; margin-left: auto; }
+.practice-switches { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-2); }
+.practice-switches label { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; cursor: pointer; }
+.practice-line { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: #fff; min-width: 0; }
+.practice-line.mine { border: 2px solid var(--sky-500); background: var(--sky-50); }
+.practice-turn { align-self: flex-start; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--line); color: var(--ink-2); }
+.practice-line.mine .practice-turn { background: var(--sky-500); color: #fff; }
+.practice-speaker { font-size: 12.5px; font-weight: 700; color: var(--muted); overflow-wrap: anywhere; }
+.practice-zh { margin: 0; font-family: "Noto Sans SC", var(--font); font-size: 20px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.practice-py { margin: 0; font-size: 13.5px; color: var(--sky-700); overflow-wrap: anywhere; }
+.practice-ko { margin: 0; font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere; }
+.practice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.practice-actions .btn { flex: 1 1 110px; min-height: 42px; }
+.practice-voice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.practice-voice .btn { flex: 1 1 130px; min-height: 42px; }
+.practice-rec { flex: 1 1 100%; font-size: 13.5px; font-weight: 800; color: #c0392b; }
+.practice-voice-error { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--cream); color: #7a5a1c; font-size: 13px; }
+.practice-playing { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--sky-50); font-size: 13px; font-weight: 700; color: var(--sky-700); }
+.practice-done-msg { margin: 8px 0; font-size: 16px; font-weight: 800; text-align: center; }
+.practice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.practice-list button { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-align: left; font-size: 13.5px; overflow-wrap: anywhere; }
+.practice-list button:hover { background: var(--sky-50); }
