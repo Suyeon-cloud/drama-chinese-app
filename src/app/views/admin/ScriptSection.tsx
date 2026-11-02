@@ -352,7 +352,7 @@ export const ScriptSection: React.FC<{
         </span>
       </div>
       <p className="muted small">
-        {direction === "zh-ko" ? "1~8주차형(중국어 → 한국어)" : "9~15주차형(한국어 → 중국어)"} 강의자료는{" "}
+        {direction === "zh-ko" ? "1~8주차형(중국어 → 한국어)" : "9~15주차형(한국어 → 중국어)"} 학습자료는{" "}
         <b>{sourceName} 원문</b>이 있어야 표현·문화렌즈·퀴즈 제작과 공개를 진행할 수 있어요.
       </p>
 
@@ -423,7 +423,7 @@ export const ScriptSection: React.FC<{
               : sourceOrigin.provider === "speech"
                 ? `음성 인식 (${sourceOrigin.fileName ?? "파일"}) · 검수 필요`
                 : `SRT ${sourceOrigin.fileName ? `파일 ${sourceOrigin.fileName}` : "붙여넣기"}`}
-            {sourceOrigin.edited ? " · 교수자 수정됨" : ""}
+            {sourceOrigin.edited ? " · 교강사 수정됨" : ""}
             {sourceOrigin.provider === "youtube" && sourceOrigin.kind === "asr" ? " · 정확도 확인 필요" : ""}
           </p>
         ) : null}
@@ -609,10 +609,13 @@ export const ScriptSection: React.FC<{
                   </td>
                   {([sourceLang, targetLang] as CueLang[]).map((l) => (
                     <td key={l} className={l === "zh" ? "zh" : ""}>
-                      <input
+                      {/* 긴 대사도 줄바꿈해서 다 보이게 한다. 자막 한 줄이므로 줄바꿈 문자는 넣지 않는다. */}
+                      <textarea
                         className="cue-input"
+                        rows={1}
                         value={c[l] ?? ""}
-                        onChange={(e) => editCue(i, l, e.target.value)}
+                        onChange={(e) => editCue(i, l, e.target.value.replace(/\s*\n\s*/g, " "))}
+                        onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                         placeholder="—"
                         aria-label={`${formatTime(c.start)} ${langLabel(l)}`}
                       />

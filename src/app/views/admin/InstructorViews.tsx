@@ -11,7 +11,9 @@ import {
   CourseStudentsPanel,
   CourseTabs,
   JoinLinkBox,
+  JoinLinkCopy,
   SectionCard,
+  SharedLessonNote,
   operatingCourses,
 } from "./CourseAdminShared";
 
@@ -26,7 +28,7 @@ export const InstructorHomeView: React.FC = () => {
     <div className="page">
       <PageIntro
         title="내 담당 강의"
-        desc={`${user?.name ?? "교수자"}님이 담당하는 분반이에요. 분반 수강생의 학습 진행과 과목 공통 주차별 학습자료를 관리해요.`}
+        desc={`${user?.name ?? "교강사"}님이 담당하는 분반이에요. 분반 수강생의 학습 진행과 강의 공통 주차별 학습자료를 관리해요.`}
       />
       {mine.length === 0 ? (
         <div className="card course-empty">
@@ -50,6 +52,7 @@ export const InstructorHomeView: React.FC = () => {
               >
                 📚 주차별 학습자료
               </button>
+              <JoinLinkCopy code={section.code} label={`《${course.drama}》 ${section.name}`} />
             </SectionCard>
           ))}
         </div>
@@ -91,7 +94,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
 
   return (
     <div className="page">
-      <button className="link-btn back-link" onClick={() => navigate("teach")}>
+      <button className="link-btn back-link admin-back" onClick={() => navigate("teach")}>
         ← 내 담당 강의
       </button>
       {course.sections.length > 1 ? (
@@ -105,20 +108,21 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
         <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
       </SectionCard>
 
-      <div className="learn-tabs sub-tabs" role="tablist" aria-label="담당 분반 관리">
+      <div className="learn-tabs sub-tabs scope-tabs" role="tablist" aria-label="담당 분반 관리">
         {(
           [
-            ["students", "👥 수강생 현황", `${section.name} · 진도 · 완료 주차 · 퀴즈 결과`],
-            ["lessons", "📚 주차별 학습자료", "과목 공통 1~15주 편집 · 공개"],
-          ] as [Tab, string, string][]
-        ).map(([key, label, sub]) => (
+            ["students", "이 분반", "👥 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과`, "section"],
+            ["lessons", "강의 공통", "📚 주차별 학습자료", "1~15주 편집 · 공개 · 모든 분반 공유", "course"],
+          ] as [Tab, string, string, string, string][]
+        ).map(([key, scope, label, sub, tone]) => (
           <button
             key={key}
             role="tab"
             aria-selected={tab === key}
-            className={`learn-tab ${tab === key ? "active" : ""}`}
+            className={`learn-tab ${tone} ${tab === key ? "active" : ""}`}
             onClick={() => go({ tab: key })}
           >
+            <span className="scope-kicker">{scope}</span>
             <b>{label}</b>
             <small>{sub}</small>
           </button>
@@ -126,15 +130,14 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
       </div>
 
       {tab === "students" ? (
-        <CourseStudentsPanel key={section.id} courseId={course.id} sectionId={section.id} weekCount={course.weekCount} />
+        <div className="scope-panel section">
+          <CourseStudentsPanel key={section.id} courseId={course.id} sectionId={section.id} weekCount={course.weekCount} />
+        </div>
       ) : (
-        <>
-          <p className="scope-note">
-            📚 학습자료는 《{course.drama}》의 모든 분반이 함께 쓰는 공통 콘텐츠예요. 고치면 같은 과목의 다른 분반에도
-            반영돼요.
-          </p>
-          <CourseLessonsTable courseId={course.id} lessons={lessons} />
-        </>
+        <div className="scope-panel course">
+          <SharedLessonNote />
+          <CourseLessonsTable courseId={course.id} lessons={lessons} sectionId={section.id} />
+        </div>
       )}
     </div>
   );

@@ -384,7 +384,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
                 {progress.completedAt ? " · ✅ 학습 완료" : ""}
               </>
             ) : user?.role === "instructor" ? (
-              "교수자 미리보기 — 학습 기록이 저장되지 않아요."
+              "교강사 미리보기 — 학습 기록이 저장되지 않아요."
             ) : simMode && user ? (
               "시뮬레이션 모드에서는 학습 기록이 저장되지 않아요."
             ) : !user ? (

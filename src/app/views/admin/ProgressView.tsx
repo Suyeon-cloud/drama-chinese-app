@@ -20,7 +20,7 @@ export const ProgressView: React.FC<{ params: URLSearchParams }> = ({ params }) 
 
   return (
     <div className="page">
-      <PageIntro title="학습 현황" desc="과목·분반별 수강생의 학습 시작, 완료 주차, 영상 재생 정도, 퀴즈 결과를 확인해요." />
+      <PageIntro title="학습 현황" desc="강의·분반별 수강생의 학습 시작, 완료 주차, 영상 재생 정도, 퀴즈 결과를 확인해요." />
       <CourseTabs courses={operating} active={active.id} onSelect={(id) => navigate("admin-progress", { course: id })} />
       <div className="row-start section-filter" role="tablist" aria-label="분반">
         {[{ id: "", name: "전체" }, ...active.sections].map((s) => (

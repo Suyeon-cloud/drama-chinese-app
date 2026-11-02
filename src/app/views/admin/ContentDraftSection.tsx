@@ -19,6 +19,7 @@ import type {
 } from "../../../content/types";
 import { formatClock } from "../../lib/subtitles";
 import { createId, nowIso } from "../../store/localJson";
+import { EditorGroup, EditorSection } from "./EditorSection";
 import { AiDraftPanel } from "./AiDraftPanel";
 import { TimeInput } from "./ScriptSyncPanel";
 
@@ -151,8 +152,8 @@ const NoteList: React.FC<
     onChange: (items: DraftNote[]) => void;
   }
 > = ({ title, items, noteLabel, addLabel, direction, onChange, ...timing }) => (
+  <EditorGroup title={title} count={items.length}>
   <div className="draft-block">
-    <h4>{title}</h4>
     {items.length === 0 ? <p className="muted small">항목이 없어요.</p> : null}
     {items.map((it, i) => (
       <div key={it.id} className="draft-row">
@@ -171,7 +172,7 @@ const NoteList: React.FC<
           <textarea
             rows={2}
             value={it.note}
-            placeholder="교수자가 직접 입력"
+            placeholder="교강사가 직접 입력"
             onChange={(e) => onChange(items.map((x) => (x.id === it.id ? { ...x, note: e.target.value } : x)))}
           />
         </label>
@@ -199,6 +200,7 @@ const NoteList: React.FC<
       + {addLabel}
     </button>
   </div>
+  </EditorGroup>
 );
 
 /**
@@ -224,6 +226,9 @@ export const ContentDraftSection: React.FC<{
   sourceName: string;
   /** 기존(번들) 학습 콘텐츠 */
   base: LessonContent | null;
+  /** 제작 단계 완료 표시 */
+  contentStatus?: "done" | "later";
+  reviewStatus?: "done" | "later";
 }> = ({
   draft,
   onChange,
@@ -239,6 +244,8 @@ export const ContentDraftSection: React.FC<{
   dramaTitle,
   sourceName,
   base,
+  contentStatus,
+  reviewStatus,
 }) => {
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   usePinyinReady(); // 병음 사전이 준비되면 자동 병음을 다시 그린다.
@@ -254,26 +261,30 @@ export const ContentDraftSection: React.FC<{
   // 초안을 만든 뒤 수준을 바꿨으면 다시 구성하라고 알린다. (수준 기록이 없는 예전 초안은 알리지 않는다)
   const levelChanged = !!draft?.level && getLevel(draft.level).id !== levelDef.id;
 
+  const counts = draft
+    ? `핵심 표현 ${draft.expressions.length} / 어휘·문법 ${draft.grammar.length} / 문화렌즈 ${draft.lenses.length} / 퀴즈 ${draft.quiz.length}`
+    : "";
+
   const build = () => {
     onChange(buildDraft(sourceLines, direction, level));
     setConfirmRebuild(false);
   };
 
   return (
-    <section className="card">
-      <div className="card-head">
-        <h3 className="card-title">
-          <span className="step">4</span> 학습 콘텐츠 초안 구성 · 교수자 검토·편집
-        </h3>
-        {draft ? <span className="pill pill-mint">초안 있음</span> : null}
-      </div>
-
+    <>
+      <EditorSection
+        id="content"
+        step={4}
+        title="학습 콘텐츠 초안"
+        summary={draft ? counts : "초안 없음"}
+        status={contentStatus}
+      >
       {!secured ? (
         <div className="content-locked">
           <b>🔒 {sourceName} 원문 스크립트를 먼저 확보해 주세요.</b>
           <p className="small">
             2단계에서 {sourceName} 자막을 가져오거나 SRT·원문 텍스트를 등록하면 학습 콘텐츠 초안을 만들 수 있어요.
-            작업 중인 강의자료는 ‘준비 중’으로 저장할 수 있어요.
+            작업 중인 학습자료는 ‘준비 중’으로 저장할 수 있어요.
           </p>
         </div>
       ) : (
@@ -338,6 +349,7 @@ export const ContentDraftSection: React.FC<{
           </div>
 
           {sourceLines.length > 0 ? (
+            <EditorGroup title="✨ 생성형 AI로 내용 채우기" defaultOpen={!draft}>
             <AiDraftPanel
               lines={sourceLines}
               direction={direction}
@@ -348,8 +360,15 @@ export const ContentDraftSection: React.FC<{
               hasDraft={!!draft}
               onApply={onChange}
             />
+            </EditorGroup>
           ) : null}
+        </>
+      )}
+      </EditorSection>
 
+      {/* 새 제작 단계(예: 회화 연습)는 콘텐츠와 검토 사이의 이 자리에 EditorSection으로 추가한다. */}
+
+      <EditorSection id="review" step={5} title="검토·편집" summary={draft ? counts : "초안을 만들면 편집할 수 있어요"} status={reviewStatus}>
           {draft ? (
             <div className="draft-editor">
               <datalist id="draft-source-lines">
@@ -381,8 +400,8 @@ export const ContentDraftSection: React.FC<{
                 onChange={(grammar) => update({ grammar })}
               />
 
+              <EditorGroup title="문화렌즈" count={draft.lenses.length}>
               <div className="draft-block">
-                <h4>Culture Lens · 문화렌즈</h4>
                 {draft.lenses.map((it) => {
                   const set = (p: Partial<DraftLens>) =>
                     update({ lenses: draft.lenses.map((x) => (x.id === it.id ? { ...x, ...p } : x)) });
@@ -408,7 +427,7 @@ export const ContentDraftSection: React.FC<{
                         <textarea
                           rows={3}
                           value={it.text}
-                          placeholder="교수자가 직접 입력"
+                          placeholder="교강사가 직접 입력"
                           onChange={(e) => set({ text: e.target.value })}
                         />
                       </label>
@@ -431,9 +450,10 @@ export const ContentDraftSection: React.FC<{
                   + 문화렌즈 추가
                 </button>
               </div>
+              </EditorGroup>
 
+              <EditorGroup title="복습 퀴즈" count={draft.quiz.length}>
               <div className="draft-block">
-                <h4>복습 퀴즈</h4>
                 {draft.quiz.map((q, qi) => {
                   const set = (p: Partial<DraftQuiz>) =>
                     update({ quiz: draft.quiz.map((x) => (x.id === q.id ? { ...x, ...p } : x)) });
@@ -492,10 +512,12 @@ export const ContentDraftSection: React.FC<{
                   + 퀴즈 추가
                 </button>
               </div>
+              </EditorGroup>
             </div>
-          ) : null}
-        </>
-      )}
-    </section>
+          ) : (
+            <p className="muted small">④ 단계에서 초안을 만들면 여기서 표현·문화렌즈·퀴즈를 검토하고 고칠 수 있어요.</p>
+          )}
+      </EditorSection>
+    </>
   );
 };

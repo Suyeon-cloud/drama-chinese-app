@@ -55,7 +55,7 @@ export const JoinView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
       const u = user ?? (await signIn());
       if (!u) return;
       if (u.role === "instructor") {
-        toast.show("교수자 계정은 수강 등록하지 않아도 돼요.", "info");
+        toast.show("교강사 계정은 수강 등록하지 않아도 돼요.", "info");
         navigate(u.provider === "admin" ? "admin" : "teach");
         return;
       }

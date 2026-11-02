@@ -125,20 +125,55 @@ export const Topbar: React.FC<{ active: ViewKey }> = ({ active }) => {
   );
 };
 
+/** 하단 메뉴에 바로 보여줄 최대 개수. 넘으면(관리자) 나머지는 ‘더보기’로 묶는다. */
+const MOBILE_NAV_LIMIT = 5;
+
 export const MobileNav: React.FC<{ active: ViewKey }> = ({ active }) => {
   const { menu, current, go } = useMenu(active);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const overflow = menu.length > MOBILE_NAV_LIMIT;
+  const primary = overflow ? menu.slice(0, MOBILE_NAV_LIMIT - 1) : menu;
+  const more = overflow ? menu.slice(MOBILE_NAV_LIMIT - 1) : [];
+  const moreActive = more.some((v) => v.key === current);
   return (
     <nav className="mobile-nav">
-      {menu.map((v) => (
+      {primary.map((v) => (
         <button
           key={v.key}
           className={current === v.key ? "active" : ""}
-          onClick={() => go(v.key)}
+          aria-current={current === v.key ? "page" : undefined}
+          onClick={() => {
+            setMoreOpen(false);
+            go(v.key);
+          }}
         >
           <Icon name={VIEW_ICONS[v.key]} size={20} />
           <span>{v.ko}</span>
         </button>
       ))}
+      {overflow ? (
+        <button className={moreActive || moreOpen ? "active" : ""} aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>
+          <Icon name="grid" size={20} />
+          <span>더보기</span>
+        </button>
+      ) : null}
+      {moreOpen ? (
+        <div className="mobile-more">
+          {more.map((v) => (
+            <button
+              key={v.key}
+              className={current === v.key ? "active" : ""}
+              onClick={() => {
+                setMoreOpen(false);
+                go(v.key);
+              }}
+            >
+              <Icon name={VIEW_ICONS[v.key]} size={18} />
+              <span>{v.ko}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 };

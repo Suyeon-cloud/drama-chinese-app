@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
 import { AdminLoginButton } from "./AdminLogin";
 import { useAuth } from "./AuthContext";
-import { openMemberPopup } from "./memberPopup";
 import { ROLE_LABEL } from "./roles";
 
 export const GoogleMark: React.FC = () => (
@@ -101,16 +100,16 @@ export const AuthControls: React.FC = () => {
               {user.provider === "admin" ? "관리자" : ROLE_LABEL[user.role]}
             </span>
           </div>
-          {/* 회원 현황은 관리자 전용 (서버 /members도 관리자만 허용) */}
+          {/* 회원 관리는 관리자 전용 (서버 /members도 관리자만 허용) */}
           {user.provider === "admin" ? (
             <button
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                openMemberPopup();
+                navigate("admin-learners");
               }}
             >
-              회원 현황
+              회원 관리
             </button>
           ) : user.role === "instructor" ? null : (
             <button

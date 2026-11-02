@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon";
 import { navigate } from "../router";
 import { useAuth } from "./AuthContext";
-import { openMemberPopup } from "./memberPopup";
 
 /** 관리자 로그인 창 — Google 계정과 별개로 아이디·비밀번호로 로그인한다. */
 const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -18,7 +17,6 @@ const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     if (!user) return setError(err);
     onClose();
     navigate("admin");
-    openMemberPopup(); // 로그인하면 회원 현황을 바로 보여준다.
   };
 
   return (

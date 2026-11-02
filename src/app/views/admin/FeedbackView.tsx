@@ -26,7 +26,7 @@ const STATUS_TEXT: Record<FeedbackStatus, string> = {
 
 /** 학습 기록으로 피드백 초안의 기본 문안을 만든다. (교수자가 확인·수정 후 발송) */
 const draftFromProgress = (learner: LearnerProfile, lesson: Lesson | undefined, p: LessonProgress): FeedbackDraft => {
-  const heading = lesson ? lessonHeading(lesson) : `${p.week}주차 강의자료`;
+  const heading = lesson ? lessonHeading(lesson) : `${p.week}주차 학습자료`;
   const now = nowIso();
   return {
     id: createId("feedback"),
@@ -42,7 +42,7 @@ const draftFromProgress = (learner: LearnerProfile, lesson: Lesson | undefined, 
       `· 학습 완료: ${p.completedAt ? "완료" : "미완료"}`,
       `· 복습 퀴즈: ${p.quiz ? `${p.quiz.total}문제 중 ${p.quiz.correct}문제 정답` : "미응시"}`,
       "",
-      "[교수자 코멘트]",
+      "[교강사 코멘트]",
       "",
       "",
       "追剧学汉语",
@@ -176,7 +176,7 @@ export const FeedbackView: React.FC = () => {
                         {learner.name} · {p.week}주차
                       </b>
                       <small className="muted">
-                        {lesson ? lessonHeading(lesson) : "(삭제된 강의자료)"} · 재생 {formatPercent(p.progressRatio)}
+                        {lesson ? lessonHeading(lesson) : "(삭제된 학습자료)"} · 재생 {formatPercent(p.progressRatio)}
                         {p.completedAt ? " · 완료" : ""}
                         {p.quiz ? ` · 퀴즈 ${p.quiz.correct}/${p.quiz.total}` : ""}
                       </small>
@@ -238,7 +238,7 @@ export const FeedbackView: React.FC = () => {
                 </button>
               </div>
               <small className="muted">
-                버튼을 누르면 처음 한 번 Google 권한 창에서 ‘Gmail 메일 보내기’ 허용을 요청해요. 지금 로그인한 교수자
+                버튼을 누르면 처음 한 번 Google 권한 창에서 ‘Gmail 메일 보내기’ 허용을 요청해요. 지금 로그인한 교강사
                 계정({user?.email ?? "—"})으로 보내며, 자동으로 보내지 않아요.
               </small>
 
@@ -257,7 +257,7 @@ export const FeedbackView: React.FC = () => {
               ) : null}
               {sendState.kind === "sending" ? (
                 <div className="send-status pending" role="status">
-                  ⏳ Gmail로 보내는 중이에요… 권한 창이 열리면 교수자 계정을 선택해 주세요.
+                  ⏳ Gmail로 보내는 중이에요… 권한 창이 열리면 교강사 계정을 선택해 주세요.
                 </div>
               ) : null}
               {sendState.kind === "success" ? (

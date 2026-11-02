@@ -733,15 +733,11 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 
 /* ───────── Admin ───────── */
 .admin-intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.admin-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .week-strip { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 6px; }
 .week-dot { display: flex; flex-direction: column; align-items: center; padding: 8px 2px; border-radius: 12px; border: 1px dashed var(--sky-200); color: var(--muted); }
 .week-dot.has { background: var(--tone-bg); color: var(--tone-ink); border: 1px solid transparent; }
 .week-dot b { font-size: 15px; }
 .week-dot small { font-size: 10px; font-family: "Noto Sans SC", var(--font); }
-.admin-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.shortcut { display: flex; flex-direction: column; gap: 4px; text-align: left; transition: transform 0.2s, box-shadow 0.2s; }
-.shortcut:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
 
 .course-table { display: flex; flex-direction: column; }
 .course-row { display: grid; grid-template-columns: 70px minmax(0, 2fr) 130px 120px 90px minmax(180px, 1.2fr); gap: 12px; align-items: center; padding: 10px 6px; border-top: 1px solid var(--line); }
@@ -756,10 +752,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .delete-confirm { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--pink); }
 .delete-confirm input { max-width: 200px; }
 
-.pipeline { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.pipeline li { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
-.pipeline li + li::before { content: "→"; color: var(--muted); margin: 0 4px 0 -2px; }
-.editor-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
 .field > span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
@@ -813,7 +805,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .btn-gmail { background: #fff; border: 1px solid #dbe6f0; color: var(--ink); }
 
 @media (max-width: 1100px) {
-  .editor-grid, .feedback-grid { grid-template-columns: minmax(0, 1fr); }
+  .feedback-grid { grid-template-columns: minmax(0, 1fr); }
   .course-row { grid-template-columns: 60px minmax(0, 1fr) auto; }
   .course-head { display: none; }
   .course-row > :nth-child(3) { grid-column: 2; }
@@ -822,7 +814,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 }
 @media (max-width: 900px) {
   .week-strip { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .admin-shortcuts { grid-template-columns: minmax(0, 1fr); }
   .form-grid { grid-template-columns: minmax(0, 1fr); }
   .span-2 { grid-column: auto; }
   .save-bar .field { width: 100%; }
@@ -903,8 +894,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .stage-bar .stage-exit small { font-weight: 500; opacity: 0.8; }
 
 /* ───────── 원문 자막 가져오기 (강의자료 만들기) ───────── */
-.pipeline li.done { background: var(--mint); border-color: transparent; color: #1f7a5b; }
-.pipeline li.done .step { background: var(--mint-ink); }
 .video-check { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 14px; }
 .video-check-result { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--sky-50); width: 100%; }
 .caption-auto { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 14px; }
@@ -985,8 +974,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .time-field { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 /* 제작 단계: 나중에 해도 되는 단계 */
-.pipeline li.later { background: var(--cream); border-color: transparent; color: #7a5a1c; }
-.pipeline li small { font-size: 11.5px; font-weight: 600; opacity: 0.85; }
 
 /* 원문 텍스트 직접 입력 */
 .plain-import { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
@@ -1061,8 +1048,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .pinyin-input { max-width: 320px; }
 
 /* 수준 정의 (levels.ts) */
-.level-def { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
-.level-def b { margin-right: 4px; color: var(--sky-700); }
 
 /* 피드백 Gmail 발송 상태 */
 .send-status { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; }
@@ -1158,7 +1143,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .login-gate .admin-icon-btn { margin-top: 8px; }
 .admin-login, .profile-modal, .pending-modal { display: flex; flex-direction: column; gap: 12px; }
 .admin-login { width: min(420px, 100%); }
-.admin-login h2, .profile-modal h2, .pending-modal h2, .member-modal h2 { font-size: 22px; font-weight: 800; }
+.admin-login h2, .profile-modal h2, .pending-modal h2 { font-size: 22px; font-weight: 800; }
 .admin-login-mark { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--lavender); color: var(--lavender-ink); }
 .profile-modal { width: min(620px, 100%); }
 .profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -1166,8 +1151,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .gate-backdrop { z-index: 200; background: rgba(31, 53, 80, 0.45); }
 .row-end { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .row-center { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.member-modal { width: min(1180px, 100%); display: flex; flex-direction: column; gap: 12px; }
-.member-table table { min-width: 980px; }
 .member-table td { vertical-align: middle; }
 .member-table th, .member-table td { white-space: nowrap; }
 .member-edit { background: var(--sky-50); box-shadow: none; display: flex; flex-direction: column; gap: 12px; }
@@ -1292,11 +1275,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .course-admin-card { display: flex; flex-direction: column; gap: 12px; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); margin-bottom: 16px; }
 .course-admin-grid .course-admin-card { margin-bottom: 0; }
 .course-admin-head { display: flex; flex-direction: column; gap: 2px; }
-.course-admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin: 0; }
-.course-admin-stats div { background: rgba(255, 255, 255, 0.75); border-radius: 12px; padding: 8px 10px; min-width: 0; }
-.course-admin-stats dt { font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-.course-admin-stats dd { margin: 2px 0 0; font-weight: 800; font-size: 15.5px; white-space: nowrap; }
-.course-admin-stats .code-chip { letter-spacing: 0.06em; }
 .course-admin-teachers { color: var(--ink-2); }
 .course-admin-card .row-start > .join-link-row { flex: 1 1 100%; margin: 0; }
 .join-link-row .join-link-input { flex: 1; min-width: 0; }
@@ -1393,3 +1371,120 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 /* 2단계 자막 표: 중국어 칸 아래 병음 */
 .script-preview .cue-pinyin { margin-top: 2px; font-size: 12px; color: var(--sky-700); }
 .script-preview .cue-pinyin::placeholder { color: var(--muted); opacity: 0.7; }
+/* ───────── 교강사·관리자 공통 (3차) ───────── */
+.admin-back { align-self: flex-start; margin-bottom: 0; }
+.scope-note.info { background: var(--sky-50); border: 1px solid var(--line); }
+/* 분반 카드: 작은 대표 이미지 + 핵심 정보 */
+.section-card { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 16px; align-items: start; padding: 16px; }
+.section-card > img, .section-card > .course-fallback { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-sm); padding: 0; }
+.section-card > .course-fallback svg { width: 22px; height: 22px; }
+.section-card > .course-fallback b { font-size: 11px; }
+.section-card-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.section-card .course-drama { font-size: 18px; }
+.section-card .course-name { font-size: 14px; }
+.section-card-stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 0; }
+.section-card-stats dt { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.section-card-stats dd { margin: 1px 0 0; font-weight: 800; font-size: 15px; white-space: nowrap; }
+.section-card .course-admin-teachers b { margin-right: 4px; }
+.section-card .join-link-row { margin: 0; }
+/* 이 분반 / 강의 공통 구분 */
+.scope-tabs { margin-bottom: 0; }
+.scope-tabs .learn-tab { flex: 1 1 240px; text-align: left; }
+.scope-kicker { align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+.learn-tab.section .scope-kicker { background: var(--mint); color: var(--mint-ink); }
+.learn-tab.course .scope-kicker { background: var(--sky-100); color: var(--sky-700); }
+.scope-panel { display: flex; flex-direction: column; gap: 14px; padding-left: 12px; border-left: 3px solid var(--line); }
+.scope-panel.section { border-left-color: var(--mint-ink); }
+.scope-panel.course { border-left-color: var(--sky-400); }
+@media (max-width: 520px) {
+  .section-card { grid-template-columns: minmax(0, 1fr); }
+  .section-card > img, .section-card > .course-fallback { display: none; }
+  .scope-panel { padding-left: 8px; }
+}
+
+/* ───────── 학습자료 편집 (접고 펼치는 영역) ───────── */
+.editor-toolbar { position: sticky; top: 96px; z-index: 15; display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.editor-steps { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.editor-steps button { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.editor-steps button:hover { background: var(--sky-50); }
+.editor-steps button.done::before { content: "✓"; color: var(--mint-ink); }
+.editor-steps button.active { background: var(--sky-100); color: var(--sky-700); }
+.editor-save { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.editor-dirty { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.editor-dirty.on { color: var(--pink-ink); }
+.editor-section { padding: 0; scroll-margin-top: 170px; }
+.editor-section-head { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 40px 14px 18px; text-align: left; border-radius: var(--radius); }
+.editor-section-head:hover { background: var(--sky-50); }
+.editor-section-head > b { font-size: 16px; font-weight: 800; }
+.editor-section-summary { color: var(--muted); font-size: 13px; min-width: 0; }
+.editor-section-chev { position: absolute; right: 16px; top: 16px; color: var(--muted); transition: transform 0.15s; transform: rotate(-90deg); }
+.editor-section.open .editor-section-chev { transform: none; }
+.editor-section-body { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+/* 영역 안의 기존 패널은 카드 테두리와 중복 제목을 뺀다. */
+.editor-section-body > section.card { padding: 0; border: 0; box-shadow: none; background: none; border-radius: 0; }
+.editor-section-body > section.card > .card-head > .card-title { display: none; }
+.editor-section-body > section.card > .card-head { justify-content: flex-start; }
+.form-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-grid.four .span-2 { grid-column: span 2; }
+.form-grid.four .span-all { grid-column: 1 / -1; }
+.video-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.video-grid > div { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.editor-group { border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; }
+.editor-group > summary { cursor: pointer; padding: 10px 14px; font-weight: 800; font-size: 14.5px; border-radius: var(--radius-sm); }
+.editor-group > summary:hover { background: var(--sky-50); }
+.editor-group > summary b { color: var(--sky-700); margin-left: 2px; }
+.editor-group-body { padding: 4px 14px 14px; }
+.editor-group-body .ai-draft { margin-top: 0; }
+.draft-editor { gap: 10px; margin-top: 0; }
+textarea.cue-input { display: block; resize: none; field-sizing: content; max-height: 7em; line-height: 1.4; overflow-y: auto; }
+.publish-panel { display: flex; flex-direction: column; gap: 12px; }
+.publish-state { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.publish-check { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13.5px; }
+.publish-check.ok { background: var(--mint); color: #1f5f49; font-weight: 700; }
+.publish-check.no { background: var(--cream); color: #7a5a1c; }
+.publish-check ul { margin: 6px 0 0; padding-left: 18px; }
+@media (max-width: 1100px) {
+  .form-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .video-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  /* 작은 화면에서는 따라다니지 않고 콘텐츠를 가리지 않는다. */
+  .editor-toolbar { position: static; }
+  .editor-steps { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; max-width: 100%; }
+  .editor-section { scroll-margin-top: 84px; }
+}
+@media (max-width: 520px) {
+  .form-grid.four { grid-template-columns: minmax(0, 1fr); }
+  .form-grid.four .span-2 { grid-column: auto; }
+  .editor-section-head { padding: 12px 36px 12px 14px; }
+  .editor-section-body { padding: 0 12px 14px; }
+  .editor-group-body { padding: 4px 10px 12px; }
+}
+
+/* ───────── 관리자 화면 ───────── */
+.admin-todo { width: 100%; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; text-align: left; padding: 14px 18px; }
+.admin-todo > span:nth-child(2) { display: flex; flex-direction: column; flex: 1; min-width: 160px; }
+.admin-todo-count { font-size: 24px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.admin-todo.has-todo { background: var(--pink); border-color: transparent; }
+.admin-todo.has-todo .admin-todo-count { color: var(--pink-ink); }
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 10px 16px; margin: 0; padding: 14px 18px; }
+.admin-stats dt { font-size: 12px; font-weight: 700; color: var(--muted); }
+.admin-stats dd { margin: 2px 0 0; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.course-branch { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-family: "Noto Sans SC", var(--font); }
+.section-admin-grid { padding-left: 12px; border-left: 3px solid var(--sky-200); }
+.section-block { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.section-block h5 { margin: 0; font-size: 13.5px; font-weight: 800; color: var(--ink-2); }
+.section-block .join-link-row { margin: 0; }
+.section-block .teacher-checks { max-height: 168px; overflow-y: auto; }
+.btn-quiet { background: #fff; border: 1px solid var(--line); color: var(--ink-2); }
+.btn-quiet:hover:not(:disabled) { background: var(--cream); }
+.member-panel { display: flex; flex-direction: column; gap: 12px; }
+.member-panel .card-head { flex-wrap: wrap; gap: 8px; margin-bottom: 0; }
+.member-panel .tag-bar { margin: 0; }
+.member-table table { min-width: 900px; }
+.member-table tr.is-pending td { background: var(--cream); }
+.mobile-more { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; flex-direction: column; gap: 4px; min-width: 160px; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-hover); }
+.mobile-nav .mobile-more button { flex: none; flex-direction: row; justify-content: flex-start; gap: 8px; min-height: 44px; padding: 6px 12px; font-size: 13px; }
+@media (max-width: 520px) {
+  .section-admin-grid { padding-left: 8px; }
+}

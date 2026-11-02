@@ -13,7 +13,6 @@ import { InstructorsView } from "./views/admin/InstructorsView";
 import { InstructorCourseView, InstructorHomeView } from "./views/admin/InstructorViews";
 import { LearnersView } from "./views/admin/LearnersView";
 import { LessonEditorView } from "./views/admin/LessonEditorView";
-import { MemberTableModal } from "./views/admin/MemberTableModal";
 import { ProgressView } from "./views/admin/ProgressView";
 import { CourseView } from "./views/CourseView";
 import { CultureView } from "./views/CultureView";
@@ -27,7 +26,7 @@ import { WeeksView } from "./views/WeeksView";
 /** 역할이 맞지 않는 화면(관리자·교수자 전용)에 들어왔을 때 */
 const AdminGate: React.FC<{ access: ViewAccess }> = ({ access }) => {
   const { user } = useAuth();
-  const title = access === "instructor" ? "교수자 전용 메뉴" : access === "admin" ? "관리자 전용 메뉴" : "교수자·관리자 메뉴";
+  const title = access === "instructor" ? "교강사 전용 메뉴" : access === "admin" ? "관리자 전용 메뉴" : "교강사·관리자 메뉴";
   return (
     <div className="page">
       <div className="card login-gate">
@@ -37,7 +36,7 @@ const AdminGate: React.FC<{ access: ViewAccess }> = ({ access }) => {
           <>
             <p className="muted">
               {access === "instructor"
-                ? "교수자로 등록된 Google 계정으로 로그인해야 이용할 수 있어요."
+                ? "교강사로 등록된 Google 계정으로 로그인해야 이용할 수 있어요."
                 : `현재 계정(${user.email || user.name})으로는 볼 수 없는 화면이에요. 관리자는 오른쪽 위 ‘관리자’ 아이콘으로 로그인해 주세요.`}
             </p>
             <button className="btn btn-soft" onClick={() => navigate("home")}>
@@ -114,7 +113,6 @@ const Shell: React.FC = () => {
       <MobileNav active={view} />
     </div>
     <MemberGate />
-    <MemberTableModal />
     </>
   );
 };

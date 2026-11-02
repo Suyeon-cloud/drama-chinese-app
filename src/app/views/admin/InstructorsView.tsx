@@ -9,7 +9,7 @@ import { courseStore, instructorStore } from "../../store";
 import { useInstructors, useStaffCourses } from "../../store/hooks";
 import type { CourseOverview, InstructorRecord, SectionOverview } from "../../store/models";
 import { PageIntro } from "./AdminShared";
-import { CourseTabs, SectionStatusPill, operatingCourses, teacherLabel } from "./CourseAdminShared";
+import { CourseTabs, JoinLinkBox, SectionStatusPill, operatingCourses, teacherLabel } from "./CourseAdminShared";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 
@@ -34,7 +34,7 @@ const TeacherChecks: React.FC<{
   label: (email: string) => string;
 }> = ({ instructors, checked, onToggle, disabled, label }) =>
   instructors.length === 0 ? (
-    <p className="muted small">등록된 교강사가 없어요. 위에서 교강사 이메일을 먼저 등록해 주세요.</p>
+    <p className="muted small">등록된 교강사가 없어요. 아래 교강사 명부에서 이메일을 먼저 등록해 주세요.</p>
   ) : (
     <div className="teacher-checks">
       {instructors.map((i) => (
@@ -116,29 +116,57 @@ const SectionAdminCard: React.FC<{
         )}
         <SectionStatusPill status={section.status} />
       </div>
-      <dl className="course-admin-stats">
-        <div>
-          <dt>강의코드</dt>
-          <dd className="code-chip">{section.code}</dd>
+      <div className="section-block">
+        <h5>분반 정보</h5>
+        <dl className="section-card-stats">
+          <div>
+            <dt>강의코드</dt>
+            <dd className="code-chip">{section.code}</dd>
+          </div>
+          <div>
+            <dt>수강생</dt>
+            <dd>{section.enrolledCount}명</dd>
+          </div>
+        </dl>
+        <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
+        <div className="row-start">
+          <button
+            className={`btn btn-sm ${nextStatus === "inactive" ? "btn-quiet" : "btn-primary"}`}
+            disabled={busy}
+            onClick={() =>
+              void run(
+                () => courseStore.updateSection(section.id, { status: nextStatus }),
+                nextStatus === "inactive"
+                  ? `${section.name}을 비활성화했어요. 새 수강 등록만 막고 기존 수강·기록은 그대로예요.`
+                  : `${section.name}을 다시 운영해요.`,
+                "상태를 바꾸지 못했어요.",
+              )
+            }
+          >
+            {nextStatus === "inactive" ? "분반 비활성화" : "다시 운영"}
+          </button>
+          <button
+            className="link-btn"
+            onClick={() => navigate("admin-progress", { course: course.id, section: section.id })}
+          >
+            학습 현황 ›
+          </button>
         </div>
-        <div>
-          <dt>수강생</dt>
-          <dd>{section.enrolledCount}명</dd>
-        </div>
-        <div>
-          <dt>담당 교강사</dt>
-          <dd>{section.instructors.length}명</dd>
-        </div>
-      </dl>
-      <div>
-        <p className="small section-admin-label">
-          <b>담당 교강사</b>{" "}
-          {section.instructors.length ? (
-            <span className="muted">{section.instructors.map(teacherLabel).join(", ")}</span>
-          ) : (
-            <span className="muted">아직 배정되지 않았어요</span>
-          )}
-        </p>
+        <small className="muted">
+          {nextStatus === "inactive"
+            ? "비활성화는 삭제가 아니에요. 수강생과 학습 기록은 그대로 두고 새 강의코드 등록만 막아요."
+            : "비활성 상태예요. 수강생과 학습 기록은 그대로이고 새 강의코드 등록만 막혀 있어요."}
+        </small>
+      </div>
+      <div className="section-block">
+        <h5>
+          담당 교강사 <span className="muted small">{section.instructors.length}명 · 체크하면 바로 반영돼요</span>
+        </h5>
+        {section.instructors.length ? (
+          <p className="small muted">{section.instructors.map(teacherLabel).join(", ")}</p>
+        ) : (
+          <p className="small muted">아직 배정되지 않았어요</p>
+        )}
         <TeacherChecks
           instructors={instructors}
           checked={(email) => assigned.has(email)}
@@ -146,29 +174,6 @@ const SectionAdminCard: React.FC<{
           disabled={busy}
           label={label}
         />
-      </div>
-      <div className="row-start">
-        <button
-          className={`btn btn-sm ${nextStatus === "inactive" ? "btn-soft" : "btn-primary"}`}
-          disabled={busy}
-          onClick={() =>
-            void run(
-              () => courseStore.updateSection(section.id, { status: nextStatus }),
-              nextStatus === "inactive"
-                ? `${section.name}을 비활성화했어요. 새 수강 등록만 막고 기존 수강·기록은 그대로예요.`
-                : `${section.name}을 다시 운영해요.`,
-              "상태를 바꾸지 못했어요.",
-            )
-          }
-        >
-          {nextStatus === "inactive" ? "비활성화" : "다시 운영"}
-        </button>
-        <button
-          className="link-btn"
-          onClick={() => navigate("admin-progress", { course: course.id, section: section.id })}
-        >
-          학습 현황 ›
-        </button>
       </div>
     </section>
   );
@@ -213,7 +218,7 @@ const NewSectionCard: React.FC<{
     return (
       <button className="card section-new-btn" onClick={start}>
         <b>+ 새 분반 개설</b>
-        <small className="muted">강의코드는 자동으로 만들어지고, 이 과목의 15주 학습자료를 함께 써요.</small>
+        <small className="muted">강의코드는 자동으로 만들어지고, 이 강의의 15주 학습자료를 함께 써요.</small>
       </button>
     );
   }
@@ -271,7 +276,6 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
   if (!instructors || !courses || !user) return null;
   const operating = operatingCourses(courses);
   const active = operating.find((c) => c.id === params.get("course")) ?? operating[0];
-  const allSections = operating.flatMap((c) => c.sections);
   const label = (e: string) => {
     const n = nameOf(operating, e);
     return n ? `${n} (${e})` : e;
@@ -291,18 +295,45 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
     await instructorStore.add(value);
     setEmail("");
     setError(null);
-    toast.show(`${value}을(를) 교강사로 등록했어요. 아래 분반에서 담당으로 배정해 주세요.`, "success");
+    toast.show(`${value}을(를) 교강사로 등록했어요. 위 분반에서 담당으로 배정해 주세요.`, "success");
   };
 
   return (
     <div className="page">
       <PageIntro
         title="분반·교강사 관리"
-        desc="과목마다 분반을 개설하고 담당 교강사를 배정해요. 학생은 분반 강의코드로 수강 등록하고, 교강사는 담당 분반의 학생만 봐요."
+        desc="강의마다 분반을 개설하고 담당 교강사를 배정해요. 학생은 분반 강의코드로 수강 등록하고, 교강사는 담당 분반의 학생만 봐요."
       />
 
+      {active ? (
+        <>
+          <p className="scope-note info">
+            ℹ️ <b>강의</b>는 15주 학습자료를 공유하는 공통 단위이고, <b>분반</b>은 그 강의를 실제로 운영하는 수업 단위예요. 수강생과
+            담당 교강사는 분반마다 따로 관리해요.
+          </p>
+          <CourseTabs
+            courses={operating}
+            active={active.id}
+            onSelect={(id) => navigate("admin-instructors", { course: id })}
+          />
+          <p className="course-branch">
+            <b>《{active.drama}》 {active.title}</b>
+            <span className="muted small">
+              공통 학습자료 {active.lessonCount}개 · 분반 {active.sections.length}개 (운영 중{" "}
+              {active.sections.filter((s) => s.status === "active").length}개)
+            </span>
+          </p>
+          <div className="section-admin-grid">
+            {active.sections.map((s) => (
+              <SectionAdminCard key={s.id} course={active} section={s} instructors={instructors} label={label} />
+            ))}
+            <NewSectionCard key={active.id} course={active} instructors={instructors} label={label} />
+          </div>
+        </>
+      ) : null}
+
+      <h3 className="section-title">교강사 명부</h3>
       <section className="card">
-        <h3 className="card-title">교강사 등록</h3>
         <form className="instructor-form" onSubmit={(e) => void add(e)}>
           <label className="field">
             <span>Google 이메일</span>
@@ -373,26 +404,6 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
         ) : null}
       </section>
 
-      {active ? (
-        <>
-          <h3 className="section-title">분반 · 담당 교강사</h3>
-          <CourseTabs
-            courses={operating}
-            active={active.id}
-            onSelect={(id) => navigate("admin-instructors", { course: id })}
-          />
-          <p className="muted small">
-            《{active.drama}》 {active.title} · 운영 분반 {active.sections.filter((s) => s.status === "active").length}개 ·
-            학습자료 {active.lessonCount}개는 모든 분반이 함께 써요. (전체 분반 {allSections.length}개)
-          </p>
-          <div className="section-admin-grid">
-            {active.sections.map((s) => (
-              <SectionAdminCard key={s.id} course={active} section={s} instructors={instructors} label={label} />
-            ))}
-            <NewSectionCard key={active.id} course={active} instructors={instructors} label={label} />
-          </div>
-        </>
-      ) : null}
     </div>
   );
 };

@@ -12,6 +12,7 @@ import { joinUrl, navigate } from "../../router";
 import { lessonStore } from "../../store";
 import { useCourseStudents } from "../../store/hooks";
 import type { CourseOverview, LessonProgress, SectionOverview, SectionTeacher } from "../../store/models";
+import { CourseImage } from "../courseVisuals";
 import { courseTone } from "../MyCoursesView";
 import { LevelBadge, StatusBadge } from "./AdminShared";
 
@@ -33,15 +34,20 @@ export const CourseOverviewCard: React.FC<{
   showSections?: boolean;
   children?: React.ReactNode;
 }> = ({ course, showSections, children }) => {
-  const preparing = course.lessonCount - course.publishedCount;
-  const active = course.sections.filter((s) => s.status === "active");
+    const active = course.sections.filter((s) => s.status === "active");
   return (
     <section className={`card course-admin-card tone-${courseTone(course.id)}`}>
       <div className="course-admin-head">
         <span className="course-drama">《{course.drama}》</span>
         <span className="course-name">{course.title}</span>
       </div>
-      <dl className="course-admin-stats">
+      <dl className="section-card-stats">
+        <div>
+          <dt>공통 학습자료 (공개)</dt>
+          <dd>
+            {course.publishedCount} / {course.lessonCount}
+          </dd>
+        </div>
         <div>
           <dt>운영 분반</dt>
           <dd>{active.length}개</dd>
@@ -50,26 +56,13 @@ export const CourseOverviewCard: React.FC<{
           <dt>수강생</dt>
           <dd>{course.enrolledCount}명</dd>
         </div>
-        <div>
-          <dt>과정</dt>
-          <dd>{course.weekCount}주</dd>
-        </div>
-        <div>
-          <dt>공개</dt>
-          <dd>{course.publishedCount}개</dd>
-        </div>
-        <div>
-          <dt>준비 중</dt>
-          <dd>{preparing}개</dd>
-        </div>
       </dl>
       {showSections && course.sections.length ? (
         <ul className="section-mini-list">
           {course.sections.map((s) => (
             <li key={s.id}>
               <b>{s.name}</b> <span className="code-chip">{s.code}</span> <SectionStatusPill status={s.status} />
-              <span className="muted small">
-                {" "}
+              <span className="muted small block">
                 수강생 {s.enrolledCount}명 · 담당{" "}
                 {s.instructors.length ? s.instructors.map((t) => t.name || t.email).join(", ") : "미배정"}
               </span>
@@ -88,46 +81,49 @@ export const SectionCard: React.FC<{
   section: SectionOverview;
   children?: React.ReactNode;
 }> = ({ course, section, children }) => (
-  <section className={`card course-admin-card tone-${courseTone(course.id)}`}>
-    <div className="course-admin-head">
-      <span className="course-drama">《{course.drama}》</span>
-      <span className="course-name">
-        {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}
-      </span>
+  <section className={`card section-card tone-${courseTone(course.id)}`}>
+    <CourseImage courseId={course.id} drama={course.drama} decorative />
+    <div className="section-card-body">
+      <div className="course-admin-head">
+        <span className="course-drama">《{course.drama}》</span>
+        <span className="course-name">
+          {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}
+        </span>
+      </div>
+      <dl className="section-card-stats">
+        <div>
+          <dt>강의코드</dt>
+          <dd className="code-chip">{section.code}</dd>
+        </div>
+        <div>
+          <dt>수강생</dt>
+          <dd>{section.enrolledCount}명</dd>
+        </div>
+        <div>
+          <dt>공개 학습자료</dt>
+          <dd>
+            {course.publishedCount} / {course.lessonCount}
+          </dd>
+        </div>
+      </dl>
+      {section.instructors.length ? (
+        <p className="small course-admin-teachers">
+          <b>담당 교강사</b> {section.instructors.map((t) => t.name || t.email).join(", ")}
+        </p>
+      ) : null}
+      {children ? <div className="row-start">{children}</div> : null}
     </div>
-    <dl className="course-admin-stats">
-      <div>
-        <dt>강의코드</dt>
-        <dd className="code-chip">{section.code}</dd>
-      </div>
-      <div>
-        <dt>수강생</dt>
-        <dd>{section.enrolledCount}명</dd>
-      </div>
-      <div>
-        <dt>과정</dt>
-        <dd>{course.weekCount}주</dd>
-      </div>
-      <div>
-        <dt>공개</dt>
-        <dd>{course.publishedCount}개</dd>
-      </div>
-      <div>
-        <dt>준비 중</dt>
-        <dd>{course.lessonCount - course.publishedCount}개</dd>
-      </div>
-    </dl>
-    {section.instructors.length > 1 ? (
-      <p className="small course-admin-teachers">
-        <b>공동 담당</b> {section.instructors.map(teacherLabel).join(", ")}
-      </p>
-    ) : null}
-    {children ? <div className="row-start">{children}</div> : null}
   </section>
 );
 
-/** 분반 강의코드 + 참여 링크 복사 */
-export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, label }) => {
+/** 학습자료가 강의 공통임을 알리는 안내 (교강사·관리자 학습자료 화면, 편집 화면) */
+export const SharedLessonNote: React.FC = () => (
+  <p className="scope-note info">
+    ℹ️ 이 학습자료는 같은 강의의 모든 분반에서 공통으로 사용돼요. 수정한 내용은 해당 강의의 모든 분반에 반영돼요.
+  </p>
+);
+
+const useCopyJoinLink = (code: string, label: string) => {
   const toast = useToast();
   const link = joinUrl(code);
   const copy = async () => {
@@ -135,9 +131,25 @@ export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, l
       await navigator.clipboard.writeText(link);
       toast.show(`${label} 참여 링크를 복사했어요.`, "success");
     } catch {
-      toast.show("복사하지 못했어요. 링크를 직접 선택해 복사해 주세요.", "error");
+      toast.show("복사하지 못했어요. 분반 화면에서 링크를 직접 선택해 복사해 주세요.", "error");
     }
   };
+  return { link, copy };
+};
+
+/** 참여 링크 복사 버튼만 (카드용) */
+export const JoinLinkCopy: React.FC<{ code: string; label: string }> = ({ code, label }) => {
+  const { copy } = useCopyJoinLink(code, label);
+  return (
+    <button className="link-btn" onClick={() => void copy()}>
+      🔗 참여 링크 복사
+    </button>
+  );
+};
+
+/** 분반 강의코드 + 참여 링크 복사 */
+export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, label }) => {
+  const { link, copy } = useCopyJoinLink(code, label);
   return (
     <div className="join-link-row">
       <input
@@ -160,7 +172,13 @@ export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, l
  * 과목의 주차별 학습자료 표 (편집·주차 이동·미리보기). 기존 ‘수업 관리’ 표를 과목 단위로 쓴다.
  * 운영 과목은 1~15주 한 표, 기존 자료는 예전처럼 중→한 / 한→중 두 표.
  */
-export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] }> = ({ courseId, lessons }) => {
+export const CourseLessonsTable: React.FC<{
+  courseId: string;
+  lessons: Lesson[];
+  /** 분반 화면에서 열었으면 편집을 마치고 그 분반으로 돌아오게 넘긴다. */
+  sectionId?: string;
+}> = ({ courseId, lessons, sectionId }) => {
+  const backTo: Record<string, string> = sectionId ? { section: sectionId } : {};
   const toast = useToast();
   const [moving, setMoving] = useState<string | null>(null);
   // 주차 이동은 바로 저장하지 않고 한 번 확인한다.
@@ -220,7 +238,7 @@ export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] 
                   <span className="course-actions">
                     <button
                       className="btn btn-soft btn-sm"
-                      onClick={() => navigate("admin-editor", { week, course: courseId })}
+                      onClick={() => navigate("admin-editor", { week, course: courseId, ...backTo })}
                     >
                       + 만들기
                     </button>
@@ -259,7 +277,7 @@ export const CourseLessonsTable: React.FC<{ courseId: string; lessons: Lesson[] 
                       </option>
                     ))}
                   </select>
-                  <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-editor", { id: lesson.id })}>
+                  <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-editor", { id: lesson.id, ...backTo })}>
                     편집
                   </button>
                   <button
@@ -437,7 +455,7 @@ export const CourseStudentsPanel: React.FC<{
         <section className="card data-table">
           <h3 className="card-title">학습 기록 상세 · {students.find((s) => s.userId === selected)?.name}</h3>
           {detail.length === 0 ? (
-            <p className="muted">아직 이 과목의 학습 기록이 없어요.</p>
+            <p className="muted">아직 이 강의의 학습 기록이 없어요.</p>
           ) : (
             <table>
               <thead>
@@ -480,7 +498,7 @@ export const CourseTabs: React.FC<{
   active: string;
   onSelect: (id: string) => void;
 }> = ({ courses, active, onSelect }) => (
-  <div className="learn-tabs" role="tablist" aria-label="과목">
+  <div className="learn-tabs" role="tablist" aria-label="강의">
     {courses.map((c) => (
       <button
         key={c.id}
@@ -490,7 +508,7 @@ export const CourseTabs: React.FC<{
         onClick={() => onSelect(c.id)}
       >
         <b>{c.drama ? `《${c.drama}》` : "🗂 기존 자료"}</b>
-        <small>{c.drama ? c.title : "3과목 개편 전 보관 자료"}</small>
+        <small>{c.drama ? c.title : "3강의 개편 전 보관 자료"}</small>
       </button>
     ))}
   </div>

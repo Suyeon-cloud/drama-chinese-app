@@ -32,7 +32,9 @@ import { navigate, setNavigationGuard } from "../../router";
 import { lessonStore } from "../../store";
 import { useLessons } from "../../store/hooks";
 import { createId, nowIso } from "../../store/localJson";
-import { PageIntro } from "./AdminShared";
+import { PageIntro, StatusBadge } from "./AdminShared";
+import { SharedLessonNote } from "./CourseAdminShared";
+import { EditorSection, EditorSectionsContext } from "./EditorSection";
 import { ContentDraftSection } from "./ContentDraftSection";
 import { ScriptSection, VideoCheckPanel, sourceLangFor, type ScriptOrigin } from "./ScriptSection";
 import { ScriptSyncPanel } from "./ScriptSyncPanel";
@@ -289,15 +291,6 @@ const StudySpanSummary: React.FC<{
   );
 };
 
-const PIPELINE = [
-  "영상 및 학습 구간 설정",
-  "원문 스크립트 확보",
-  "자막 시간 동기화",
-  "학습 콘텐츠 초안 구성",
-  "교수자 검토·편집 + 등장 시점 확인",
-  "학습자료 저장/게시",
-];
-
 export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const lessons = useLessons();
   const id = params.get("id");
@@ -308,7 +301,7 @@ export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params
       <div className="page">
         <div className="card empty">
           <span>🗂</span>
-          <p>강의자료를 찾을 수 없어요.</p>
+          <p>학습자료를 찾을 수 없어요.</p>
         </div>
       </div>
     );
@@ -318,12 +311,15 @@ export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params
   // 새 강의자료의 과목: ?course={courseId} (과목 화면 개편 전에는 기존 자료)
   const courseParam = params.get("course") ?? "";
   const courseId = isCourseId(courseParam) ? courseParam : LEGACY_COURSE_ID;
+  // 분반 화면에서 들어왔으면 그 분반으로 돌아간다.
+  const backSection = params.get("section");
   return (
     <LessonEditor
       key={existing?.id ?? `new-${courseId}-${week}`}
       existing={existing}
       initialCourseId={courseId}
       initialWeek={week}
+      backSection={backSection}
       justSaved={params.get("saved") === "1"}
     />
   );
@@ -333,14 +329,15 @@ const LessonEditor: React.FC<{
   existing: Lesson | null;
   initialCourseId: string;
   initialWeek: number;
+  backSection: string | null;
   justSaved: boolean;
-}> = ({ existing, initialCourseId, initialWeek, justSaved }) => {
+}> = ({ existing, initialCourseId, initialWeek, backSection, justSaved }) => {
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(() =>
     existing ? fromLesson(existing) : blankForm(initialCourseId, initialWeek),
   );
   const [errors, setErrors] = useState<string[]>([]);
-  const [notice, setNotice] = useState<string | null>(justSaved ? "강의자료를 생성했어요." : null);
+  const [notice, setNotice] = useState<string | null>(justSaved ? "학습자료를 생성했어요." : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteWord, setDeleteWord] = useState("");
   // 저장 후 바뀐 내용이 있으면 화면을 벗어나기 전에 확인한다.
@@ -396,6 +393,50 @@ const LessonEditor: React.FC<{
   // ③ 시간 동기화는 나중에 해도 ④ 콘텐츠 제작을 진행할 수 있다.
   const pipelineLater = [false, false, sourceSecured && !status.synced, false, false, false];
 
+  // 제작 단계: 새 단계를 넣을 때는 여기에 항목을 더하고 EditorSection으로 감싼다.
+  const steps: { id: string; label: string; done: boolean; later?: boolean }[] = [
+    { id: "basic", label: "기본 정보", done: !!form.title.trim() },
+    { id: "video", label: "영상", done: pipelineDone[0] },
+    { id: "script", label: "원문", done: pipelineDone[1] },
+    { id: "sync", label: "시간 동기화", done: pipelineDone[2], later: pipelineLater[2] },
+    { id: "content", label: "콘텐츠", done: pipelineDone[3] },
+    { id: "review", label: "검토", done: pipelineDone[4] },
+    { id: "publish", label: "공개", done: pipelineDone[5] },
+  ];
+  // 처음에는 아직 끝나지 않은 첫 단계만 펼친다.
+  const [openSteps, setOpenSteps] = useState<Set<string>>(
+    () => new Set([steps.find((s) => !s.done && !s.later)?.id ?? "publish"]),
+  );
+  const [activeStep, setActiveStep] = useState(steps[0].id);
+  const stepStatus = (id: string) => {
+    const step = steps.find((s) => s.id === id);
+    return step?.done ? ("done" as const) : step?.later ? ("later" as const) : undefined;
+  };
+  const toggleStep = (id: string) =>
+    setOpenSteps((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const goToStep = (id: string) => {
+    setOpenSteps((prev) => new Set(prev).add(id));
+    window.requestAnimationFrame(() =>
+      document.getElementById(`editor-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+
+  // 지금 화면에 보이는 단계를 위쪽 단계 표시에 나타낸다.
+  useEffect(() => {
+    const onScroll = () => {
+      const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-section]"));
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      const current = atBottom ? sections[sections.length - 1] : sections.filter((el) => el.getBoundingClientRect().top <= 220).pop();
+      setActiveStep(current?.dataset.section ?? "basic");
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => {
     if (!notice) return;
     const t = window.setTimeout(() => setNotice(null), 3000);
@@ -422,10 +463,12 @@ const LessonEditor: React.FC<{
     return errs;
   };
 
+  const sectionParam: Record<string, string> = backSection ? { section: backSection } : {};
+
   const save = async () => {
     const errs = validate();
     setErrors(errs);
-    if (errs.length > 0) return;
+    if (errs.length > 0) return goToStep("publish");
     const now = nowIso();
     const lesson: Lesson = {
       ...(existing ?? { id: createId("lesson"), createdAt: now }),
@@ -469,11 +512,12 @@ const LessonEditor: React.FC<{
     try {
       const saved = await lessonStore.save(lesson);
       savedForm.current = JSON.stringify(form);
-      setNotice("강의자료를 저장했어요.");
-      if (!existing) navigate("admin-editor", { id: saved.id, saved: 1 });
+      setNotice("학습자료를 저장했어요.");
+      if (!existing) navigate("admin-editor", { id: saved.id, saved: 1, ...sectionParam });
     } catch (err) {
       // 담당하지 않는 과목 등 서버가 거절한 경우
       setErrors([err instanceof ApiError ? err.message : "저장하지 못했어요. 잠시 후 다시 시도해 주세요."]);
+      goToStep("publish");
     }
   };
 
@@ -482,7 +526,7 @@ const LessonEditor: React.FC<{
   const backToList = () =>
     isAdmin
       ? navigate("admin-course", { course: form.courseId })
-      : navigate("teach-course", { id: form.courseId, tab: "lessons" });
+      : navigate("teach-course", { id: form.courseId, tab: "lessons", ...sectionParam });
 
   const remove = async () => {
     if (!existing) return;
@@ -495,31 +539,59 @@ const LessonEditor: React.FC<{
     }
   };
 
+  const youtubePart = youtubeId ? `${formatTime(startSec ?? 0)} – ${endSec !== null ? formatTime(endSec) : "끝 미정"}` : "영상 없음";
+  const dirty = JSON.stringify(form) !== savedForm.current;
+  const publishProblems = lessonPublishProblems({
+    status: "published",
+    direction: form.direction,
+    video: { youtubeId: youtubeId ?? "", endTime: endSec ?? 0 },
+    script: { cues: form.cues, plain: form.plain ?? undefined },
+  });
+
   return (
     <div className="page">
       <PageIntro
-        title={existing ? "강의자료 편집" : "강의자료 만들기"}
-        desc="YouTube 영상과 자막/스크립트로 주차별 강의자료를 만들어요."
+        title={existing ? "학습자료 편집" : "학습자료 만들기"}
+        desc="YouTube 영상과 자막/스크립트로 주차별 학습자료를 만들어요."
       >
         <button className="btn btn-soft btn-sm" onClick={backToList}>
           ← {isAdmin ? "전체 강의·학습자료" : "주차별 학습자료"}
         </button>
       </PageIntro>
 
-      <ol className="pipeline">
-        {PIPELINE.map((p, i) => (
-          <li key={p} className={pipelineDone[i] ? "done" : pipelineLater[i] ? "later" : ""}>
-            <span className="step">{i + 1}</span>
-            {p}
-            {pipelineLater[i] ? <small>나중에 해도 돼요</small> : null}
-          </li>
-        ))}
-      </ol>
+      <SharedLessonNote />
 
-      <div className="editor-grid">
-        <section className="card form-card">
-          <h3 className="card-title">기본 정보</h3>
-          <div className="form-grid">
+      <div className="editor-toolbar">
+        <nav className="editor-steps" aria-label="제작 단계">
+          {steps.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`${s.done ? "done" : ""} ${activeStep === s.id ? "active" : ""}`}
+              aria-current={activeStep === s.id ? "step" : undefined}
+              onClick={() => goToStep(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+        <div className="editor-save">
+          <span className={`editor-dirty ${dirty ? "on" : ""}`}>{dirty ? "저장되지 않은 변경사항" : "저장됨"}</span>
+          <StatusBadge status={form.status} />
+          <button className="btn btn-primary btn-sm" onClick={save}>
+            {existing ? "저장" : "학습자료 생성"}
+          </button>
+        </div>
+      </div>
+
+      <EditorSectionsContext.Provider value={{ isOpen: (id) => openSteps.has(id), toggle: toggleStep }}>
+        <EditorSection
+          id="basic"
+          title="기본 정보"
+          summary={`${form.week}주차 · ${getLevel(form.level).label} · ${form.title.trim() || "제목 없음"}`}
+          status={stepStatus("basic")}
+        >
+          <div className="form-grid four">
             <label className="field">
               <span>주차</span>
               <select
@@ -545,21 +617,15 @@ const LessonEditor: React.FC<{
               </select>
             </label>
             <label className="field">
-              <span>학습 수준</span>
+              <span>권장 학습 난이도</span>
               <select value={form.level} onChange={(e) => set("level", e.target.value)}>
-                {/* 새 3과목 기본 강의자료는 수준이 아직 정해지지 않았다 (빈 값) */}
-                {LEVELS.some((l) => l.id === form.level) ? null : <option value={form.level}>미지정</option>}
+                <option value="">미지정</option>
                 {LEVELS.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.label} — {l.description}
+                    {l.label}
                   </option>
                 ))}
               </select>
-              {getLevel(form.level).definition ? (
-                <small className="level-def">
-                  <b>{getLevel(form.level).label}</b> {getLevel(form.level).definition}
-                </small>
-              ) : null}
             </label>
             <fieldset className="field span-2">
               <span>학습 방향</span>
@@ -578,20 +644,11 @@ const LessonEditor: React.FC<{
               </div>
             </fieldset>
             <label className="field span-2">
-              <span>강의 제목 *</span>
+              <span>학습자료 제목 *</span>
               <input
                 value={form.title}
                 onChange={(e) => set("title", e.target.value)}
                 placeholder="예: 가족의 일상 속 실생활 표현"
-              />
-            </label>
-            <label className="field span-2">
-              <span>설명</span>
-              <textarea
-                rows={2}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="학습자에게 보여줄 짧은 소개"
               />
             </label>
             <label className="field">
@@ -602,198 +659,250 @@ const LessonEditor: React.FC<{
               <span>회차 (선택)</span>
               <input value={form.episode} onChange={(e) => set("episode", e.target.value)} placeholder="예: 第3集" />
             </label>
-          </div>
-        </section>
-
-        <section className="card form-card">
-          <h3 className="card-title">
-            <span className="step">1</span> 영상 및 학습 구간 설정
-          </h3>
-          <div className="form-grid">
-            <label className="field span-2">
-              <span>YouTube URL</span>
-              <input
-                value={form.youtubeUrl}
-                onChange={(e) => {
-                  const url = e.target.value;
-                  const t = parseYouTubeStart(url);
-                  setForm((f) => ({
-                    ...f,
-                    youtubeUrl: url,
-                    start: t !== null && (f.start === "" || f.start === "00:00") ? formatTime(t) : f.start,
-                  }));
-                }}
-                placeholder="https://youtu.be/…"
-                inputMode="url"
+            <label className="field span-all">
+              <span>설명</span>
+              <textarea
+                rows={2}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="학습자에게 보여줄 짧은 소개"
               />
-              <small className={youtubeId || !form.youtubeUrl ? "muted" : "field-error"}>
-                {youtubeId ? `영상 ID: ${youtubeId}` : form.youtubeUrl ? "올바른 YouTube URL이 아니에요." : "youtu.be, watch?v=, shorts 링크를 지원해요."}
-              </small>
-            </label>
-            <label className="field">
-              <span>학습 구간 시작</span>
-              <input value={form.start} onChange={(e) => set("start", e.target.value)} placeholder="02:00" />
-            </label>
-            <label className="field">
-              <span>학습 구간 끝</span>
-              <input value={form.end} onChange={(e) => set("end", e.target.value)} placeholder="10:26" />
             </label>
           </div>
-          {youtubeId ? (
-            <a className="video-preview" href={youtubeWatchUrl(youtubeId)} target="_blank" rel="noreferrer">
-              {/* eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion */}
-              <img src={youtubeThumbnail(youtubeId)} alt="영상 미리보기" loading="lazy" />
-              {form.captionMask.enabled ? (
-                <div className="overlay-layer">
-                  <CaptionMaskBox mask={form.captionMask}>
-                    <div className="ko-subtitle in-mask multi">
-                      <span>{timeline[0]?.text || `${sourceName} 원문 자막`}</span>
-                      <span>번역 자막 위치</span>
+          <small className="muted">
+            권장 학습 난이도는 대본을 확인한 뒤 정해요. 학생 화면에 ‘권장 수준’으로 보이고, 콘텐츠 개수와는 관계없어요.
+          </small>
+        </EditorSection>
+
+        <EditorSection id="video" step={1} title="영상 및 학습 구간" summary={youtubePart} status={stepStatus("video")}>
+          <div className="video-grid">
+            <div>
+              <div className="form-grid">
+                <label className="field span-2">
+                  <span>YouTube URL</span>
+                  <input
+                    value={form.youtubeUrl}
+                    onChange={(e) => {
+                      const url = e.target.value;
+                      const t = parseYouTubeStart(url);
+                      setForm((f) => ({
+                        ...f,
+                        youtubeUrl: url,
+                        start: t !== null && (f.start === "" || f.start === "00:00") ? formatTime(t) : f.start,
+                      }));
+                    }}
+                    placeholder="https://youtu.be/…"
+                    inputMode="url"
+                  />
+                  <small className={youtubeId || !form.youtubeUrl ? "muted" : "field-error"}>
+                    {youtubeId ? `영상 ID: ${youtubeId}` : form.youtubeUrl ? "올바른 YouTube URL이 아니에요." : "youtu.be, watch?v=, shorts 링크를 지원해요."}
+                  </small>
+                </label>
+                <label className="field">
+                  <span>학습 구간 시작</span>
+                  <input value={form.start} onChange={(e) => set("start", e.target.value)} placeholder="02:00" />
+                </label>
+                <label className="field">
+                  <span>학습 구간 끝</span>
+                  <input value={form.end} onChange={(e) => set("end", e.target.value)} placeholder="10:26" />
+                </label>
+              </div>
+              <VideoCheckPanel lookup={lookup} youtubeId={youtubeId} lang={sourceLang} />
+              {youtubeId ? (
+                <StudySpanSummary
+                  videoLength={lookup.state.status === "ready" ? lookup.state.info.video.lengthSeconds : null}
+                  startSec={startSec}
+                  endSec={endSec}
+                />
+              ) : null}
+            </div>
+            <div>
+              {youtubeId ? (
+                <a className="video-preview" href={youtubeWatchUrl(youtubeId)} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion */}
+                  <img src={youtubeThumbnail(youtubeId)} alt="영상 미리보기" loading="lazy" />
+                  {form.captionMask.enabled ? (
+                    <div className="overlay-layer">
+                      <CaptionMaskBox mask={form.captionMask}>
+                        <div className="ko-subtitle in-mask multi">
+                          <span>{timeline[0]?.text || `${sourceName} 원문 자막`}</span>
+                          <span>번역 자막 위치</span>
+                        </div>
+                      </CaptionMaskBox>
                     </div>
-                  </CaptionMaskBox>
+                  ) : null}
+                  <span className="video-preview-link">YouTube에서 열기 ↗</span>
+                </a>
+              ) : null}
+              {youtubeId ? (
+                <CaptionMaskSettings
+                  mask={form.captionMask}
+                  onChange={(captionMask) => set("captionMask", captionMask)}
+                  youtubeId={youtubeId}
+                  startAt={startSec ?? 0}
+                  timeline={timeline}
+                  sampleText={timeline[0]?.text || `${sourceName} 원문 자막 위치`}
+                />
+              ) : null}
+            </div>
+          </div>
+        </EditorSection>
+
+        <EditorSection
+          id="script"
+          step={2}
+          title={`${sourceName} 원문 스크립트 · 번역 · 병음`}
+          summary={status.secured ? `자막 ${status.timedCount || status.plainCount}줄` : "원문 확보 필요"}
+          status={stepStatus("script")}
+        >
+          <ScriptSection
+            cues={form.cues}
+            origin={form.origin}
+            direction={form.direction}
+            youtubeId={youtubeId}
+            lookup={lookup}
+            onChange={(cues, origin, source) =>
+              setForm((f) => ({ ...f, cues, origin, scriptSource: source ?? f.scriptSource }))
+            }
+            plain={form.plain}
+            segmentStart={startSec ?? 0}
+            segmentEnd={endSec}
+            title={form.title}
+            dramaTitle={form.dramaTitle}
+            onPlainChange={(plain) =>
+              setForm((f) => ({
+                ...f,
+                plain,
+                // 원문 텍스트를 지우면 출처 표시도 기존 값으로 되돌린다.
+                scriptSource: !plain && f.scriptSource === "text" ? "manual" : f.scriptSource,
+              }))
+            }
+          />
+        </EditorSection>
+
+        <EditorSection
+          id="sync"
+          step={3}
+          title="자막 시간 맞추기"
+          summary={status.synced ? "동기화 완료" : sourceSecured ? "동기화 필요" : "원문 확보 후 진행"}
+          status={stepStatus("sync")}
+        >
+          <ScriptSyncPanel
+            plain={plainForSource}
+            onPlainChange={(plain) => setForm((f) => ({ ...f, plain }))}
+            timedCount={status.timedCount}
+            sourceName={sourceName}
+            youtubeId={youtubeId}
+            segmentStart={startSec ?? 0}
+            segmentEnd={endSec}
+            mask={form.captionMask.enabled ? form.captionMask : null}
+          />
+        </EditorSection>
+
+        <ContentDraftSection
+          draft={form.draft}
+          onChange={(draft) => set("draft", draft)}
+          timeline={timeline}
+          segmentStart={startSec ?? 0}
+          segmentEnd={endSec}
+          secured={sourceSecured}
+          synced={status.synced}
+          direction={form.direction}
+          level={form.level}
+          week={form.week}
+          title={form.title}
+          dramaTitle={form.dramaTitle}
+          sourceName={sourceName}
+          base={hasContent ? content : null}
+          contentStatus={stepStatus("content")}
+          reviewStatus={stepStatus("review")}
+        />
+
+        <EditorSection id="publish" step={6} title="저장 · 공개" summary={STATUS_LABEL[form.status]} status={stepStatus("publish")}>
+          <div className="publish-panel">
+            <p className="publish-state">
+              지금 저장된 상태 {existing ? <StatusBadge status={existing.status} /> : <span className="muted">아직 저장 전</span>}
+            </p>
+            {publishProblems.length === 0 ? (
+              <p className="publish-check ok">✓ 공개할 수 있어요. 원문 · YouTube 영상 · 학습 구간 끝 시간이 모두 있어요.</p>
+            ) : (
+              <div className="publish-check no">
+                <b>아직 공개할 수 없어요.</b>
+                <ul>
+                  {publishProblems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="save-bar">
+              <label className="field">
+                <span>공개 상태</span>
+                <select value={form.status} onChange={(e) => set("status", e.target.value as LessonStatus)}>
+                  {(Object.keys(STATUS_LABEL) as LessonStatus[]).map((s) => (
+                    <option key={s} value={s} disabled={s !== "draft" && !sourceSecured}>
+                      {STATUS_LABEL[s]}
+                      {s === "published" ? " (학습자에게 보임)" : ""}
+                      {s !== "draft" && !sourceSecured ? " — 원문 확보 필요" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="save-actions">
+                {/* 삭제는 관리자만 (서버도 관리자만 허용). 교강사는 ‘준비 중’으로 바꿔 비공개로 둔다. */}
+                {existing && isAdmin && !confirmDelete ? (
+                  <button className="link-btn danger" onClick={() => setConfirmDelete(true)}>
+                    학습자료 삭제
+                  </button>
+                ) : null}
+                {existing && existing.video.youtubeId ? (
+                  <button className="btn btn-soft" onClick={() => navigate("lesson", { lesson: existing.id })}>
+                    학습 화면 미리보기
+                  </button>
+                ) : null}
+                <button className="btn btn-primary" onClick={save}>
+                  {existing ? "저장" : "학습자료 생성"}
+                </button>
+              </div>
+              {existing && isAdmin && confirmDelete ? (
+                <div className="delete-confirm" role="alert">
+                  <b>이 학습자료를 삭제할까요?</b>
+                  <span className="small">
+                    학습자료는 강의의 모든 분반이 함께 쓰는 공통 콘텐츠예요. 삭제하면 같은 강의의 모든 교강사와 학생에게서 사라지고
+                    되돌릴 수 없어요. 잠시 숨기려면 공개 상태를 ‘준비 중’으로 바꿔 주세요.
+                  </span>
+                  <label className="field">
+                    <span>확인을 위해 ‘삭제’를 입력해 주세요</span>
+                    <input value={deleteWord} onChange={(e) => setDeleteWord(e.target.value)} autoComplete="off" />
+                  </label>
+                  <span className="row-start">
+                    <button className="btn btn-sm btn-danger" disabled={deleteWord.trim() !== "삭제"} onClick={remove}>
+                      영구 삭제
+                    </button>
+                    <button
+                      className="btn btn-soft btn-sm"
+                      onClick={() => {
+                        setConfirmDelete(false);
+                        setDeleteWord("");
+                      }}
+                    >
+                      취소
+                    </button>
+                  </span>
                 </div>
               ) : null}
-              <span className="video-preview-link">YouTube에서 열기 ↗</span>
-            </a>
-          ) : null}
-          {youtubeId ? (
-            <CaptionMaskSettings
-              mask={form.captionMask}
-              onChange={(captionMask) => set("captionMask", captionMask)}
-              youtubeId={youtubeId}
-              startAt={startSec ?? 0}
-              timeline={timeline}
-              sampleText={timeline[0]?.text || `${sourceName} 원문 자막 위치`}
-            />
-          ) : null}
-          <VideoCheckPanel lookup={lookup} youtubeId={youtubeId} lang={sourceLang} />
-          {youtubeId ? (
-            <StudySpanSummary
-              videoLength={lookup.state.status === "ready" ? lookup.state.info.video.lengthSeconds : null}
-              startSec={startSec}
-              endSec={endSec}
-            />
-          ) : null}
-        </section>
-      </div>
-
-      <ScriptSection
-        cues={form.cues}
-        origin={form.origin}
-        direction={form.direction}
-        youtubeId={youtubeId}
-        lookup={lookup}
-        onChange={(cues, origin, source) =>
-          setForm((f) => ({ ...f, cues, origin, scriptSource: source ?? f.scriptSource }))
-        }
-        plain={form.plain}
-        segmentStart={startSec ?? 0}
-        segmentEnd={endSec}
-        title={form.title}
-        dramaTitle={form.dramaTitle}
-        onPlainChange={(plain) =>
-          setForm((f) => ({
-            ...f,
-            plain,
-            // 원문 텍스트를 지우면 출처 표시도 기존 값으로 되돌린다.
-            scriptSource: !plain && f.scriptSource === "text" ? "manual" : f.scriptSource,
-          }))
-        }
-      />
-
-      <ScriptSyncPanel
-        plain={plainForSource}
-        onPlainChange={(plain) => setForm((f) => ({ ...f, plain }))}
-        timedCount={status.timedCount}
-        sourceName={sourceName}
-        youtubeId={youtubeId}
-        segmentStart={startSec ?? 0}
-        segmentEnd={endSec}
-        mask={form.captionMask.enabled ? form.captionMask : null}
-      />
-
-      <ContentDraftSection
-        draft={form.draft}
-        onChange={(draft) => set("draft", draft)}
-        timeline={timeline}
-        segmentStart={startSec ?? 0}
-        segmentEnd={endSec}
-        secured={sourceSecured}
-        synced={status.synced}
-        direction={form.direction}
-        level={form.level}
-        week={form.week}
-        title={form.title}
-        dramaTitle={form.dramaTitle}
-        sourceName={sourceName}
-        base={hasContent ? content : null}
-      />
-
-      <section className="card save-bar">
-        <label className="field">
-          <span>공개 상태</span>
-          <select value={form.status} onChange={(e) => set("status", e.target.value as LessonStatus)}>
-            {(Object.keys(STATUS_LABEL) as LessonStatus[]).map((s) => (
-              <option key={s} value={s} disabled={s !== "draft" && !sourceSecured}>
-                {STATUS_LABEL[s]}
-                {s === "published" ? " (학습자에게 보임)" : ""}
-                {s !== "draft" && !sourceSecured ? " — 원문 확보 필요" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="save-actions">
-          {/* 삭제는 관리자만 (서버도 관리자만 허용). 교수자는 ‘준비 중’으로 바꿔 비공개로 둔다. */}
-          {existing && isAdmin && !confirmDelete ? (
-            <button className="link-btn danger" onClick={() => setConfirmDelete(true)}>
-              강의자료 삭제
-            </button>
-          ) : null}
-          {existing && existing.video.youtubeId ? (
-            <button className="btn btn-soft" onClick={() => navigate("lesson", { lesson: existing.id })}>
-              학습 화면 미리보기
-            </button>
-          ) : null}
-          <button className="btn btn-primary" onClick={save}>
-            {existing ? "저장" : "강의자료 생성"}
-          </button>
-        </div>
-        {existing && isAdmin && confirmDelete ? (
-          <div className="delete-confirm" role="alert">
-            <b>이 학습자료를 삭제할까요?</b>
-            <span className="small">
-              학습자료는 과목의 모든 분반이 함께 쓰는 공통 콘텐츠예요. 삭제하면 같은 과목의 모든 교강사와 학생에게서 사라지고
-              되돌릴 수 없어요. 잠시 숨기려면 공개 상태를 ‘준비 중’으로 바꿔 주세요.
-            </span>
-            <label className="field">
-              <span>확인을 위해 ‘삭제’를 입력해 주세요</span>
-              <input value={deleteWord} onChange={(e) => setDeleteWord(e.target.value)} autoComplete="off" />
-            </label>
-            <span className="row-start">
-              <button className="btn btn-sm btn-danger" disabled={deleteWord.trim() !== "삭제"} onClick={remove}>
-                영구 삭제
-              </button>
-              <button
-                className="btn btn-soft btn-sm"
-                onClick={() => {
-                  setConfirmDelete(false);
-                  setDeleteWord("");
-                }}
-              >
-                취소
-              </button>
-            </span>
+              {errors.length > 0 ? (
+                <ul className="form-errors">
+                  {errors.map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {notice ? <p className="form-notice">✅ {notice}</p> : null}
+            </div>
           </div>
-        ) : null}
-        {errors.length > 0 ? (
-          <ul className="form-errors">
-            {errors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        ) : null}
-        {notice ? <p className="form-notice">✅ {notice}</p> : null}
-      </section>
+        </EditorSection>
+      </EditorSectionsContext.Provider>
 
       {leaveTo !== null ? (
         <div className="modal-backdrop">
