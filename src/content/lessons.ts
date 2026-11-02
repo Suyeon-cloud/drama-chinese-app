@@ -17,6 +17,7 @@ import type {
   PlainScript,
   QuizQuestion,
   SubtitleCue,
+  SubtitlePosition,
 } from "./types";
 
 const SEED_TIME = "2026-10-11T00:00:00.000Z";
@@ -59,13 +60,26 @@ const BUILT_IN_LESSONS: Lesson[] = [
 ];
 
 /**
+ * 영상별로 확인한 앱 학습 자막 위치. savedLessons.ts는 자동 생성 파일이고 이미 만들어진 DB에는 이 값이 없어 여기에 둔다.
+ * 원본 자막 위치(영상 높이 대비): campus 88~97%, university 78~90%. 없는 강의자료는 기본 위치를 쓴다.
+ */
+const SUBTITLE_POSITIONS: Record<string, SubtitlePosition | undefined> = {
+  "course-campus-w01": "low",
+  "course-university-w01": "midLow",
+};
+
+/**
  * 기본 강의자료. 서버 DB에 처음 한 번 들어간다.
  * 웹앱에서 만들어 내보낸 강의자료(savedLessons.ts)가 같은 id의 기본값을 대신하고, 새로 만든 강의자료는 뒤에 붙는다.
  */
 export const SEED_LESSONS: Lesson[] = [
   ...BUILT_IN_LESSONS.map((l) => SAVED_LESSONS.find((s) => s.id === l.id) ?? l),
   ...SAVED_LESSONS.filter((s) => !BUILT_IN_LESSONS.some((l) => l.id === s.id)),
-];
+].map((l) => (SUBTITLE_POSITIONS[l.id] ? { ...l, subtitlePosition: SUBTITLE_POSITIONS[l.id] } : l));
+
+/** 앱 학습 자막 위치: 강의자료에 저장된 값 → 기본 위치 설정값 → middle */
+export const lessonSubtitlePosition = (lesson: Lesson): SubtitlePosition =>
+  lesson.subtitlePosition ?? SUBTITLE_POSITIONS[lesson.id] ?? "middle";
 
 const EMPTY_CONTENT: LessonContent = { cues: [], summary: [], quiz: [] };
 

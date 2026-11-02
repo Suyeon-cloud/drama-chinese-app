@@ -1,5 +1,5 @@
 import React from "react";
-import type { CaptionMask } from "../../content/types";
+import type { CaptionMask, SubtitlePosition } from "../../content/types";
 
 /**
  * 기본값: 영상 속 자막이 흔히 놓이는 하단(약 78~90%) — 아래 컨트롤 바 영역은 남겨 둔다.
@@ -21,6 +21,22 @@ export const normalizeMask = (mask: CaptionMask | null | undefined): Required<Ca
   const width = clamp(Number(m.width) || DEFAULT_CAPTION_MASK.width, MASK_WIDTH_RANGE.min, MASK_WIDTH_RANGE.max);
   return { enabled: !!m.enabled, top, height, width };
 };
+
+/**
+ * 자막 위치별 패널 범위(영상 높이 대비 %). middle은 저장된 값을 그대로 쓴다.
+ * midLow는 원본 자막(77.6~90%, 긴 문장은 폭 약 80%)을 넉넉히 덮는다. 자막 줄은 패널 안 세로 가운데에 놓인다.
+ */
+const POSITION_RANGE: Record<SubtitlePosition, Partial<CaptionMask>> = {
+  high: { top: 70 },
+  middle: {},
+  midLow: { top: 75, height: 19, width: 82 },
+  low: { top: 85, width: 66 },
+};
+
+export const maskAtPosition = (mask: CaptionMask, position: SubtitlePosition): CaptionMask => ({
+  ...mask,
+  ...POSITION_RANGE[position],
+});
 
 /**
  * 원본 영상 자막을 덮는 불투명 자막 패널(가로 중앙). 위치·크기는 영상(16:9 프레임) 대비 %라서

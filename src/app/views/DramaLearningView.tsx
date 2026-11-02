@@ -2,12 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { formatTime } from "../../content";
 import { cultureTopics } from "../../content/culture";
 import { DIRECTION_LABEL } from "../../content/course";
-import { lessonHeading, resolveLessonContent } from "../../content/lessons";
+import { lessonHeading, lessonSubtitlePosition, resolveLessonContent } from "../../content/lessons";
 import { recommendedLevelLabel } from "../../content/levels";
 import type { CultureLensCue, Lesson, MotionCue } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
-import { CaptionMaskBox } from "../learning/CaptionMask";
+import { CaptionMaskBox, maskAtPosition } from "../learning/CaptionMask";
 import { CultureLensLayer } from "../learning/CultureLensLayer";
 import { LessonStudyPanel, TYPE_LABEL, type StudyTab } from "../learning/LessonStudyPanel";
 import { MotionOverlayLayer } from "../learning/MotionOverlayLayer";
@@ -98,7 +98,8 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
   const subLang = lesson.direction === "zh-ko" ? "ko" : "zh";
   const hasSubs = script.some((c) => c[subLang]);
   // 원본 영상 자막 가리기 (교수자 설정). 켜져 있으면 앱 자막을 가린 영역 안에 표시한다.
-  const mask = lesson.captionMask?.enabled ? lesson.captionMask : null;
+  const subPosition = lessonSubtitlePosition(lesson);
+  const mask = lesson.captionMask?.enabled ? maskAtPosition(lesson.captionMask, subPosition) : null;
   // 원문 자막(1~8주차 중국어, 9~15주차 한국어): 교수자가 확보·동기화한 원문만 영상 위에 표시한다.
   // 번들 예시 자료는 영상에 원문 자막이 이미 들어 있어, 영상 자막을 가리지 않으면 표시하지 않는다.
   const sourceLang = lesson.direction === "zh-ko" ? "zh" : "ko";
@@ -265,7 +266,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               ) : null}
 
               {/* 학습 overlay — 상단 좌/우에만 배치해 하단 자막·컨트롤을 가리지 않는다 */}
-              <div className="overlay-layer">
+              <div className="overlay-layer" data-sub-position={subPosition}>
                 <MotionOverlayLayer cues={motionCues} time={clock.time} playing={clock.playing} />
                 {/* 자막을 모두 꺼도 가리기 영역은 남겨 영상 자체 자막이 계속 가려지게 한다. */}
                 {mask ? (

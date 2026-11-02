@@ -258,6 +258,12 @@ export type LessonContent = Pick<EpisodeContent, "cues" | "summary" | "quiz"> & 
  */
 export type CaptionMask = { enabled: boolean; top: number; height: number; width?: number };
 
+/**
+ * 영상 위 앱 학습 자막의 세로 위치. 원본 영상 자막의 위치가 영상마다 달라 강의자료별로 고른다.
+ * high < middle(기본) < midLow < low 순으로 아래에 놓인다. 값이 없으면 middle.
+ */
+export type SubtitlePosition = "high" | "middle" | "midLow" | "low";
+
 export type Lesson = {
   id: string;
   /** 속한 과목 (courses.ts). 3과목 개편 전 자료는 LEGACY_COURSE_ID */
@@ -273,6 +279,8 @@ export type Lesson = {
   video: EpisodeContent["video"];
   /** 원본 영상 자막 가리기 설정 (선택 — 없으면 끔) */
   captionMask?: CaptionMask;
+  /** 앱 학습 자막의 세로 위치 (선택 — 없으면 기본 위치) */
+  subtitlePosition?: SubtitlePosition;
   /** 작품 정보 (선택) — 특정 드라마에 고정하지 않는다. videoTitle: 원본 YouTube 영상 제목 (선택) */
   source?: { dramaTitle: string; episode: string; videoTitle?: string };
   script: LessonScript;

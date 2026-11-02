@@ -326,7 +326,14 @@ img { max-width: 100%; display: block; }
 .stat-icon { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 18px; flex: none; }
 
 /* ───────── Drama learning ───────── */
+/* 2열 여부는 viewport가 아니라 사이드바를 뺀 실제 콘텐츠 폭으로 정한다. */
+.drama-page { container: drama / inline-size; }
 .drama-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@container drama (max-width: 880px) {
+  .drama-layout { grid-template-columns: minmax(0, 1fr); }
+  .drama-side { position: static; max-height: none; }
+  .drama-layout .drama-side .script-list { max-height: min(60vh, 470px); }
+}
 .video-card { padding: 20px; }
 .video-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .video-head h2 { font-size: 22px; font-weight: 800; margin-top: 6px; font-family: "Noto Sans SC", var(--font); }
@@ -358,7 +365,7 @@ img { max-width: 100%; display: block; }
 
 /* 한국어 번역 자막: 하단 중앙, 영상 속 원본 자막(약 83~89% 높이)·컨트롤보다 위 */
 .ko-subtitle {
-  position: absolute; left: 50%; bottom: 18.5%;
+  position: absolute; left: 50%; bottom: var(--sub-bottom, 18.5%);
   transform: translateX(-50%);
   width: max-content; max-width: 86%;
   text-align: center; pointer-events: none;
@@ -382,8 +389,11 @@ img { max-width: 100%; display: block; }
 /* 작은 영상(모바일)에서는 상단 overlay/문화 렌즈가 하단 자막 영역까지 내려오지 않도록 높이를 약 50%로 제한 */
 @container (max-width: 560px) {
   .overlay-slot { width: min(max(150px, calc(var(--ratio) * 100%)), calc(26% * var(--wh, 1))); }
-  .video-frame .lens-panel { max-height: 50%; }
 }
+/* 앱 자막의 세로 위치 (자막 가리기 패널이 없는 강의자료. 패널은 maskAtPosition이 정한다) */
+.overlay-layer[data-sub-position="high"] { --sub-bottom: 26%; }
+.overlay-layer[data-sub-position="midLow"] { --sub-bottom: 12%; }
+.overlay-layer[data-sub-position="low"] { --sub-bottom: 5%; }
 .sub-toggle {
   display: inline-flex; align-items: center; gap: 8px;
   height: 36px; padding: 0 14px 0 8px; border-radius: 999px;
@@ -471,11 +481,15 @@ img { max-width: 100%; display: block; }
 .cue-chip.end { background: var(--pink); }
 .cue-chip.end span { color: var(--pink-ink); }
 
-.drama-side { display: flex; flex-direction: column; gap: 18px; }
-.now-card { min-height: 180px; }
-.now-zh { font-family: "Noto Sans SC", var(--font); font-size: 18px; font-weight: 700; margin-top: 10px; line-height: 1.6; }
-.now-py { color: var(--sky-600); font-size: 13.5px; margin-top: 4px; }
-.now-ko { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
+/* 오른쪽 학습 패널: 화면 높이에 맞춰 따라다니고, 긴 스크립트는 패널 안에서만 스크롤한다. (101px = 상단 바 아래) */
+.drama-side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 101px; max-height: calc(100vh - 117px); min-height: 0; }
+.now-card { position: relative; flex: none; padding: 12px 16px; }
+.now-card .card-title { font-size: 14px; margin-bottom: 4px; }
+.now-card > .pill { position: absolute; top: 10px; right: 12px; }
+.now-card > .muted { font-size: 12.5px; line-height: 1.5; }
+.now-zh { font-family: "Noto Sans SC", var(--font); font-size: 15px; font-weight: 700; line-height: 1.45; }
+.now-py { color: var(--sky-600); font-size: 12.5px; margin-top: 1px; }
+.now-ko { color: var(--ink-2); font-size: 13px; margin-top: 2px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .point-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .point-list button { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 14px; text-align: left; }
 .point-list button:hover { background: var(--sky-50); }
@@ -670,9 +684,13 @@ img { max-width: 100%; display: block; }
 .study-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 8px; background: var(--sky-50); border-bottom: 1px solid var(--line); }
 .study-tabs button { padding: 8px 4px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .study-tabs button.active { background: #fff; color: var(--sky-700); box-shadow: var(--shadow); }
-.study-body { padding: 16px 18px 18px; max-height: 560px; overflow-y: auto; }
+.drama-side .study-panel { flex: 1; min-height: 0; }
+.study-body { padding: 16px 18px 18px; flex: 1; min-height: 0; overflow-y: auto; }
+.study-body:has(> .script-list) { display: flex; flex-direction: column; overflow: hidden; }
 .study-tab-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-.script-list { position: relative; list-style: none; margin: 0; padding: 0; max-height: 470px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.script-list { position: relative; list-style: none; margin: 0; padding: 0; max-height: 470px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.drama-side .script-list { max-height: none; }
+.script-list > li { flex: none; }
 .script-list button { width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 8px; border-radius: 12px; text-align: left; }
 .script-list button:hover { background: var(--sky-50); }
 .script-list li.active button { background: var(--sky-100); }
@@ -919,9 +937,9 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   box-sizing: border-box;
   padding: 0 1.6cqi;
   border-radius: clamp(4px, 0.7cqi, 9px);
-  background: linear-gradient(180deg, #1d3550 0%, #15283e 55%, #112033 100%);
-  border: 0.5px solid rgba(126, 193, 238, 0.16);
-  box-shadow: 0 0.3cqi 1cqi rgba(6, 18, 32, 0.18), inset 0 1px 0 rgba(205, 231, 249, 0.05);
+  background: linear-gradient(180deg, #274868 0%, #203d5a 55%, #1b344e 100%);
+  border: 1px solid rgba(169, 214, 245, 0.28);
+  box-shadow: 0 0.4cqi 1.4cqi rgba(6, 18, 32, 0.22), inset 0 1px 0 rgba(205, 231, 249, 0.1);
   display: flex; align-items: center; justify-content: center;
   pointer-events: none; overflow: hidden;
 }
@@ -1013,6 +1031,31 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   font-size: max(8px, calc(var(--mask-fs, 2.3cqi) * 0.72)); font-weight: 500;
   color: var(--sky-300, #a9d6f5); letter-spacing: 0.01em;
 }
+/* 작은 영상의 문화렌즈·자막 패널 (기본 규칙보다 뒤에 둔다) */
+@container (max-width: 560px) {
+  /* 문화렌즈: 버튼과 패널을 줄여 영상을 덜 가린다. 설명 전문은 ‘자세히 보기’로 여는 문화렌즈 탭에 있다. */
+  .video-frame .lens-button { top: 3%; right: 2%; gap: 6px; padding: 2px 10px 2px 2px; border-width: 1px; max-width: 56%; }
+  .lens-icon { width: 24px; height: 24px; font-size: 12px; }
+  .lens-button b { font-size: 11px; }
+  .video-frame .lens-panel { top: 3%; right: 2%; width: 72%; max-height: 62%; padding: 8px 10px; border-width: 1px; border-radius: 14px; font-size: 12px; }
+  .video-frame .lens-panel h3 { font-size: 13px; line-height: 1.35; margin-bottom: 6px; }
+  .video-frame .lens-panel .lens-sub, .video-frame .lens-panel .lens-text, .video-frame .lens-panel .lens-caution, .video-frame .lens-panel .relation { display: none; }
+  .video-frame .lens-close { width: 24px; height: 24px; }
+  .caption-mask { left: 3% !important; width: 94% !important; }
+}
+/* 자막 패널: 작은 영상에서는 3줄이 잘리지 않도록 높이를 내용에 맞추고, 아래쪽 위치만 자막 위치 설정을 따른다. */
+@container (max-width: 700px) {
+  .overlay-layer { --mask-bottom: 10%; }
+  .overlay-layer[data-sub-position="high"] { --mask-bottom: 18%; }
+  .overlay-layer[data-sub-position="midLow"] { --mask-bottom: 6%; }
+  .overlay-layer[data-sub-position="low"] { --mask-bottom: 3%; }
+  .caption-mask { top: auto !important; bottom: var(--mask-bottom, 10%); height: auto !important; min-height: 12%; padding: 3px 8px; }
+  /* midLow: 작은 영상에서도 패널이 원본 자막까지 덮는 75~94%를 유지한다. */
+  .overlay-layer[data-sub-position="midLow"] .caption-mask { min-height: 19%; }
+  .ko-subtitle.in-mask span { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 2; }
+  .ko-subtitle.in-mask.multi span + span { font-size: 11px; }
+  .ko-subtitle.in-mask.multi span.sub-py { font-size: 10.5px; -webkit-line-clamp: 1; }
+}
 .script-py { display: block; color: var(--sky-600); font-size: 12px; }
 .script-py.veiled { filter: blur(5px); user-select: none; }
 .script-list button:hover .script-py.veiled { filter: none; }
@@ -1042,8 +1085,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 
 /* ───────── Responsive ───────── */
 @media (max-width: 1280px) {
-  .drama-layout { grid-template-columns: minmax(0, 1fr); }
-  .drama-side { display: grid; grid-template-columns: 1fr 1fr; }
   .my-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1100px) {
@@ -1075,7 +1116,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .br-desktop { display: none; }
   .culture-grid, .compare-cols { grid-template-columns: minmax(0, 1fr); }
   .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .my-grid, .drama-side { grid-template-columns: minmax(0, 1fr); }
+  .my-grid { grid-template-columns: minmax(0, 1fr); }
   .lens-panel { width: 92%; max-height: 62%; }
   .lens-button { padding: 4px 10px 4px 4px; }
   .lens-button small { display: none; }
@@ -1086,8 +1127,22 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .google-btn span { font-size: 13px; }
   .google-btn { padding: 0 12px; height: 40px; }
   .card { padding: 16px; }
-  .video-controls .btn { flex: 1; }
-  .video-controls .link-btn { margin-left: 0; }
+  .video-card { padding: 12px; }
+  /* 학습 컨트롤: 버튼·시간 → 자막 스위치 → 전체화면 순으로 줄을 맞추고 터치 영역을 44px 가까이 둔다. */
+  .video-controls { gap: 8px; margin-top: 10px; }
+  .video-controls .btn { flex: 1 1 calc(50% - 4px); min-width: 0; min-height: 44px; padding-left: 6px; padding-right: 6px; font-size: 13px; white-space: nowrap; }
+  .video-controls .time-readout { flex: 0 0 100%; margin-left: 0; text-align: center; font-size: 16px; }
+  .video-controls .sub-toggle { flex: 1 1 calc(50% - 4px); justify-content: center; height: 42px; padding: 0 8px; font-size: 12.5px; }
+  .video-controls .link-btn { margin-left: 0; flex: 0 0 100%; text-align: center; }
+  .stage-hint { display: none; }
+  .timeline { margin-top: 12px; }
+  /* 학습 포인트 칩은 줄바꿈 대신 가로로 넘겨 본다. */
+  .cue-chips { flex-wrap: nowrap; overflow-x: auto; margin-top: 12px; padding-bottom: 6px; }
+  .cue-chip { flex: none; white-space: nowrap; }
+  .study-body { padding: 12px 12px 14px; }
+  .script-list button { gap: 8px; padding: 7px 6px; }
+  .script-text b { font-size: 15.5px; }
+  .drama-side { gap: 10px; }
   .completion-hero .btn { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
