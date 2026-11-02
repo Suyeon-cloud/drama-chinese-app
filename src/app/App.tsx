@@ -3,6 +3,7 @@ import { AdminLoginButton } from "./auth/AdminLogin";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { LoginPromptProvider, LoginRequired } from "./auth/LoginPrompt";
 import { MemberGate, isBlockedMember } from "./auth/MemberGate";
+import { completeSupabaseRedirect } from "./auth/supabaseAuth";
 import { MobileNav, Sidebar, Topbar } from "./components/Layout";
 import { ToastProvider } from "./components/Toast";
 import { canAccessView, getView, navigate, useRoute, type ViewAccess } from "./router";
@@ -21,6 +22,7 @@ import { HomeView } from "./views/HomeView";
 import { JoinView } from "./views/JoinView";
 import { LandingView } from "./views/LandingView";
 import { MyLearningView } from "./views/MyLearningView";
+import { SupabaseAuthView } from "./views/SupabaseAuthView";
 import { WeeksView } from "./views/WeeksView";
 
 /** 역할이 맞지 않는 화면(관리자·교수자 전용)에 들어왔을 때 */
@@ -57,6 +59,10 @@ const AdminGate: React.FC<{ access: ViewAccess }> = ({ access }) => {
 const Shell: React.FC = () => {
   const { view, params } = useRoute();
   const { user, ready } = useAuth();
+  // Supabase Google 로그인에서 돌아온 경우 ?code 를 세션으로 바꾸고 원래 #/화면으로 돌아간다.
+  useEffect(() => {
+    void completeSupabaseRedirect();
+  }, []);
   // 홈에서 교수자(Google)로 로그인하면 내 담당 강의, 관리자로 로그인하면 전체 운영 관리로 이동한다.
   const prevUserId = useRef(user?.id ?? null);
   useEffect(() => {
@@ -106,6 +112,7 @@ const Shell: React.FC = () => {
               {view === "admin-progress" && <ProgressView params={params} />}
               {view === "admin-feedback" && <FeedbackView />}
               {view === "admin-instructors" && <InstructorsView params={params} />}
+              {view === "supabase-auth" && <SupabaseAuthView />}
             </>
           )}
         </main>

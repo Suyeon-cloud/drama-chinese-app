@@ -12,6 +12,7 @@
     "@remotion/player": "4.0.532",
     "@remotion/tailwind-v4": "4.0.532",
     "@remotion/zod-types": "4.0.532",
+    "@supabase/supabase-js": "2.118.0",
     "express": "4.21.2",
     "pinyin-pro": "3.29.5",
     "react": "19.2.3",
@@ -29,6 +30,7 @@
     "esbuild": "0.28.1",
     "eslint": "9.39.5",
     "prettier": "3.8.1",
+    "supabase": "2.122.0",
     "typescript": "5.9.3",
     "vite": "^8.3.2"
   },
@@ -42,10 +44,11 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild server/courses.test.ts server/courseLessons.test.ts server/studentCourses.test.ts server/staffRoles.test.ts server/dialogues.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-test --out-extension:.js=.mjs && node --test --test-concurrency=1 dist-test/courses.test.mjs dist-test/courseLessons.test.mjs dist-test/studentCourses.test.mjs dist-test/staffRoles.test.mjs dist-test/dialogues.test.mjs",
+    "test": "esbuild server/courses.test.ts server/courseLessons.test.ts server/studentCourses.test.ts server/staffRoles.test.ts server/dialogues.test.ts server/supabaseSchema.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-test --out-extension:.js=.mjs && node --test --test-concurrency=1 dist-test/courses.test.mjs dist-test/courseLessons.test.mjs dist-test/studentCourses.test.mjs dist-test/staffRoles.test.mjs dist-test/dialogues.test.mjs dist-test/supabaseSchema.test.mjs",
     "app:build": "vite build",
     "app:preview": "vite preview",
-    "export-lessons": "node scripts/export-lessons.mjs"
+    "export-lessons": "node scripts/export-lessons.mjs",
+    "supabase:check-b": "node --env-file=.env.local scripts/supabase-phase-b-check.mjs"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

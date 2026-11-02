@@ -23,6 +23,7 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
   "admin-feedback": "mail",
   "admin-instructors": "shield",
   join: "users",
+  "supabase-auth": "shield",
 };
 
 /** 현재 역할의 메뉴와, 활성 표시할 메뉴 key */
