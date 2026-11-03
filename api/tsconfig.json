@@ -1,0 +1,11 @@
+{
+  // Vercel 서버리스 함수(api/index.ts) 컴파일 전용 설정.
+  // @vercel/node는 진입점 폴더부터 tsconfig.json을 찾아, 함수가 불러오는 모든 .ts(server/* 포함)를 이 설정으로 .js로 바꾼다.
+  // 루트 설정(module: Preserve)을 그대로 쓰면 import 문이 남은 ESM .js가 되는데, package.json에 "type": "module"이 없어
+  // Node가 CommonJS로 읽다가 로드에 실패한다. 그래서 함수 출력만 CommonJS로 바꾼다. (타입 검사·Vite 빌드는 루트 설정을 쓴다)
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node10"
+  }
+}
