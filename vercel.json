@@ -5,6 +5,6 @@
   "outputDirectory": "dist-app",
   "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }],
   "functions": {
-    "api/index.ts": { "maxDuration": 60 }
+    "api/index.ts": { "maxDuration": 60, "excludeFiles": "server/package.json" }
   }
 }
