@@ -66,8 +66,13 @@ export const useAllProgress = (): LessonProgress[] | null =>
 export const useLearners = (): LearnerProfile[] | null =>
   useStoreQuery(() => learnerStore.list(), learnerStore.subscribe, "learners");
 
-export const useFeedbackDrafts = (): FeedbackDraft[] | null =>
-  useStoreQuery(() => feedbackStore.list(), feedbackStore.subscribe, "feedback");
+/** 교수자: 운영 중인 담당 분반 수강생의 이 과목 피드백 초안 (sectionId를 주면 그 분반만) */
+export const useCourseFeedback = (courseId: string, sectionId?: string): FeedbackDraft[] | null =>
+  useStoreQuery(
+    () => feedbackStore.listForCourse(courseId, sectionId),
+    feedbackStore.subscribe,
+    `course-feedback:${courseId}:${sectionId ?? ""}`,
+  );
 
 export const useInstructors = (): InstructorRecord[] | null =>
   useStoreQuery(() => instructorStore.list(), instructorStore.subscribe, "instructors");

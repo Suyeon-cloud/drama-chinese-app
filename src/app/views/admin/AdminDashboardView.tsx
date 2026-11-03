@@ -1,7 +1,7 @@
 import React from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { navigate } from "../../router";
-import { useFeedbackDrafts, useInstructors, useLearners, useStaffCourses } from "../../store/hooks";
+import { useInstructors, useLearners, useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
 import { CourseOverviewCard, operatingCourses } from "./CourseAdminShared";
 
@@ -11,7 +11,6 @@ export const AdminDashboardView: React.FC = () => {
   const courses = useStaffCourses(user?.id ?? null);
   const learners = useLearners();
   const instructors = useInstructors();
-  const drafts = useFeedbackDrafts();
   if (!courses) return null;
   const operating = operatingCourses(courses);
   const pending = learners?.filter((l) => l.status === "pending").length ?? 0;
@@ -26,7 +25,6 @@ export const AdminDashboardView: React.FC = () => {
       label: "공개 학습자료",
       value: `${operating.reduce((n, c) => n + c.publishedCount, 0)} / ${operating.reduce((n, c) => n + c.lessonCount, 0)}`,
     },
-    { label: "피드백 초안", value: `${drafts?.length ?? 0}건` },
   ];
 
   return (

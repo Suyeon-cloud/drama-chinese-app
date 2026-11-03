@@ -111,7 +111,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
       <div className="learn-tabs sub-tabs scope-tabs" role="tablist" aria-label="담당 분반 관리">
         {(
           [
-            ["students", "이 분반", "👥 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과`, "section"],
+            ["students", "이 분반", "👥 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과 · 피드백`, "section"],
             ["lessons", "강의 공통", "📚 주차별 학습자료", "1~15주 편집 · 공개 · 모든 분반 공유", "course"],
           ] as [Tab, string, string, string, string][]
         ).map(([key, scope, label, sub, tone]) => (
@@ -131,7 +131,14 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
 
       {tab === "students" ? (
         <div className="scope-panel section">
-          <CourseStudentsPanel key={section.id} courseId={course.id} sectionId={section.id} weekCount={course.weekCount} />
+          {/* 학습 피드백은 운영 중인 분반에서만 쓴다. (서버도 운영 중인 담당 분반인지 다시 확인한다) */}
+          <CourseStudentsPanel
+            key={section.id}
+            courseId={course.id}
+            sectionId={section.id}
+            weekCount={course.weekCount}
+            feedback={section.status === "active" ? { lessons } : undefined}
+          />
         </div>
       ) : (
         <div className="scope-panel course">

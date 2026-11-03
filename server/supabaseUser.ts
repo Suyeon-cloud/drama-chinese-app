@@ -240,6 +240,10 @@ export const listLessonsFor = async (a: SupabaseAccess, courseId = ""): Promise<
   return lessonsFromEmbedded(ok(await query) as Row[]);
 };
 
+/** 과목 학습자료 id만 (교수자 피드백 범위 확인용, RLS 적용) */
+export const lessonIdsFor = async (a: SupabaseAccess, courseId: string): Promise<Set<string>> =>
+  new Set((ok(await a.client.from("lessons").select("id").eq("course_id", courseId)) as Row[]).map((r) => String(r.id)));
+
 export const lessonFor = async (a: SupabaseAccess, id: string): Promise<Lesson | null> => {
   const r = await a.client.from("lessons").select(LESSON_SELECT).eq("id", id).maybeSingle();
   if (r.error) throw toUserError(r.error);

@@ -22,7 +22,6 @@ export type ViewKey =
   | "admin-editor"
   | "admin-learners"
   | "admin-progress"
-  | "admin-feedback"
   | "admin-instructors";
 
 /** staff: 교수자·관리자 / admin: 관리자(아이디·비밀번호 로그인)만 / instructor: 교수자(Google)만 */
@@ -53,7 +52,7 @@ export const VIEWS: ViewDef[] = [
   { key: "admin-course", ko: "전체 학습자료", access: "admin" },
   { key: "admin-editor", ko: "학습자료 편집", access: "staff" },
   { key: "admin-progress", ko: "학습 현황", access: "admin" },
-  { key: "admin-feedback", ko: "피드백", access: "admin" },
+  // 학생 학습 피드백은 담당 교강사가 수강생 현황(teach-course)에서 쓴다. 관리자 메뉴에는 없다.
 ];
 
 // 한중문화(#/culture)는 legacy 《以家人之名》 전용이라 메뉴에서만 뺐다. 화면과 route는 남아 있다.
@@ -65,7 +64,6 @@ const ADMIN_MENU: ViewKey[] = [
   "admin-instructors",
   "admin-course",
   "admin-progress",
-  "admin-feedback",
 ];
 
 export const getView = (key: ViewKey) => VIEWS.find((v) => v.key === key)!;

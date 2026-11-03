@@ -16,6 +16,7 @@ import type { CourseOverview, LessonProgress, SectionOverview, SectionTeacher } 
 import { CourseImage } from "../courseVisuals";
 import { courseTone } from "../MyCoursesView";
 import { LevelBadge, StatusBadge } from "./AdminShared";
+import { StudentFeedback } from "./StudentFeedback";
 
 /** 운영 과목만 (기존 자료 제외), 기본 과목 순서대로 */
 export const operatingCourses = (courses: CourseOverview[]) =>
@@ -341,13 +342,15 @@ const latest = (values: (string | null)[]) =>
  * 수강생 현황: 수강생 목록 + 완료 주차 + 퀴즈 결과 + 주차별 진도. sectionId를 주면 그 분반만.
  * 서버가 요청자가 운영하는 분반의 수강생과, 그 학생들의 이 과목 강의자료 기록만 보내므로 다른 분반·과목 기록은 섞이지 않는다.
  * 기록이 없으면 ‘학습 전’·‘기록 없음’으로 표시한다.
+ * feedback: 교강사 화면(운영 중인 담당 분반)에서만 준다. 학생을 고르면 학습 기록 아래에서 피드백을 작성·발송한다.
  */
 export const CourseStudentsPanel: React.FC<{
   courseId: string;
   weekCount: number;
   sectionId?: string;
   highlight?: string | null;
-}> = ({ courseId, weekCount, sectionId, highlight }) => {
+  feedback?: { lessons: Lesson[] };
+}> = ({ courseId, weekCount, sectionId, highlight, feedback }) => {
   const data = useCourseStudents(courseId, sectionId);
   const [selected, setSelected] = useState<string | null>(highlight ?? null);
   if (data === undefined) return null;
@@ -370,6 +373,7 @@ export const CourseStudentsPanel: React.FC<{
   }
   const weeks = Array.from({ length: weekCount }, (_, i) => i + 1);
   const detail = selected ? progress.filter((p) => p.userId === selected) : [];
+  const selectedStudent = selected ? students.find((s) => s.userId === selected) : undefined;
   // 여러 분반을 함께 볼 때만 분반을 표시한다.
   const multiSection = new Set(students.map((s) => s.sectionId)).size > 1;
 
@@ -377,6 +381,7 @@ export const CourseStudentsPanel: React.FC<{
     <>
       <section className="card data-table">
         <h3 className="card-title">수강생 {students.length}명</h3>
+        {feedback ? <p className="muted small">학생 이름을 누르면 학습 기록 상세와 학습 피드백 작성이 열려요.</p> : null}
         <table>
           <thead>
             <tr>
@@ -400,7 +405,11 @@ export const CourseStudentsPanel: React.FC<{
               return (
                 <tr key={s.userId} className={selected === s.userId ? "selected" : ""}>
                   <td>
-                    <button className="link-btn" onClick={() => setSelected(selected === s.userId ? null : s.userId)}>
+                    <button
+                      className="link-btn"
+                      title={feedback ? "학습 기록 상세 · 피드백" : "학습 기록 상세"}
+                      onClick={() => setSelected(selected === s.userId ? null : s.userId)}
+                    >
                       {s.name}
                     </button>
                     {s.studentId ? <small className="muted"> · {s.studentId}</small> : null}
@@ -492,6 +501,16 @@ export const CourseStudentsPanel: React.FC<{
             </table>
           )}
         </section>
+      ) : null}
+      {selectedStudent && feedback && sectionId ? (
+        <StudentFeedback
+          key={selectedStudent.userId}
+          courseId={courseId}
+          sectionId={sectionId}
+          student={selectedStudent}
+          records={detail}
+          lessons={feedback.lessons}
+        />
       ) : null}
     </>
   );

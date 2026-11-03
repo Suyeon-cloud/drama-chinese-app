@@ -9,7 +9,6 @@ import { ToastProvider } from "./components/Toast";
 import { canAccessView, getView, navigate, useRoute, type ViewAccess } from "./router";
 import { AdminDashboardView } from "./views/admin/AdminDashboardView";
 import { CourseManagementView } from "./views/admin/CourseManagementView";
-import { FeedbackView } from "./views/admin/FeedbackView";
 import { InstructorsView } from "./views/admin/InstructorsView";
 import { InstructorCourseView, InstructorHomeView } from "./views/admin/InstructorViews";
 import { LearnersView } from "./views/admin/LearnersView";
@@ -109,7 +108,6 @@ const Shell: React.FC = () => {
               {view === "admin-editor" && <LessonEditorView params={params} />}
               {view === "admin-learners" && <LearnersView />}
               {view === "admin-progress" && <ProgressView params={params} />}
-              {view === "admin-feedback" && <FeedbackView />}
               {view === "admin-instructors" && <InstructorsView params={params} />}
             </>
           )}

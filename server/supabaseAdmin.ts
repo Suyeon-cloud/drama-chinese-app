@@ -393,6 +393,25 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
       return feedbackFromRow(saved);
     },
 
+    /** 교수자 피드백: API가 담당 범위(학생·학습자료)를 확인한 뒤, 그 범위의 초안만 읽는다. */
+    async listFeedbackFor(learnerIds: string[], lessonIds: string[]): Promise<FeedbackDraft[]> {
+      if (learnerIds.length === 0 || lessonIds.length === 0) return [];
+      const rows = ok(
+        await sb
+          .from("feedback_drafts")
+          .select("*")
+          .in("learner_id", learnerIds)
+          .in("lesson_id", lessonIds)
+          .order("updated_at", { ascending: false }),
+      ) as Row[];
+      return rows.map(feedbackFromRow);
+    },
+
+    async getFeedback(id: string): Promise<FeedbackDraft | null> {
+      const r = okMaybe(await sb.from("feedback_drafts").select("*").eq("id", id).maybeSingle()) as Row | null;
+      return r ? feedbackFromRow(r) : null;
+    },
+
     async deleteFeedback(id: string) {
       ok(await sb.from("feedback_drafts").delete().eq("id", id));
       return { ok: true };

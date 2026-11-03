@@ -20,7 +20,6 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
   "admin-editor": "plus",
   "admin-learners": "users",
   "admin-progress": "chart",
-  "admin-feedback": "mail",
   "admin-instructors": "shield",
   join: "users",
 };

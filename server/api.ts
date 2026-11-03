@@ -36,11 +36,13 @@ import type {
 import type { Lesson } from "../src/content/types";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
+import { feedbackProblem } from "./feedbackRows";
 import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
 import {
   bearerToken,
   curriculumFor,
   lessonFor,
+  lessonIdsFor,
   listLessonsFor,
   listProgressFor,
   saveLessonAs,
@@ -718,6 +720,87 @@ export const createApi = (db: Db, env: ApiEnv) => {
     delete db.data.feedback[req.params.id];
     db.save();
     res.json({ ok: true });
+  });
+
+  /* ───────── 피드백 (교수자: 운영 중인 담당 분반 수강생) ───────── */
+
+  /**
+   * 교수자가 피드백을 쓸 수 있는 범위: 이 과목에서 운영 중인(active) 담당 분반의 수강생 × 이 과목 학습자료.
+   * sectionId를 주면 그 분반만. 관리자 모드는 이 경로를 쓰지 않는다. (관리자 화면에는 학생 피드백이 없다)
+   * supabase: 담당 분반·수강생·학습자료는 교수자 token(RLS·section_students)으로 확인하고, 초안은 그 범위만 service-role로 읽고 쓴다.
+   */
+  const feedbackScope = async (req: Authed, courseId: string, sectionId = "") => {
+    if (!isStaff(req) || isPlatformAdmin(req)) throw new AdminDataError(403, "담당 교강사만 학생 피드백을 쓸 수 있어요.");
+    if (useSupabase) {
+      const a = req.access;
+      if (!a) throw new AdminDataError(401, "로그인이 필요해요.");
+      const mine = a.mySections.filter(
+        (s) => s.course_id === courseId && s.status === "active" && (!sectionId || String(s.id) === sectionId),
+      );
+      if (mine.length === 0) throw new AdminDataError(404, "운영 중인 담당 분반이 아니에요.");
+      const students = await studentsOfSections(a, mine);
+      return { emails: new Map(students.map((s) => [s.userId, s.email])), lessonIds: await lessonIdsFor(a, courseId) };
+    }
+    const mine = new Set(
+      instructorSections(req.user!.email, true)
+        .filter((s) => s.courseId === courseId && (!sectionId || s.id === sectionId))
+        .map((s) => s.id),
+    );
+    if (mine.size === 0) throw new AdminDataError(404, "운영 중인 담당 분반이 아니에요.");
+    const enrolled = Object.values(db.data.enrollments).filter((e) => e.sectionId && mine.has(e.sectionId));
+    return {
+      emails: new Map(enrolled.map((e) => [e.userId, db.data.members[e.userId]?.email || e.email])),
+      lessonIds: new Set(lessonsForCourse(db.data.lessons, courseId).map((l) => l.id)),
+    };
+  };
+  const viaFeedback = async (res: Response, work: () => Promise<unknown>) => {
+    if (useSupabase && !supa) {
+      return res.status(503).json({ error: "Supabase 서버 설정(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)이 없어요." });
+    }
+    try {
+      res.json(await work());
+    } catch (err) {
+      if (err instanceof AdminDataError) return res.status(err.status).json({ error: err.message, ...err.extra });
+      console.error("[feedback]", err instanceof Error ? err.message : "unknown error");
+      res.status(500).json({ error: "피드백을 처리하지 못했어요." });
+    }
+  };
+
+  /** 담당 분반 수강생의 이 과목 피드백 초안. ?section={sectionId}: 그 분반만. */
+  api.get("/courses/:id/feedback", requireLogin, (req: Authed, res) => {
+    const sectionId = typeof req.query.section === "string" ? req.query.section : "";
+    void viaFeedback(res, async () => {
+      const { emails, lessonIds } = await feedbackScope(req, req.params.id, sectionId);
+      if (useSupabase) return supa!.listFeedbackFor([...emails.keys()], [...lessonIds]);
+      return Object.values(db.data.feedback)
+        .filter((d) => emails.has(d.learnerId) && lessonIds.has(d.lessonId))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    });
+  });
+
+  /** 피드백 초안 저장. 학생·학습자료가 범위 안이어야 하고, 이미 있는 초안의 학생·학습자료는 바꿀 수 없다. */
+  api.put("/courses/:id/feedback/:fid", requireLogin, (req: Authed, res) => {
+    const draft = req.body as FeedbackDraft;
+    if (!draft || draft.id !== req.params.fid || feedbackProblem(draft)) {
+      return res.status(400).json({ error: "형식이 올바르지 않아요." });
+    }
+    void viaFeedback(res, async () => {
+      const { emails, lessonIds } = await feedbackScope(req, req.params.id);
+      if (!emails.has(draft.learnerId) || !lessonIds.has(draft.lessonId)) {
+        throw new AdminDataError(403, "운영 중인 담당 분반 학생의 이 강의 학습자료에만 피드백을 쓸 수 있어요.");
+      }
+      const prev = useSupabase ? await supa!.getFeedback(draft.id) : (db.data.feedback[draft.id] ?? null);
+      if (prev && (prev.learnerId !== draft.learnerId || prev.lessonId !== draft.lessonId)) {
+        throw new AdminDataError(403, "다른 학생·학습자료의 피드백은 바꿀 수 없어요.");
+      }
+      // 받는 사람은 등록된 학생 이메일로 고정한다.
+      const next: FeedbackDraft = { ...draft, to: emails.get(draft.learnerId) ?? "" };
+      if (useSupabase) return supa!.saveFeedback(next);
+      const saved = { ...next, updatedAt: nowIso() };
+      db.data.feedback[draft.id] = saved;
+      db.save();
+      return saved;
+    });
   });
 
   /* ───────── 교수자 이메일 (관리자) ───────── */
