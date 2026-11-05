@@ -11,7 +11,11 @@ const STEPS = [
   { title: "퀴즈로 확인", text: "배운 내용을 퀴즈로 확인하고 학습 진도를 이어 가요." },
 ];
 
-/** 서비스 소개: 브랜드 문구 · 과목 목록 · 학습 방법. cta: 시작 버튼 (로그인 전에는 Google 로그인) */
+/**
+ * 서비스 소개: 브랜드 문구 · 과목 목록 · 학습 방법. cta: 시작 버튼 (로그인 전에는 Google 로그인)
+ * 과목 목록은 아직 정적 기본 3과목(COURSE_SEEDS)이다. 로그인 전(anon)에는 courses를 읽을 수 없어(RLS),
+ * 운영 과목을 자동으로 보여 주려면 공개용 과목 목록 API가 필요하다. (2단계 이후)
+ */
 export const LandingContent: React.FC<{ cta: React.ReactNode; closing?: React.ReactNode }> = ({ cta, closing }) => (
   <>
     <section className="landing-hero">

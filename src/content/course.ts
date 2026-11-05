@@ -1,6 +1,6 @@
 import type { LearningDirection, LessonStatus } from "./types";
 
-/** 한 학기 수업 주차 수 */
+/** 기본 3과목의 주차 수 (시드 데이터용). 화면의 주차 수는 과목의 weekCount를 쓴다. (courseWeeks.ts) */
 export const COURSE_WEEK_COUNT = 15;
 
 /** 이 주차까지는 중국어 → 한국어, 이후는 한국어 → 중국어 */

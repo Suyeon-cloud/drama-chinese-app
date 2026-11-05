@@ -1,19 +1,21 @@
 import React from "react";
 import { formatTime } from "../../content";
-import { WEEKS } from "../../content/course";
+import { courseWeeks, dashboardWeekCount } from "../../content/courseWeeks";
 import { baseLessonContent, lessonHeading } from "../../content/lessons";
 import { useAuth } from "../auth/AuthContext";
 import { Avatar } from "../auth/AuthControls";
 import { computeMyStats } from "../learning/useMyStats";
 import { formatDateTime, formatPercent } from "../lib/format";
 import { navigate } from "../router";
-import { useLessons, useUserProgress } from "../store/hooks";
+import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
 
-/** 학습자 대시보드: 회원정보 · 학습 통계 · 15주 진도 · 주차별 기록 · 다음 학습 · 복습할 표현 */
+/** 학습자 대시보드: 회원정보 · 학습 통계 · 주차 진도(수강 과목의 주차 수) · 주차별 기록 · 다음 학습 · 복습할 표현 */
 export const MyLearningView: React.FC = () => {
   const { user } = useAuth();
   const lessons = useLessons();
   const progress = useUserProgress(user?.role === "learner" ? user.id : null);
+  // 주차 수는 수강 중인 과목 정보(course.weekCount)로 정한다.
+  const myCourses = useMyCourses(user?.role === "learner" ? user.id : null);
 
   // 로그인 전 접근은 App의 LoginRequired가 처리한다.
   if (!user) return null;
@@ -35,9 +37,10 @@ export const MyLearningView: React.FC = () => {
 
   const m = user.member;
   const list = progress ?? [];
-  const s = computeMyStats(lessons ?? [], list);
+  const s = computeMyStats(lessons ?? [], list, dashboardWeekCount(myCourses));
+  const weeks = courseWeeks(s.totalWeeks);
   const tiles = [
-    { icon: "✅", label: "완료한 주차", value: `${s.completedCount} / ${s.totalWeeks}주`, tone: "sky" },
+    { icon: "✅", label: "완료한 주차", value: s.totalWeeks === null ? `${s.completedCount}주` : `${s.completedCount} / ${s.totalWeeks}주`, tone: "sky" },
     { icon: "▶️", label: "학습을 시작한 주차", value: `${s.startedWeeks.size}주`, tone: "lavender" },
     { icon: "🎬", label: "평균 진행률", value: formatPercent(s.avgProgress), tone: "pink" },
     { icon: "📝", label: "퀴즈 정답률", value: s.quizRate === null ? "—" : formatPercent(s.quizRate), tone: "cream" },
@@ -85,7 +88,7 @@ export const MyLearningView: React.FC = () => {
 
       <section className="card">
         <div className="card-head">
-          <h3 className="card-title">📅 15주 진도</h3>
+          <h3 className="card-title">📅 {s.totalWeeks === null ? "주차" : `${s.totalWeeks}주`} 진도</h3>
           {s.next ? (
             <button className="btn btn-primary btn-sm" onClick={() => navigate("lesson", { lesson: s.next!.id })}>
               다음 학습: {s.next.week}주차 →
@@ -93,7 +96,7 @@ export const MyLearningView: React.FC = () => {
           ) : null}
         </div>
         <div className="week-strip">
-          {WEEKS.map((w) => {
+          {weeks.map((w) => {
             const lesson = lessons?.find((l) => l.week === w && l.status === "published");
             const tone = s.completedWeeks.has(w) ? "tone-mint has" : s.startedWeeks.has(w) ? "tone-sky has" : "";
             return (

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { COURSE_SEEDS } from "../../content/courses";
+import { courseToneFor, weekRatio } from "../../content/courseWeeks";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { Icon } from "../components/Icon";
@@ -11,9 +11,8 @@ import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
 import type { CourseSummary, LessonProgress } from "../store/models";
 import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 
-/** 과목 카드 색: 과목 순서대로 하늘·분홍·민트 */
-const TONES = ["sky", "pink", "mint"];
-export const courseTone = (courseId: string) => TONES[Math.max(0, COURSE_SEEDS.findIndex((c) => c.id === courseId)) % TONES.length];
+/** 과목 카드 색: 기존 3과목은 순서대로 하늘·분홍·민트, 새 과목은 과목마다 정해진 색 */
+export const courseTone = courseToneFor;
 
 /** 수강 중인 분반 · 담당 교강사 (이름을 아는 경우만) */
 export const SectionLine: React.FC<{ section: NonNullable<CourseSummary["section"]> }> = ({ section }) => (
@@ -65,7 +64,7 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
             <span className={`pill ${started ? "pill-sky" : "pill-cream"}`}>{state}</span>
           </span>
           <span className="mini-bar" role="img" aria-label={`${course.weekCount}주 중 ${completed}주 완료`}>
-            <span style={{ width: `${(completed / course.weekCount) * 100}%` }} />
+            <span style={{ width: `${weekRatio(completed, course.weekCount) * 100}%` }} />
           </span>
         </div>
         <div className="course-foot">

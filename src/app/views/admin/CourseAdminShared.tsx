@@ -1,8 +1,9 @@
 // 교수자·관리자가 함께 쓰는 과목·분반 단위 화면 조각: 과목 카드, 분반 카드, 참여 링크, 주차별 학습자료 표, 수강생 현황
 import React, { useState } from "react";
 import { formatTime } from "../../../content";
-import { COURSE_PHASES, DIRECTION_LABEL, WEEKS } from "../../../content/course";
-import { COURSE_SEEDS, LEGACY_COURSE_ID, defaultDirectionFor } from "../../../content/courses";
+import { DIRECTION_LABEL } from "../../../content/course";
+import { defaultDirectionFor } from "../../../content/courses";
+import { courseWeeks, coursePhases, sortCourses, weekRatio } from "../../../content/courseWeeks";
 import { lessonHeading } from "../../../content/lessons";
 import type { Lesson } from "../../../content/types";
 import { useToast } from "../../components/Toast";
@@ -18,11 +19,8 @@ import { courseTone } from "../MyCoursesView";
 import { LevelBadge, StatusBadge } from "./AdminShared";
 import { StudentFeedback } from "./StudentFeedback";
 
-/** 운영 과목만 (기존 자료 제외), 기본 과목 순서대로 */
-export const operatingCourses = (courses: CourseOverview[]) =>
-  courses
-    .filter((c) => c.status === "active")
-    .sort((a, b) => COURSE_SEEDS.findIndex((s) => s.id === a.id) - COURSE_SEEDS.findIndex((s) => s.id === b.id));
+/** 운영 과목만 (기존 자료 제외). 기존 3과목은 지금 순서, 새 과목은 그 뒤에 생성일 순 (서버 목록의 과목은 모두 남는다) */
+export const operatingCourses = (courses: CourseOverview[]) => sortCourses(courses.filter((c) => c.status === "active"));
 
 /** 교강사 표시: 이름을 알면 “이름 (이메일)”, 모르면 이메일 */
 export const teacherLabel = (t: SectionTeacher) => (t.name ? `${t.name} (${t.email})` : t.email);
@@ -172,14 +170,17 @@ export const JoinLinkBox: React.FC<{ code: string; label: string }> = ({ code, l
 
 /**
  * 과목의 주차별 학습자료 표 (편집·주차 이동·미리보기). 기존 ‘수업 관리’ 표를 과목 단위로 쓴다.
- * 운영 과목은 1~15주 한 표, 기존 자료는 예전처럼 중→한 / 한→중 두 표.
+ * 운영 과목은 1~N주(과목의 주차 수) 한 표, 기존 자료는 예전처럼 중→한 / 한→중 두 표.
+ * 학습자료가 없는 주차는 빈 주차로 보여 준다. (가짜 학습자료를 만들지 않는다)
  */
 export const CourseLessonsTable: React.FC<{
   courseId: string;
+  /** 서버가 준 과목의 주차 수 (course.weekCount) */
+  weekCount: number;
   lessons: Lesson[];
   /** 분반 화면에서 열었으면 편집을 마치고 그 분반으로 돌아오게 넘긴다. */
   sectionId?: string;
-}> = ({ courseId, lessons, sectionId }) => {
+}> = ({ courseId, weekCount, lessons, sectionId }) => {
   const backTo: Record<string, string> = sectionId ? { section: sectionId } : {};
   const toast = useToast();
   const [moving, setMoving] = useState<string | null>(null);
@@ -187,10 +188,10 @@ export const CourseLessonsTable: React.FC<{
   const [pendingMove, setPendingMove] = useState<{ id: string; week: number } | null>(null);
   const items = lessons.filter((l) => l.courseId === courseId);
   const takenWeeks = new Set(items.map((l) => l.week));
-  const phases =
-    courseId === LEGACY_COURSE_ID
-      ? COURSE_PHASES
-      : [{ title: "1~15주차", subtitle: "중국어 원문 기반", from: 1, to: WEEKS.length }];
+  const weeks = courseWeeks(weekCount);
+  const phases = coursePhases(courseId, weekCount);
+  // 주차 범위 밖에 저장된 학습자료 (숨기지 않고 따로 보여 준다)
+  const outOfRange = items.filter((l) => !weeks.includes(l.week));
 
   /** 같은 과목 안에서 다른 주차로 옮긴다. 학습 방향은 대본 언어와 묶여 있어 그대로 둔다. */
   const moveTo = async (lesson: Lesson, week: number) => {
@@ -216,6 +217,14 @@ export const CourseLessonsTable: React.FC<{
     }
   };
 
+  if (weeks.length === 0) {
+    return (
+      <section className="card course-table" role="alert">
+        <p className="muted">강의의 주차 수 정보가 올바르지 않아 주차별 학습자료를 보여 줄 수 없어요. 관리자에게 문의해 주세요.</p>
+      </section>
+    );
+  }
+
   return (
     <>
       {phases.map((phase) => (
@@ -231,7 +240,7 @@ export const CourseLessonsTable: React.FC<{
             <span>상태</span>
             <span>관리</span>
           </div>
-          {WEEKS.filter((w) => w >= phase.from && w <= phase.to).map((week) => {
+          {weeks.filter((w) => w >= phase.from && w <= phase.to).map((week) => {
             const weekItems = items.filter((l) => l.week === week);
             if (weekItems.length === 0) {
               return (
@@ -277,7 +286,7 @@ export const CourseLessonsTable: React.FC<{
                     disabled={moving === lesson.id}
                     onChange={(e) => setPendingMove({ id: lesson.id, week: Number(e.target.value) })}
                   >
-                    {WEEKS.map((w) => (
+                    {weeks.map((w) => (
                       <option key={w} value={w} disabled={w !== week && takenWeeks.has(w)}>
                         {w === week ? `${w}주차` : takenWeeks.has(w) ? `${w}주차 (사용 중)` : `${w}주차로 이동`}
                       </option>
@@ -316,6 +325,33 @@ export const CourseLessonsTable: React.FC<{
           })}
         </section>
       ))}
+      {outOfRange.length > 0 ? (
+        <section className="card course-table">
+          <h3 className="card-title">
+            주차 범위 밖 학습자료 <span className="muted small">· 이 강의는 {weekCount}주차까지예요</span>
+          </h3>
+          {outOfRange.map((lesson) => (
+            <div key={lesson.id} className="course-row">
+              <span className="week-no">{lesson.week}주차</span>
+              <span className="course-title">
+                <b>{lesson.title || "(제목 없음)"}</b>
+              </span>
+              <span className="small">{DIRECTION_LABEL[lesson.direction]}</span>
+              <span>
+                <LevelBadge level={lesson.level} />
+              </span>
+              <span>
+                <StatusBadge status={lesson.status} />
+              </span>
+              <span className="course-actions">
+                <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-editor", { id: lesson.id, ...backTo })}>
+                  편집
+                </button>
+              </span>
+            </div>
+          ))}
+        </section>
+      ) : null}
     </>
   );
 };
@@ -371,7 +407,7 @@ export const CourseStudentsPanel: React.FC<{
       </div>
     );
   }
-  const weeks = Array.from({ length: weekCount }, (_, i) => i + 1);
+  const weeks = courseWeeks(weekCount);
   const detail = selected ? progress.filter((p) => p.userId === selected) : [];
   const selectedStudent = selected ? students.find((s) => s.userId === selected) : undefined;
   // 여러 분반을 함께 볼 때만 분반을 표시한다.
@@ -418,7 +454,7 @@ export const CourseStudentsPanel: React.FC<{
                   <td className="muted">{s.email}</td>
                   <td>
                     <span className="mini-bar wide">
-                      <span style={{ width: `${(done / weekCount) * 100}%` }} />
+                      <span style={{ width: `${weekRatio(done, weekCount) * 100}%` }} />
                     </span>{" "}
                     {done} / {weekCount}
                   </td>

@@ -1,4 +1,3 @@
-import { COURSE_WEEK_COUNT } from "../../content/course";
 import type { Lesson } from "../../content/types";
 import type { LessonProgress } from "../store/models";
 
@@ -7,8 +6,11 @@ const dayKey = (iso: string) => {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 };
 
-/** 실제 학습 기록으로 계산한 나의 학습 통계 */
-export const computeMyStats = (lessons: Lesson[], progress: LessonProgress[]) => {
+/**
+ * 실제 학습 기록으로 계산한 나의 학습 통계.
+ * totalWeeks: 수강 과목의 주차 수 (서버의 course.weekCount 기준, 모르면 null — 화면은 전체 주차를 표시하지 않는다)
+ */
+export const computeMyStats = (lessons: Lesson[], progress: LessonProgress[], totalWeeks: number | null) => {
   const weeksWith = (pick: (p: LessonProgress) => unknown) => new Set(progress.filter(pick).map((p) => p.week));
   const completedWeeks = weeksWith((p) => p.completedAt);
   const startedWeeks = weeksWith((p) => p.startedAt);
@@ -37,7 +39,7 @@ export const computeMyStats = (lessons: Lesson[], progress: LessonProgress[]) =>
     completedWeeks,
     startedWeeks,
     completedCount: completedWeeks.size,
-    totalWeeks: COURSE_WEEK_COUNT,
+    totalWeeks,
     avgProgress,
     quizRate,
     streak,

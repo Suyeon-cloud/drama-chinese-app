@@ -1,4 +1,5 @@
 import React from "react";
+import { courseWeeks } from "../../content/courseWeeks";
 import { recommendedLevelLabel } from "../../content/levels";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
@@ -46,7 +47,7 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
 
   const { course, weeks } = data;
   const byWeek = new Map(weeks.map((w) => [w.week, w]));
-  const weekNumbers = Array.from({ length: course.weekCount }, (_, i) => i + 1);
+  const weekNumbers = courseWeeks(course.weekCount);
   const openCount = weeks.filter((w) => w.status === "published").length;
   const completed = weeks.filter((w) => progress?.find((p) => p.lessonId === w.lessonId)?.completedAt).length;
   const v = COURSE_VISUALS[course.id];

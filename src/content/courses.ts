@@ -56,6 +56,10 @@ export const LEGACY_COURSE_SEED: CourseSeed = {
 
 export const ALL_COURSE_SEEDS: CourseSeed[] = [...COURSE_SEEDS, LEGACY_COURSE_SEED];
 
+/**
+ * 기본(시드) 과목인지. 과목이 실제로 있는지 확인하는 데 쓰지 않는다 — 관리자가 만든 과목은 여기에 없다.
+ * 화면의 과목 확인은 서버 과목 목록(courseWeeks.resolveEditorCourse)으로 한다.
+ */
 export const isCourseId = (id: string) => ALL_COURSE_SEEDS.some((c) => c.id === id);
 
 /** 과목별 주차 강의자료 id (예: course-campus-w01). 과목이 달라도 같은 주차 id가 겹치지 않는다. */

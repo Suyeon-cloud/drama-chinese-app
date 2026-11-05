@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { formatTime, youtubeThumbnail } from "../../../content";
-import { DIRECTION_LABEL, STATUS_LABEL, WEEKS } from "../../../content/course";
-import { LEGACY_COURSE_ID, defaultDirectionFor, isCourseId } from "../../../content/courses";
+import { DIRECTION_LABEL, STATUS_LABEL } from "../../../content/course";
+import { defaultDirectionFor } from "../../../content/courses";
+import { editorCourseProblem, isWeekInCourse, resolveEditorCourse, type EditorCourse } from "../../../content/courseWeeks";
 import {
   baseLessonContent,
   captionMaskToSave,
@@ -38,7 +39,8 @@ import { ApiError, lessonConflictOf, type LessonConflict } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
 import { navigate, setNavigationGuard } from "../../router";
 import { lessonStore } from "../../store";
-import { useLessons } from "../../store/hooks";
+import { useLessons, useStaffCourses } from "../../store/hooks";
+import type { CourseOverview } from "../../store/models";
 import { refreshAllStores } from "../../store/remote";
 import { createId, nowIso } from "../../store/localJson";
 import { PageIntro, StatusBadge } from "./AdminShared";
@@ -306,9 +308,13 @@ const StudySpanSummary: React.FC<{
 };
 
 export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
+  const { user } = useAuth();
   const lessons = useLessons();
+  // 과목이 있는지·주차 수는 서버가 준 과목 목록으로 확인한다. (관리자: 모든 과목, 교수자: 담당 과목)
+  const courses = useStaffCourses(user?.id ?? null);
   const id = params.get("id");
-  if (!lessons) return null;
+  // 학습자료·과목 목록을 모두 받기 전에는 편집 화면을 열지 않는다. (저장 불가)
+  if (!lessons || !courses) return null;
   const existing = id ? lessons.find((l) => l.id === id) ?? null : null;
   if (id && !existing) {
     return (
@@ -320,11 +326,21 @@ export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params
       </div>
     );
   }
+  // 기존 학습자료는 원래 과목 그대로, 새 학습자료는 ?course={courseId}. 없는 과목을 다른 과목으로 바꾸지 않는다.
+  const courseId = existing ? existing.courseId : params.get("course") ?? "";
+  const courseInfo = resolveEditorCourse(courses, courseId);
+  if (!existing && courseInfo.state !== "ok") {
+    return (
+      <div className="page">
+        <div className="card empty" role="alert">
+          <span>⚠️</span>
+          <p>{editorCourseProblem(courseInfo, 1)}</p>
+        </div>
+      </div>
+    );
+  }
   const weekParam = Number(params.get("week"));
-  const week = WEEKS.indexOf(weekParam) >= 0 ? weekParam : 1;
-  // 새 강의자료의 과목: ?course={courseId} (과목 화면 개편 전에는 기존 자료)
-  const courseParam = params.get("course") ?? "";
-  const courseId = isCourseId(courseParam) ? courseParam : LEGACY_COURSE_ID;
+  const week = courseInfo.state === "ok" && isWeekInCourse(weekParam, courseInfo.course.weekCount) ? weekParam : 1;
   // 분반 화면에서 들어왔으면 그 분반으로 돌아간다.
   const backSection = params.get("section");
   return (
@@ -333,6 +349,7 @@ export const LessonEditorView: React.FC<{ params: URLSearchParams }> = ({ params
       existing={existing}
       initialCourseId={courseId}
       initialWeek={week}
+      courseInfo={courseInfo}
       backSection={backSection}
       justSaved={params.get("saved") === "1"}
     />
@@ -343,9 +360,11 @@ const LessonEditor: React.FC<{
   existing: Lesson | null;
   initialCourseId: string;
   initialWeek: number;
+  /** 서버 과목 목록으로 확인한 과목 (저장 전 검사·주차 선택지) */
+  courseInfo: EditorCourse<CourseOverview>;
   backSection: string | null;
   justSaved: boolean;
-}> = ({ existing, initialCourseId, initialWeek, backSection, justSaved }) => {
+}> = ({ existing, initialCourseId, initialWeek, courseInfo, backSection, justSaved }) => {
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(() =>
     existing ? fromLesson(existing) : blankForm(initialCourseId, initialWeek),
@@ -466,8 +485,15 @@ const LessonEditor: React.FC<{
     return () => window.clearTimeout(t);
   }, [notice]);
 
+  // 주차 선택지: 과목의 주차 수만큼. 저장된 주차가 범위 밖이면 그 값도 보여 주고 저장 전 검사에서 막는다.
+  const courseWeekList = courseInfo.state === "ok" ? courseInfo.weeks : [];
+  const weekOptions = courseWeekList.includes(form.week) ? courseWeekList : [...courseWeekList, form.week].sort((a, b) => a - b);
+
   const validate = (): string[] => {
     const errs: string[] = [];
+    // 과목·주차 확인 (서버도 다시 검사한다)
+    const courseProblem = editorCourseProblem(courseInfo, form.week);
+    if (courseProblem) errs.push(courseProblem);
     if (!form.title.trim()) errs.push("강의 제목을 입력해 주세요.");
     if (form.youtubeUrl.trim() && !youtubeId) errs.push("YouTube URL 형식을 확인해 주세요.");
     if (form.start.trim() && startSec === null) errs.push("학습 구간 시작 시간 형식을 확인해 주세요. (예: 02:00)");
@@ -670,9 +696,9 @@ const LessonEditor: React.FC<{
                   }));
                 }}
               >
-                {WEEKS.map((w) => (
+                {weekOptions.map((w) => (
                   <option key={w} value={w}>
-                    {w}주차
+                    {courseWeekList.includes(w) ? `${w}주차` : `${w}주차 (주차 범위 밖)`}
                   </option>
                 ))}
               </select>

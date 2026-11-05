@@ -143,7 +143,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
       ) : (
         <div className="scope-panel course">
           <SharedLessonNote />
-          <CourseLessonsTable courseId={course.id} lessons={lessons} sectionId={section.id} />
+          <CourseLessonsTable courseId={course.id} weekCount={course.weekCount} lessons={lessons} sectionId={section.id} />
         </div>
       )}
     </div>

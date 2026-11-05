@@ -7,7 +7,7 @@ import { PageIntro } from "./AdminShared";
 import { CourseLessonsTable, CourseOverviewCard, CourseTabs, SharedLessonNote, operatingCourses } from "./CourseAdminShared";
 
 /**
- * 전체 강의·학습자료 (관리자): 운영 3과목의 1~15주 학습자료를 과목별로 관리한다.
+ * 전체 강의·학습자료 (관리자): 운영 과목의 주차별 학습자료(과목의 주차 수만큼)를 과목별로 관리한다.
  * 기존 자료(3과목 개편 전)는 마지막 탭에서만 보이고 운영 과목과 섞이지 않는다.
  */
 export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
@@ -26,7 +26,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
     <div className="page">
       <PageIntro
         title="전체 강의·학습자료"
-        desc="운영 중인 3강의의 1~15주 학습자료를 강의별로 관리해요. 학습자료는 강의의 모든 분반이 함께 써요. 권장 학습 난이도는 실제 대사를 확인한 뒤 HSK 1~6급으로 정해요."
+        desc="운영 중인 강의의 주차별 학습자료를 강의별로 관리해요. 학습자료는 강의의 모든 분반이 함께 써요. 권장 학습 난이도는 실제 대사를 확인한 뒤 HSK 1~6급으로 정해요."
       />
       <CourseTabs courses={tabs} active={active.id} onSelect={(id) => navigate("admin-course", { course: id })} />
 
@@ -46,7 +46,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
         </>
       )}
 
-      <CourseLessonsTable courseId={active.id} lessons={lessons} />
+      <CourseLessonsTable courseId={active.id} weekCount={active.weekCount} lessons={lessons} />
     </div>
   );
 };
