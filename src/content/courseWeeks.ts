@@ -22,6 +22,13 @@ export const courseWeeks = (weekCount: unknown): number[] =>
 export const isWeekInCourse = (week: unknown, weekCount: unknown): boolean =>
   isValidWeekCount(weekCount) && typeof week === "number" && Number.isInteger(week) && week >= 1 && week <= weekCount;
 
+/** 주차 수 표시 ("15주"). 주차 수가 올바르지 않으면 null (화면은 숫자 없는 문구를 쓴다) */
+export const weekCountLabel = (weekCount: unknown): string | null => (isValidWeekCount(weekCount) ? `${weekCount}주` : null);
+
+/** 주차 범위 표시 ("1~15주", 1주 과목은 "1주"). 주차 수가 올바르지 않으면 null */
+export const weekRangeLabel = (weekCount: unknown): string | null =>
+  isValidWeekCount(weekCount) ? (weekCount === 1 ? "1주" : `1~${weekCount}주`) : null;
+
 /** 진도 비율 (0~1). 주차 수가 올바르지 않으면 0 */
 export const weekRatio = (done: number, weekCount: unknown): number =>
   isValidWeekCount(weekCount) ? Math.min(1, Math.max(0, done / weekCount)) : 0;
@@ -65,19 +72,30 @@ export const sortCourses = <T extends CourseLike>(courses: T[]): T[] =>
     return (a.createdAt ?? "").localeCompare(b.createdAt ?? "") || a.id.localeCompare(b.id);
   });
 
-/** 기존 3과목의 카드 색 (순서대로 하늘·분홍·민트) */
-const SEED_TONES = ["sky", "pink", "mint"];
-/** 새 과목의 카드 색: 기존 과목과 구분되는 색을 id로 정한다. (같은 과목은 언제나 같은 색) */
-const EXTRA_TONES = ["lavender", "cream", "sky", "pink", "mint"];
+/** 기존 3과목의 카드 색 (순서대로 하늘·분홍·민트). 과목 id로 정하므로 정렬이 바뀌어도 그대로다. */
+export const SEED_COURSE_TONES = ["sky", "pink", "mint"] as const;
+/**
+ * 새 과목의 카드 파스텔 색 (app.css의 .tone-*). 기존 3과목 색(하늘·분홍·민트)과 겹치지 않는 색만 쓴다.
+ * 새 과목끼리는 같은 색이 나올 수 있다.
+ */
+export const NEW_COURSE_TONES = ["lavender", "peach", "butter", "lilac", "aqua"] as const;
+
+/** 과목 id → 숫자 (FNV-1a). 같은 id는 언제나 같은 값 */
+const hashId = (id: string) => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+};
 
 export const courseToneFor = (courseId: string): string => {
   const i = seedIndex(courseId);
-  if (i >= 0) return SEED_TONES[i % SEED_TONES.length];
-  // 기존 동작: 알 수 없는 과목(기존 자료 포함)은 첫 색. 새 과목은 id 해시로 고른다.
-  if (courseId === LEGACY_COURSE_ID || !courseId) return SEED_TONES[0];
-  let h = 0;
-  for (const ch of courseId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return EXTRA_TONES[h % EXTRA_TONES.length];
+  if (i >= 0) return SEED_COURSE_TONES[i % SEED_COURSE_TONES.length];
+  // 기존 동작: 기존 자료 과목·id 없음은 첫 색. 새 과목은 id로 파스텔 팔레트에서 고른다.
+  if (courseId === LEGACY_COURSE_ID || !courseId) return SEED_COURSE_TONES[0];
+  return NEW_COURSE_TONES[hashId(courseId) % NEW_COURSE_TONES.length];
 };
 
 /**

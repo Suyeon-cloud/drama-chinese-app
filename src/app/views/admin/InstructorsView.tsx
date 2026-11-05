@@ -3,6 +3,7 @@ import { isValidEmail, normalizeEmail } from "../../auth/roles";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
+import { weekCountLabel } from "../../../content/courseWeeks";
 import { formatDateTime } from "../../lib/format";
 import { navigate } from "../../router";
 import { courseStore, instructorStore } from "../../store";
@@ -218,7 +219,9 @@ const NewSectionCard: React.FC<{
     return (
       <button className="card section-new-btn" onClick={start}>
         <b>+ 새 분반 개설</b>
-        <small className="muted">강의코드는 자동으로 만들어지고, 이 강의의 15주 학습자료를 함께 써요.</small>
+        <small className="muted">
+          {`강의코드는 자동으로 만들어지고, 이 강의의 ${weekCountLabel(course.weekCount) ?? "주차별"} 학습자료를 함께 써요.`}
+        </small>
       </button>
     );
   }
@@ -308,7 +311,7 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
       {active ? (
         <>
           <p className="scope-note info">
-            ℹ️ <b>강의</b>는 15주 학습자료를 공유하는 공통 단위이고, <b>분반</b>은 그 강의를 실제로 운영하는 수업 단위예요. 수강생과
+            ℹ️ 같은 <b>강의</b>의 <b>분반</b>은 주차별 학습자료를 함께 써요. 분반은 그 강의를 실제로 운영하는 수업 단위이고, 수강생과
             담당 교강사는 분반마다 따로 관리해요.
           </p>
           <CourseTabs

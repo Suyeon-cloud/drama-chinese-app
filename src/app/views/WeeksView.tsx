@@ -21,7 +21,7 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
       ? "situations"
       : "weeks";
   const tabs: [Tab, string, string][] = [
-    ["weeks", "📚 내 강의", "드라마별 15주 과정"],
+    ["weeks", "📚 내 강의", "드라마별 주차 학습 과정"],
     ["situations", "🎭 상황별 장면", "표현 · 역할극"],
   ];
 

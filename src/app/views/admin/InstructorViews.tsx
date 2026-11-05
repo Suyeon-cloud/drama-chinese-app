@@ -1,7 +1,8 @@
 // 교수자(Google 로그인) 화면: 내 담당 강의(분반) → 담당 분반(수강생 현황 · 주차별 학습자료)
 // 담당 분반은 관리자가 ‘분반·교강사 관리’에서 정한다. 서버가 담당 분반 수강생의 데이터만 보내므로 다른 분반 학생은 볼 수 없다.
-// 학습자료는 과목 공통이라, 같은 과목의 다른 분반 교강사와 같은 15주를 함께 관리한다.
+// 학습자료는 과목 공통이라, 같은 과목의 다른 분반 교강사와 같은 주차별 학습자료를 함께 관리한다.
 import React from "react";
+import { weekRangeLabel } from "../../../content/courseWeeks";
 import { useAuth } from "../../auth/AuthContext";
 import { navigate } from "../../router";
 import { useLessons, useStaffCourses } from "../../store/hooks";
@@ -112,7 +113,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
         {(
           [
             ["students", "이 분반", "👥 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과 · 피드백`, "section"],
-            ["lessons", "강의 공통", "📚 주차별 학습자료", "1~15주 편집 · 공개 · 모든 분반 공유", "course"],
+            ["lessons", "강의 공통", "📚 주차별 학습자료", `${weekRangeLabel(course.weekCount) ?? "주차별"} 편집 · 공개 · 모든 분반 공유`, "course"],
           ] as [Tab, string, string, string, string][]
         ).map(([key, scope, label, sub, tone]) => (
           <button

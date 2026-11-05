@@ -1,5 +1,6 @@
 // 과목·주차 화면 계산 검증 (npm test). 8주·20주 과목과 새 과목은 테스트용 데이터만 쓴다. (DB에 만들지 않는다)
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { computeMyStats } from "../src/app/learning/useMyStats";
 import type { LessonProgress } from "../src/app/store/models";
@@ -13,8 +14,12 @@ import {
   editorCourseProblem,
   isValidWeekCount,
   isWeekInCourse,
+  NEW_COURSE_TONES,
   resolveEditorCourse,
+  SEED_COURSE_TONES,
   sortCourses,
+  weekCountLabel,
+  weekRangeLabel,
   weekRatio,
 } from "../src/content/courseWeeks";
 import type { Lesson } from "../src/content/types";
@@ -207,9 +212,52 @@ test("기존 과목의 카드 색은 그대로, 새 과목은 항상 같은 기�
   assert.equal(courseToneFor("course-university"), "pink");
   assert.equal(courseToneFor("course-workplace"), "mint");
   assert.equal(courseToneFor(LEGACY_COURSE_ID), "sky");
-  const tones = ["lavender", "cream", "sky", "pink", "mint"];
   for (const c of [NEW_8, NEW_20]) {
-    assert.ok(tones.includes(courseToneFor(c.id)));
+    assert.ok((NEW_COURSE_TONES as readonly string[]).includes(courseToneFor(c.id)));
     assert.equal(courseToneFor(c.id), courseToneFor(c.id));
   }
+});
+
+test("새 과목 여러 개는 기존 3과목 색과 겹치지 않는 파스텔 팔레트에서 색을 받는다", () => {
+  const ids = Array.from({ length: 40 }, (_, i) => `course-n${i.toString(36)}${(i * 7919).toString(36)}`);
+  const tones = ids.map(courseToneFor);
+  for (const t of tones) {
+    assert.ok((NEW_COURSE_TONES as readonly string[]).includes(t), t);
+    assert.ok(!(SEED_COURSE_TONES as readonly string[]).includes(t as never), t);
+  }
+  // 40개면 팔레트의 여러 색이 쓰인다 (모두 같은 색으로 몰리지 않는다). 겹치는 색은 허용한다.
+  assert.ok(new Set(tones).size >= 4, [...new Set(tones)].join(","));
+  // 같은 id는 몇 번을 불러도 같은 색
+  for (const id of ids) assert.equal(courseToneFor(id), courseToneFor(id));
+});
+
+test("정렬 순서가 바뀌어도 과목 색은 바뀌지 않는다", () => {
+  const list = [NEW_8, NEW_20, ...SERVER_COURSES];
+  const before = new Map(list.map((c) => [c.id, courseToneFor(c.id)]));
+  const shuffled = sortCourses([...list].reverse());
+  for (const c of shuffled) assert.equal(courseToneFor(c.id), before.get(c.id), c.id);
+  // 같은 색이 두 과목에 나와도 정렬·표시는 그대로 (중복 허용)
+  assert.equal(shuffled.length, list.length);
+});
+
+test("과목 카드 색 클래스는 모두 app.css에 배경·글자·테두리 값이 있다", () => {
+  const css = readFileSync(new URL("../src/app/app.css", import.meta.url), "utf8");
+  for (const t of [...SEED_COURSE_TONES, ...NEW_COURSE_TONES]) {
+    const rule = new RegExp(`\\.tone-${t} \\{[^}]*--tone-bg:[^}]*--tone-ink:[^}]*--tone-line:`);
+    assert.match(css, rule, t);
+  }
+  // 과목 카드가 테두리 색을 쓰고, 기본값은 기존 테두리
+  assert.match(css, /\.course-admin-card \{[^}]*border-color: var\(--tone-line, var\(--line\)\)/);
+  assert.match(css, /\.section-card \{[^}]*border-color: var\(--tone-line, var\(--line\)\)/);
+});
+
+test("주차 수 문구: 과목 정보가 있으면 실제 주차 수, 없으면 숫자 없이", () => {
+  assert.equal(weekRangeLabel(8), "1~8주");
+  assert.equal(weekRangeLabel(15), "1~15주");
+  assert.equal(weekRangeLabel(20), "1~20주");
+  assert.equal(weekRangeLabel(1), "1주");
+  assert.equal(weekRangeLabel(0), null);
+  assert.equal(weekCountLabel(15), "15주");
+  assert.equal(weekCountLabel(8), "8주");
+  assert.equal(weekCountLabel(undefined), null);
 });
