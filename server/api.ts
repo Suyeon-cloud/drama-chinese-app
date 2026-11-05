@@ -13,7 +13,6 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { isValidEmail, normalizeEmail } from "../src/app/auth/roles";
 import { lessonPublishProblems } from "../src/app/lib/subtitles";
-import { LEGACY_COURSE_ID } from "../src/content/courses";
 import type {
   Course,
   CourseCurriculum,
@@ -37,6 +36,7 @@ import type { Lesson } from "../src/content/types";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 import { feedbackProblem } from "./feedbackRows";
+import { lessonMoveProblem, resolveLessonCourseId } from "./lessonCourse";
 import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
 import {
   bearerToken,
@@ -594,34 +594,51 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!lesson || lesson.id !== req.params.id || typeof lesson.week !== "number") {
       return res.status(400).json({ error: "강의자료 형식이 올바르지 않아요." });
     }
+    // 과목: 새 학습자료는 courseId 필수, 기존 학습자료는 없으면 원래 과목 (기존 자료 과목으로 대신 넣지 않는다 — lessonCourse.ts)
     // supabase: 기존 Express 검사 후 저장 함수로 저장. 기존 학습자료는 lesson.version(편집을 시작한 버전)이 맞아야 저장된다.
     if (useSupabase) {
       if (isPlatformAdmin(req)) {
         return void viaSupabase(res, async (st) => {
           const prev = await st.getLesson(lesson.id);
-          const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
-          const problem = lessonSaveProblem(lesson, prev, (await st.getCourse(courseId))?.weekCount ?? null);
+          const resolved = resolveLessonCourseId(lesson.courseId, prev);
+          if (!resolved.ok) throw new AdminDataError(resolved.status, resolved.error);
+          const courseId = resolved.courseId;
+          const course = await st.getCourse(courseId);
+          const problem = lessonSaveProblem(lesson, prev, course?.weekCount ?? null);
           if (problem) throw new AdminDataError(400, problem);
+          const prevCourse = prev && prev.courseId !== courseId ? await st.getCourse(prev.courseId) : null;
+          const moveProblem = lessonMoveProblem(prev?.courseId, courseId, (id) => (id === courseId ? course?.status : prevCourse?.status));
+          if (moveProblem) throw new AdminDataError(403, moveProblem);
           return st.saveLesson({ ...lesson, courseId }, adminLabel(req));
         });
       }
       return void viaUser(req, res, async (a) => {
         const prev = await lessonFor(a, lesson.id);
-        const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
+        const resolved = resolveLessonCourseId(lesson.courseId, prev);
+        if (!resolved.ok) throw new AdminDataError(resolved.status, resolved.error);
+        const courseId = resolved.courseId;
         const course = a.courses.get(courseId);
         if (!course || !canManageCourse(req, courseId)) throw new AdminDataError(403, "담당 강의의 학습자료만 저장할 수 있어요.");
+        const moveProblem = lessonMoveProblem(prev?.courseId, courseId, (id) => {
+          const c = a.courses.get(id);
+          return c ? String(c.status) : null;
+        });
+        if (moveProblem) throw new AdminDataError(403, moveProblem);
         const problem = lessonSaveProblem(lesson, prev, Number(course.week_count));
         if (problem) throw new AdminDataError(400, problem);
         return saveLessonAs(a, { ...lesson, courseId });
       });
     }
     const prev = db.data.lessons[lesson.id];
-    // 과목 정보가 없는 이전 화면의 저장은 원래 과목(없으면 기존 자료)으로 둔다.
-    const courseId = lesson.courseId || prev?.courseId || LEGACY_COURSE_ID;
+    const resolved = resolveLessonCourseId(lesson.courseId, prev);
+    if (!resolved.ok) return res.status(resolved.status).json({ error: resolved.error });
+    const courseId = resolved.courseId;
     if (!db.data.courses[courseId]) return res.status(400).json({ error: "없는 과목이에요." });
     if (!canManageCourse(req, courseId) || (prev && !canManageCourse(req, prev.courseId))) {
       return res.status(403).json({ error: "담당 강의의 학습자료만 저장할 수 있어요." });
     }
+    const moveProblem = lessonMoveProblem(prev?.courseId, courseId, (id) => db.data.courses[id]?.status);
+    if (moveProblem) return res.status(403).json({ error: moveProblem });
     const course = db.data.courses[courseId];
     if (!Number.isInteger(lesson.week) || lesson.week < 1 || lesson.week > course.weekCount) {
       return res.status(400).json({ error: `주차는 1~${course.weekCount}주차 중에서 골라 주세요.` });
