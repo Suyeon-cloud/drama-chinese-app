@@ -10,7 +10,7 @@ import { courseStore, instructorStore } from "../../store";
 import { useInstructors, useStaffCourses } from "../../store/hooks";
 import type { CourseOverview, InstructorRecord, SectionOverview } from "../../store/models";
 import { PageIntro } from "./AdminShared";
-import { CourseTabs, JoinLinkBox, SectionStatusPill, operatingCourses, teacherLabel } from "./CourseAdminShared";
+import { CourseStatusPill, CourseTabs, JoinLinkBox, SectionStatusPill, teacherLabel, visibleCourses } from "./CourseAdminShared";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 
@@ -129,7 +129,11 @@ const SectionAdminCard: React.FC<{
             <dd>{section.enrolledCount}명</dd>
           </div>
         </dl>
-        <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
+        {course.status === "active" ? (
+          <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
+        ) : (
+          <p className="muted small">신규 수강이 마감된 강의라 참여 링크를 쓰지 않아요.</p>
+        )}
         <div className="row-start">
           <button
             className={`btn btn-sm ${nextStatus === "inactive" ? "btn-quiet" : "btn-primary"}`}
@@ -277,7 +281,8 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   if (!instructors || !courses || !user) return null;
-  const operating = operatingCourses(courses);
+  // 운영 + 비활성 과목 (비활성 과목의 기존 분반에도 교강사를 배정할 수 있다)
+  const operating = visibleCourses(courses);
   const active = operating.find((c) => c.id === params.get("course")) ?? operating[0];
   const label = (e: string) => {
     const n = nameOf(operating, e);
@@ -320,7 +325,11 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
             onSelect={(id) => navigate("admin-instructors", { course: id })}
           />
           <p className="course-branch">
-            <b>《{active.drama}》 {active.title}</b>
+            <b>
+              {active.drama ? `《${active.drama}》 ` : ""}
+              {active.title}
+            </b>{" "}
+            {active.status === "inactive" ? <CourseStatusPill status="inactive" /> : null}
             <span className="muted small">
               공통 학습자료 {active.lessonCount}개 · 분반 {active.sections.length}개 (운영 중{" "}
               {active.sections.filter((s) => s.status === "active").length}개)
@@ -330,7 +339,14 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
             {active.sections.map((s) => (
               <SectionAdminCard key={s.id} course={active} section={s} instructors={instructors} label={label} />
             ))}
-            <NewSectionCard key={active.id} course={active} instructors={instructors} label={label} />
+            {active.status === "active" ? (
+              <NewSectionCard key={active.id} course={active} instructors={instructors} label={label} />
+            ) : (
+              <div className="card section-new-btn is-disabled" aria-disabled="true">
+                <b>새 분반 개설 마감</b>
+                <small className="muted">신규 수강이 마감된 강의라 새 분반을 만들 수 없어요. 기존 분반의 교강사 배정은 계속할 수 있어요.</small>
+              </div>
+            )}
           </div>
         </>
       ) : null}

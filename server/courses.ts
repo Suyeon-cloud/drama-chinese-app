@@ -146,8 +146,10 @@ export const migrateCourses = (
   }
   if (enrollmentCount) changes.push(`참여 기록 ${enrollmentCount}건에 과목을 연결했어요.`);
 
-  // 4) 분반: 운영 과목마다 기본 01분반 (과목 강의코드를 이어받는다)
-  const openCourses = Object.values(data.courses).filter((c) => c.status === "active");
+  // 4) 분반: 기본(시드) 운영 과목마다 기본 01분반 (과목 강의코드를 이어받는다)
+  //    관리자가 만든 과목에는 분반을 자동으로 만들지 않는다. (서버를 다시 켜도 분반 없는 상태 그대로)
+  const seedCourseIds = new Set(ALL_COURSE_SEEDS.map((seed) => seed.id));
+  const openCourses = Object.values(data.courses).filter((c) => c.status === "active" && seedCourseIds.has(c.id));
   for (const course of openCourses) {
     const id = defaultSectionId(course.id);
     if (data.sections[id]) continue;

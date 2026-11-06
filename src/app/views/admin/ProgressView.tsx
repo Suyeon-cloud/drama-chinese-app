@@ -3,7 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { navigate } from "../../router";
 import { useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
-import { CourseStudentsPanel, CourseTabs, operatingCourses } from "./CourseAdminShared";
+import { CourseStudentsPanel, CourseTabs, visibleCourses } from "./CourseAdminShared";
 
 /**
  * 학습 현황 (관리자): 운영 과목별 · 분반별 수강생의 출석·주차 진도·퀴즈.
@@ -13,7 +13,8 @@ export const ProgressView: React.FC<{ params: URLSearchParams }> = ({ params }) 
   const { user } = useAuth();
   const courses = useStaffCourses(user?.id ?? null);
   if (!courses) return null;
-  const operating = operatingCourses(courses);
+  // 운영 + 비활성 과목 (비활성 과목의 기존 수강생도 계속 학습한다)
+  const operating = visibleCourses(courses);
   const active = operating.find((c) => c.id === params.get("course")) ?? operating[0];
   if (!active) return null;
   const section = active.sections.find((s) => s.id === params.get("section"));

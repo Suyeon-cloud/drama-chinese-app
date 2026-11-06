@@ -15,7 +15,7 @@ import {
   JoinLinkCopy,
   SectionCard,
   SharedLessonNote,
-  operatingCourses,
+  visibleCourses,
 } from "./CourseAdminShared";
 
 /** 내 담당 강의: 담당 분반 카드 */
@@ -23,7 +23,8 @@ export const InstructorHomeView: React.FC = () => {
   const { user } = useAuth();
   const courses = useStaffCourses(user?.id ?? null);
   if (!courses) return null;
-  const mine = operatingCourses(courses).flatMap((c) => c.sections.map((s) => ({ course: c, section: s })));
+  // 운영 + 비활성 과목 (비활성 과목도 담당 교강사는 수강생 현황·학습자료를 계속 관리한다)
+  const mine = visibleCourses(courses).flatMap((c) => c.sections.map((s) => ({ course: c, section: s })));
 
   return (
     <div className="page">
@@ -53,7 +54,7 @@ export const InstructorHomeView: React.FC = () => {
               >
                 📚 주차별 학습자료
               </button>
-              <JoinLinkCopy code={section.code} label={`《${course.drama}》 ${section.name}`} />
+              {course.status === "active" ? <JoinLinkCopy code={section.code} label={`《${course.drama}》 ${section.name}`} /> : null}
             </SectionCard>
           ))}
         </div>
@@ -70,7 +71,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
   const courses = useStaffCourses(user?.id ?? null);
   const lessons = useLessons();
   if (!courses || !lessons) return null;
-  const course = operatingCourses(courses).find((c) => c.id === params.get("id"));
+  const course = visibleCourses(courses).find((c) => c.id === params.get("id"));
   // 분반을 지정했는데 담당 분반이 아니면 다른 분반으로 바꿔 보여주지 않고 막는다.
   const sectionParam = params.get("section");
   const section = sectionParam ? course?.sections.find((s) => s.id === sectionParam) : course?.sections[0];
@@ -106,7 +107,11 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
         />
       ) : null}
       <SectionCard course={course} section={section}>
-        <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
+        {course.status === "active" ? (
+          <JoinLinkBox code={section.code} label={`《${course.drama}》 ${section.name}`} />
+        ) : (
+          <p className="muted small">신규 수강이 마감된 강의라 참여 링크를 쓰지 않아요. 기존 수강생은 계속 학습해요.</p>
+        )}
       </SectionCard>
 
       <div className="learn-tabs sub-tabs scope-tabs" role="tablist" aria-label="담당 분반 관리">

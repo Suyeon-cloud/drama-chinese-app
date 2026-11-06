@@ -113,7 +113,8 @@ export type InstructorRecord = {
 };
 
 /** active: 운영 중인 과목, legacy: 3과목 개편 전 자료 보관용 (학습 화면에 나오지 않음) */
-export type CourseStatus = "active" | "legacy";
+/** active: 운영 중 / inactive: 신규 수강·분반 마감 (기존 수강생·교수자는 계속) / legacy: 이전 자료 보관 (관리자만) */
+export type CourseStatus = "active" | "inactive" | "legacy";
 
 /**
  * 과목 (중국 드라마 1편 = 중국어 과목 1개, 1~15주). 기본 과목은 src/content/courses.ts.
@@ -138,6 +139,14 @@ export type Course = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** 로그인 전 소개 화면용 과목 정보 (GET /api/public/courses): 운영 중 과목의 표시 칸만 */
+export type PublicCourse = Pick<Course, "id" | "drama" | "title" | "context" | "description" | "weekCount">;
+
+/** 관리자 과목 생성 입력 (POST /api/courses). 과목 id는 서버가 만든다. */
+export type CourseInput = { title: string; drama: string; context: string; description: string; weekCount: number };
+/** 관리자 과목 수정 입력 (PATCH /api/courses/:id): 보낸 칸만 바뀐다. 상태는 active ↔ inactive만 */
+export type CoursePatchInput = Partial<CourseInput> & { status?: "active" | "inactive" };
 
 /** 이전 이름 (1과목 시절 GET /api/course 응답) */
 export type CourseInfo = Course;

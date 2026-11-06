@@ -4,8 +4,11 @@ import type {
   CourseLookup,
   CourseOverview,
   CourseStudents,
+  CourseInput,
+  CoursePatchInput,
   CourseSummary,
   EnrollResult,
+  PublicCourse,
   Enrollment,
   SectionOverview,
   SectionStatus,
@@ -24,6 +27,12 @@ export interface CourseStore {
   curriculum(courseId: string): Promise<CourseCurriculum | null>;
   /** 과목 수강생과 학습 기록 (관리자·담당 교수자, sectionId를 주면 그 분반만). 권한이 없으면 null */
   students(courseId: string, sectionId?: string): Promise<CourseStudents | null>;
+  /** 새 과목 (관리자). id는 서버가 만들고, 분반·학습자료 없이 운영 중(active)으로 만든다. */
+  createCourse(input: CourseInput): Promise<CourseOverview>;
+  /** 과목 정보·주차 수·상태(active ↔ inactive) 수정 (관리자) */
+  updateCourse(courseId: string, patch: CoursePatchInput): Promise<CourseOverview>;
+  /** 로그인 전 소개 화면용 운영 중 과목 (실패하면 ApiError — 화면이 오류·다시 시도를 보여 준다) */
+  publicCourses(): Promise<PublicCourse[]>;
   /** 새 분반 개설 (관리자). 강의코드는 서버가 만든다. */
   createSection(courseId: string, input: { name: string; instructors: string[] }): Promise<SectionOverview>;
   /** 분반 이름 변경 · 운영/비활성 전환 (관리자) */
@@ -63,6 +72,17 @@ export const createRemoteCourseStore = (): CourseStore => ({
     api<CourseStudents>(
       `${coursePath(courseId)}/students${sectionId ? `?section=${encodeURIComponent(sectionId)}` : ""}`,
     ).catch(() => null),
+  createCourse: async (input) => {
+    const c = await api<CourseOverview>("/courses", { method: "POST", body: input });
+    courseEmitter.emit();
+    return c;
+  },
+  updateCourse: async (courseId, patch) => {
+    const c = await api<CourseOverview>(coursePath(courseId), { method: "PATCH", body: patch });
+    courseEmitter.emit();
+    return c;
+  },
+  publicCourses: () => api<PublicCourse[]>("/public/courses"),
   createSection: async (courseId, input) => {
     const s = await api<SectionOverview>(`${coursePath(courseId)}/sections`, { method: "POST", body: input });
     courseEmitter.emit();

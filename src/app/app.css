@@ -1332,6 +1332,14 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .rename-form input { padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); font-size: 15px; width: 140px; }
 .section-new-btn { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 160px; text-align: left; border-style: dashed; background: var(--sky-50); box-shadow: none; }
 .section-new-btn b { font-size: 17px; color: var(--sky-700); }
+.section-new-btn.is-disabled { background: var(--cream); border-color: var(--line); }
+.section-new-btn.is-disabled b { color: var(--cream-ink); }
+/* 관리자 강의 생성·정보 수정 */
+.course-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.course-form .card-title { margin-bottom: 0; }
+.course-actions-row { margin: -4px 0 12px; }
+.course-status-confirm { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.course-group-filter { margin: 4px 0 14px; }
 .nowrap { white-space: nowrap; }
 .week-locked { background: var(--sky-50); box-shadow: none; min-height: 110px; cursor: default; }
 .week-locked .week-title { color: var(--ink-2); }
@@ -1578,3 +1586,5 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .practice-list button:hover { background: var(--sky-50); }
 
 /* Supabase 로그인 확인 (개발용) */
+/* 로그인 전 소개: 강의 목록 불러오는 중·오류 */
+.journey-status { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; }

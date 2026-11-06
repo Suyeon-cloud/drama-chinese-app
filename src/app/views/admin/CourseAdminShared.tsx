@@ -2,8 +2,9 @@
 import React, { useState } from "react";
 import { formatTime } from "../../../content";
 import { DIRECTION_LABEL } from "../../../content/course";
-import { defaultDirectionFor } from "../../../content/courses";
-import { courseWeeks, coursePhases, sortCourses, weekRatio } from "../../../content/courseWeeks";
+import { LEGACY_COURSE_ID, defaultDirectionFor } from "../../../content/courses";
+import { COURSE_STATUS_LABEL, enrollableCourses, visibleCourses } from "../../../content/courseRules";
+import { courseWeeks, coursePhases, weekRatio } from "../../../content/courseWeeks";
 import { lessonHeading } from "../../../content/lessons";
 import type { Lesson } from "../../../content/types";
 import { useToast } from "../../components/Toast";
@@ -19,8 +20,20 @@ import { courseTone } from "../MyCoursesView";
 import { LevelBadge, StatusBadge } from "./AdminShared";
 import { StudentFeedback } from "./StudentFeedback";
 
-/** 운영 과목만 (기존 자료 제외). 기존 3과목은 지금 순서, 새 과목은 그 뒤에 생성일 순 (서버 목록의 과목은 모두 남는다) */
-export const operatingCourses = (courses: CourseOverview[]) => sortCourses(courses.filter((c) => c.status === "active"));
+/**
+ * 과목 목록 (기존 3과목은 지금 순서, 새 과목은 그 뒤에 생성일 순):
+ * - visibleCourses: 운영 + 비활성 — 교수자 담당 강의, 학습 현황, 분반·교강사 관리처럼 기존 수강·배정이 계속 쓰는 화면
+ * - enrollableCourses: 운영만 — 참여 링크·강의코드처럼 신규 수강에 쓰는 화면
+ * 기존 자료(legacy)는 둘 다 아니다. (전체 강의·학습자료 화면의 ‘기존 자료’에서만 다룬다)
+ */
+export { enrollableCourses, visibleCourses };
+
+/** 과목 상태 표시: 운영 중 / 신규 수강 마감 / 기존 자료 */
+export const CourseStatusPill: React.FC<{ status: CourseOverview["status"] }> = ({ status }) => (
+  <span className={`pill ${status === "active" ? "pill-mint" : status === "inactive" ? "pill-cream" : "pill-lavender"}`}>
+    {COURSE_STATUS_LABEL[status]}
+  </span>
+);
 
 /** 교강사 표시: 이름을 알면 “이름 (이메일)”, 모르면 이메일 */
 export const teacherLabel = (t: SectionTeacher) => (t.name ? `${t.name} (${t.email})` : t.email);
@@ -32,14 +45,18 @@ export const SectionStatusPill: React.FC<{ status: SectionOverview["status"] }> 
 export const CourseOverviewCard: React.FC<{
   course: CourseOverview;
   showSections?: boolean;
+  /** 운영 중 과목에도 상태를 보여 줄지 (비활성 과목은 언제나 ‘신규 수강 마감’을 보여 준다) */
+  showStatus?: boolean;
   children?: React.ReactNode;
-}> = ({ course, showSections, children }) => {
+}> = ({ course, showSections, showStatus, children }) => {
     const active = course.sections.filter((s) => s.status === "active");
   return (
     <section className={`card course-admin-card tone-${courseTone(course.id)}`}>
       <div className="course-admin-head">
-        <span className="course-drama">《{course.drama}》</span>
-        <span className="course-name">{course.title}</span>
+        <span className="course-drama">{course.drama ? `《${course.drama}》` : course.title}</span>
+        <span className="course-name">
+          {course.drama ? course.title : null} {showStatus || course.status === "inactive" ? <CourseStatusPill status={course.status} /> : null}
+        </span>
       </div>
       <dl className="section-card-stats">
         <div>
@@ -87,7 +104,8 @@ export const SectionCard: React.FC<{
       <div className="course-admin-head">
         <span className="course-drama">《{course.drama}》</span>
         <span className="course-name">
-          {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}
+          {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}{" "}
+          {course.status === "inactive" ? <CourseStatusPill status="inactive" /> : null}
         </span>
       </div>
       <dl className="section-card-stats">
@@ -567,8 +585,17 @@ export const CourseTabs: React.FC<{
         className={`learn-tab ${active === c.id ? "active" : ""}`}
         onClick={() => onSelect(c.id)}
       >
-        <b>{c.drama ? `《${c.drama}》` : "🗂 기존 자료"}</b>
-        <small>{c.drama ? c.title : "3강의 개편 전 보관 자료"}</small>
+        {c.id === LEGACY_COURSE_ID ? (
+          <>
+            <b>🗂 기존 자료</b>
+            <small>3강의 개편 전 보관 자료</small>
+          </>
+        ) : (
+          <>
+            <b>{c.drama ? `《${c.drama}》` : c.title}</b>
+            <small>{c.drama ? c.title : ""}</small>
+          </>
+        )}
       </button>
     ))}
   </div>

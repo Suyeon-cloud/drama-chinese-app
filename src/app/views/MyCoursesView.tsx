@@ -54,7 +54,10 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
       <div className="course-body">
         {v ? <span className="journey-stage">{v.stage}</span> : null}
         <h3 className="course-drama">《{course.drama}》</h3>
-        <p className="course-name">{course.title}</p>
+        <p className="course-name">
+          {course.title}{" "}
+          {course.status === "inactive" ? <span className="pill pill-cream" title="이미 수강 중인 학습은 계속할 수 있어요">신규 수강 마감</span> : null}
+        </p>
         {course.section ? <SectionLine section={course.section} /> : null}
         <div className="course-progress">
           <span className="row-between">

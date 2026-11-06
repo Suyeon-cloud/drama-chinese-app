@@ -264,7 +264,7 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
           description: String(c.description ?? ""),
           code: String(c.legacy_code ?? ""),
           weekCount: Number(c.week_count),
-          status: c.status === "legacy" ? "legacy" : "active",
+          status: c.status === "legacy" ? "legacy" : c.status === "inactive" ? "inactive" : "active",
           createdAt: String(c.created_at),
           updatedAt: String(c.updated_at),
           sections: mine,

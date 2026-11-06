@@ -3,7 +3,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { navigate } from "../../router";
 import { useInstructors, useLearners, useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
-import { CourseOverviewCard, operatingCourses } from "./CourseAdminShared";
+import { CourseOverviewCard, enrollableCourses } from "./CourseAdminShared";
+import { coursesInGroup } from "../../../content/courseRules";
 
 /** 전체 운영 관리 (관리자): 할 일(승인 대기) → 운영 수치 → 강의별 현황 */
 export const AdminDashboardView: React.FC = () => {
@@ -12,11 +13,14 @@ export const AdminDashboardView: React.FC = () => {
   const learners = useLearners();
   const instructors = useInstructors();
   if (!courses) return null;
-  const operating = operatingCourses(courses);
+  // 운영 수치는 운영(active) 과목 기준. 비활성(inactive) 과목은 개수와 카드를 따로 보여 준다.
+  const operating = enrollableCourses(courses);
+  const inactive = coursesInGroup(courses, "inactive");
   const pending = learners?.filter((l) => l.status === "pending").length ?? 0;
 
   const stats = [
     { label: "운영 강의", value: `${operating.length}개` },
+    { label: "비활성 강의", value: `${inactive.length}개` },
     { label: "운영 분반", value: `${operating.reduce((n, c) => n + c.sections.filter((s) => s.status === "active").length, 0)}개` },
     { label: "교강사", value: `${instructors?.length ?? 0}명` },
     { label: "승인된 회원", value: `${learners?.filter((l) => l.status === "approved").length ?? 0}명` },
@@ -54,7 +58,7 @@ export const AdminDashboardView: React.FC = () => {
 
       <h3 className="section-title">운영 강의</h3>
       <div className="course-admin-grid">
-        {operating.map((c) => (
+        {[...operating, ...inactive].map((c) => (
           <CourseOverviewCard key={c.id} course={c} showSections>
             <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-course", { course: c.id })}>
               📚 학습자료

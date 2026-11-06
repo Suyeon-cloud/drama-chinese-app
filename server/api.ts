@@ -33,10 +33,13 @@ import type {
   SessionUser,
 } from "../src/app/store/models";
 import type { Lesson } from "../src/content/types";
+import { sortCourses } from "../src/content/courseWeeks";
+import type { PublicCourse } from "../src/app/store/models";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 import { feedbackProblem } from "./feedbackRows";
 import { lessonMoveProblem, resolveLessonCourseId } from "./lessonCourse";
+import { minWeekCountFor, newCourseId, parseCourseCreate, parseCoursePatch } from "./courseInput";
 import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
 import {
   bearerToken,
@@ -310,7 +313,11 @@ export const createApi = (db: Db, env: ApiEnv) => {
     req.user ? next() : res.status(401).json({ error: "로그인이 필요해요." });
 
   /** 학습자·교수자에게 보여도 되는 과목: 운영 중인 과목만 (기존 자료 과목은 관리자만) */
-  const isOpenCourse = (c: Course | undefined): c is Course => !!c && c.status === "active";
+  //   - isVisibleCourse: 운영(active)·비활성(inactive) 과목 — 기존 수강생 학습·진도, 담당 교수자 편집, 교수자 배정, 커리큘럼
+  //   - isEnrollableCourse: 운영(active) 과목만 — 강의코드 미리보기·수강 등록·새 분반
+  //   기존 자료(legacy) 과목은 둘 다 아니다. (관리자만 다룬다)
+  const isVisibleCourse = (c: Course | undefined): c is Course => !!c && (c.status === "active" || c.status === "inactive");
+  const isEnrollableCourse = (c: Course | undefined): c is Course => !!c && c.status === "active";
   /**
    * 교수자(Google)가 맡은 분반 — sectionInstructors의 sectionId + email, 운영 과목의 분반만.
    * activeOnly: 운영 중인 분반만 (학습자료 편집 권한). 비활성 분반도 수강생 기록은 계속 볼 수 있다.
@@ -318,7 +325,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
   const instructorSections = (email: string, activeOnly = false) =>
     sectionIdsForInstructor(db.data.sectionInstructors, email)
       .map((id) => db.data.sections[id])
-      .filter((s) => !!s && isOpenCourse(db.data.courses[s.courseId]) && (!activeOnly || s.status === "active"));
+      .filter((s) => !!s && isVisibleCourse(db.data.courses[s.courseId]) && (!activeOnly || s.status === "active"));
   /** 요청자가 운영하는 분반 id — 수강생·진도·퀴즈 권한의 기준 (관리자: 모든 분반, 교수자: 배정된 분반, 과목을 주면 그 과목만) */
   const managedSectionIds = (req: Authed, courseId?: string) =>
     useSupabase && !isPlatformAdmin(req)
@@ -361,7 +368,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
       enrollmentsForUser(db.data.enrollments, userId)
         .filter((e) => !!e.sectionId)
         .map((e) => e.courseId)
-        .filter((id) => isOpenCourse(db.data.courses[id])),
+        .filter((id) => isVisibleCourse(db.data.courses[id])),
     );
   /** 요청한 학습자가 수강 중인 운영 과목 (supabase: 승인된 학생의 Supabase 수강 기록) */
   const learnerCourseIdsFor = (req: Authed) =>
@@ -1069,6 +1076,71 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json(body);
   });
 
+  /* ───────── 과목 관리 (관리자) · 공개 과목 목록 ───────── */
+
+  // 과목 생성·수정·공개 목록은 JSON 모드에서 먼저 제공한다. Supabase는 DB 마이그레이션(inactive·RPC) 후에 연결한다.
+  const SUPABASE_COURSES_PENDING = "Supabase 운영 환경에서는 아직 이 기능을 쓸 수 없어요. (DB 준비 후 제공)";
+
+  /**
+   * 새 과목 (관리자). body: { title, drama?, context?, description?, weekCount? (기본 15, 1~30) }
+   * id는 서버가 만든다 (course- + 소문자·숫자 6자). 운영 중(active)으로 만들고, 분반·학습자료는 만들지 않는다.
+   */
+  api.post("/courses", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
+    const parsed = parseCourseCreate(req.body);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const now = nowIso();
+    const id = newCourseId((x) => !!db.data.courses[x]);
+    // code: 이전 구조의 과목 강의코드 칸. 새 과목은 쓰지 않는다 (수강 등록은 분반 강의코드로).
+    const course: Course = { id, ...parsed.value, code: "", status: "active", createdAt: now, updatedAt: now };
+    db.data.courses[id] = course;
+    db.save();
+    res.status(201).json(courseOverview(req, course));
+  });
+
+  /**
+   * 과목 수정 (관리자). 보낸 칸만 바꾼다: title·drama·context·description·weekCount·status(active ↔ inactive).
+   * id는 바꿀 수 없다. 기존 자료(legacy) 과목은 바꾸지 않는다.
+   * 주차 수는 그 과목 학습자료(준비 중 포함)·학습 기록의 가장 큰 주차보다 작게 줄일 수 없다. 기존 데이터는 지우지 않는다.
+   */
+  api.patch("/courses/:id", requireAdminMode, (req: Authed, res) => {
+    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
+    const course = db.data.courses[req.params.id];
+    if (!course) return res.status(404).json({ error: "과목을 찾을 수 없어요." });
+    if (course.status === "legacy") return res.status(403).json({ error: "기존 자료 과목은 바꿀 수 없어요." });
+    const parsed = parseCoursePatch(req.body, course.id);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const patch = parsed.value;
+    if (patch.weekCount !== undefined && patch.weekCount < course.weekCount) {
+      const lessons = lessonsForCourse(db.data.lessons, course.id);
+      const lessonIds = new Set(lessons.map((l) => l.id));
+      const progressWeeks = Object.values(db.data.progress)
+        .filter((p) => lessonIds.has(p.lessonId))
+        .map((p) => p.week);
+      const min = minWeekCountFor(lessons.map((l) => l.week), progressWeeks);
+      if (patch.weekCount < min) {
+        return res.status(409).json({ error: `${min}주차까지 학습자료나 학습 기록이 있어 ${min}주보다 적게 줄일 수 없어요.` });
+      }
+    }
+    const next: Course = { ...course, ...patch, id: course.id, code: course.code, createdAt: course.createdAt, updatedAt: nowIso() };
+    db.data.courses[course.id] = next;
+    db.save();
+    res.json(courseOverview(req, next));
+  });
+
+  /** 로그인 전 소개 화면용: 운영 중(active) 과목의 표시 정보만 (분반·강의코드·수강생·교강사 정보 없음) */
+  api.get("/public/courses", (_req, res) => {
+    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
+    try {
+      const body: PublicCourse[] = sortCourses(Object.values(db.data.courses).filter((c) => c.status === "active")).map(
+        ({ id, drama, title, context, description, weekCount }) => ({ id, drama, title, context, description, weekCount }),
+      );
+      res.json(body);
+    } catch {
+      res.status(500).json({ error: "과목 목록을 불러오지 못했어요." });
+    }
+  });
+
   /* ───────── 분반 관리 (관리자) ───────── */
 
   const cleanSectionName = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 40) : "");
@@ -1092,7 +1164,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
       return void viaSupabase(res, (st) => st.createSection(req.params.id, (req.body ?? {}) as Record<string, unknown>, adminLabel(req)));
     }
     const course = db.data.courses[req.params.id];
-    if (!isOpenCourse(course)) return res.status(404).json({ error: "운영 중인 과목에만 분반을 만들 수 있어요." });
+    if (!isEnrollableCourse(course)) return res.status(404).json({ error: "운영 중인 과목에만 분반을 만들 수 있어요." });
     const name = cleanSectionName(req.body?.name) || nextSectionName(db.data.sections, course.id);
     if (activeNameTaken(course.id, name)) return res.status(409).json({ error: `이미 운영 중인 ${name}이 있어요.` });
     const teachers = (Array.isArray(req.body?.instructors) ? (req.body.instructors as unknown[]) : [])
@@ -1141,7 +1213,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (useSupabase) return void viaSupabase(res, (st) => st.assignInstructor(req.params.id, req.params.email, adminLabel(req)));
     const s = db.data.sections[req.params.id];
     const email = normalizeEmail(req.params.email);
-    if (!s || !isOpenCourse(db.data.courses[s.courseId])) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
+    // 비활성 과목의 기존 분반에도 교수자를 새로 배정할 수 있다. (기존 자료 과목은 분반이 없다)
+    if (!s || !isVisibleCourse(db.data.courses[s.courseId])) return res.status(404).json({ error: "분반을 찾을 수 없어요." });
     if (!instructorEmails().includes(email)) {
       return res.status(400).json({ error: "교수자로 등록된 이메일만 배정할 수 있어요." });
     }
@@ -1172,7 +1245,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     }
     const s = findSectionByCode(db.data.sections, String(req.query.code ?? ""));
     const course = s ? db.data.courses[s.courseId] : undefined;
-    if (!s || s.status !== "active" || !isOpenCourse(course)) {
+    if (!s || s.status !== "active" || !isEnrollableCourse(course)) {
       return res.status(404).json({ error: "강의코드에 맞는 강의가 없어요." });
     }
     const body: CourseLookup = { ...courseSummary(course), sectionName: s.name };
@@ -1219,8 +1292,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
     const allowed = isStaff(req)
       ? isPlatformAdmin(req)
         ? !!course
-        : isOpenCourse(course) && managedSectionIds(req, course.id).size > 0
-      : isOpenCourse(course) && learnerCourseIds(req.user!.id).has(course.id);
+        : isVisibleCourse(course) && managedSectionIds(req, course.id).size > 0
+      : isVisibleCourse(course) && learnerCourseIds(req.user!.id).has(course.id);
     if (!allowed) return res.status(404).json({ error: "수강 중인 강의가 아니에요." });
     const body: CourseCurriculum = {
       course: isStaff(req) ? courseSummary(course) : learnerCourse(req.user!.id, course),
@@ -1297,7 +1370,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
     const code = typeof req.body?.courseCode === "string" ? req.body.courseCode : "";
     const section = findSectionByCode(db.data.sections, code);
     const course = section ? db.data.courses[section.courseId] : undefined;
-    if (!section || section.status !== "active" || !isOpenCourse(course)) {
+    if (!section || section.status !== "active" || !isEnrollableCourse(course)) {
       return res.status(404).json({ error: "강의코드를 다시 확인해 주세요. 일치하는 강의가 없어요." });
     }
     const key = enrollmentKey(section.id, u.id);

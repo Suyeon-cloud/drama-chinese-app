@@ -150,7 +150,7 @@ export const courseSummaryFromRow = (c: Row): CourseSummary => ({
   context: String(c.context ?? ""),
   description: String(c.description ?? ""),
   weekCount: Number(c.week_count ?? 15),
-  status: c.status === "legacy" ? "legacy" : "active",
+  status: c.status === "legacy" ? "legacy" : c.status === "inactive" ? "inactive" : "active",
   createdAt: String(c.created_at ?? ""),
   updatedAt: String(c.updated_at ?? ""),
 });

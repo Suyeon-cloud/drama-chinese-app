@@ -2,7 +2,7 @@ import React from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { useAllEnrollments, useStaffCourses } from "../../store/hooks";
 import { PageIntro } from "./AdminShared";
-import { JoinLinkBox, operatingCourses } from "./CourseAdminShared";
+import { JoinLinkBox, enrollableCourses, visibleCourses } from "./CourseAdminShared";
 import { EditorGroup } from "./EditorSection";
 import { MemberTable } from "./MemberTable";
 
@@ -12,7 +12,7 @@ export const LearnersView: React.FC = () => {
   const enrollments = useAllEnrollments();
   const courses = useStaffCourses(user?.id ?? null);
   if (!enrollments || !courses) return null;
-  const operating = operatingCourses(courses);
+  const operating = enrollableCourses(courses);
 
   return (
     <div className="page">
@@ -21,7 +21,7 @@ export const LearnersView: React.FC = () => {
         desc="Google로 가입한 회원을 확인하고 승인해요. 승인된 학생은 강의코드로 분반에 수강 등록해요."
       />
 
-      <MemberTable enrollments={enrollments} courses={operating} />
+      <MemberTable enrollments={enrollments} courses={visibleCourses(courses)} />
 
       <EditorGroup title="🎫 분반 강의코드" defaultOpen={false}>
         <p className="muted small">
