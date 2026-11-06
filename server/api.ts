@@ -1078,17 +1078,20 @@ export const createApi = (db: Db, env: ApiEnv) => {
 
   /* ───────── 과목 관리 (관리자) · 공개 과목 목록 ───────── */
 
-  // 과목 생성·수정·공개 목록은 JSON 모드에서 먼저 제공한다. Supabase는 DB 마이그레이션(inactive·RPC) 후에 연결한다.
-  const SUPABASE_COURSES_PENDING = "Supabase 운영 환경에서는 아직 이 기능을 쓸 수 없어요. (DB 준비 후 제공)";
+  // Supabase 모드: 생성·수정은 관리자 RPC(admin_create_course·admin_update_course, Phase E1), 입력 검사는 JSON 모드와 같은 함수로 먼저 한다.
+  const PUBLIC_COURSES_ERROR = "과목 목록을 불러오지 못했어요.";
 
   /**
    * 새 과목 (관리자). body: { title, drama?, context?, description?, weekCount? (기본 15, 1~30) }
    * id는 서버가 만든다 (course- + 소문자·숫자 6자). 운영 중(active)으로 만들고, 분반·학습자료는 만들지 않는다.
    */
   api.post("/courses", requireAdminMode, (req: Authed, res) => {
-    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
     const parsed = parseCourseCreate(req.body);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    if (useSupabase) {
+      const input = parsed.value;
+      return void viaSupabase(res.status(201), (st) => st.createCourse(input));
+    }
     const now = nowIso();
     const id = newCourseId((x) => !!db.data.courses[x]);
     // code: 이전 구조의 과목 강의코드 칸. 새 과목은 쓰지 않는다 (수강 등록은 분반 강의코드로).
@@ -1104,7 +1107,13 @@ export const createApi = (db: Db, env: ApiEnv) => {
    * 주차 수는 그 과목 학습자료(준비 중 포함)·학습 기록의 가장 큰 주차보다 작게 줄일 수 없다. 기존 데이터는 지우지 않는다.
    */
   api.patch("/courses/:id", requireAdminMode, (req: Authed, res) => {
-    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
+    if (useSupabase) {
+      // 없는 과목 404·기존 자료 과목 403·주차 축소 불가 409는 DB 함수가 과목 잠금 안에서 확인한다.
+      const parsed = parseCoursePatch(req.body, req.params.id);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const patch = parsed.value;
+      return void viaSupabase(res, (st) => st.updateCourse(req.params.id, patch));
+    }
     const course = db.data.courses[req.params.id];
     if (!course) return res.status(404).json({ error: "과목을 찾을 수 없어요." });
     if (course.status === "legacy") return res.status(403).json({ error: "기존 자료 과목은 바꿀 수 없어요." });
@@ -1129,15 +1138,23 @@ export const createApi = (db: Db, env: ApiEnv) => {
   });
 
   /** 로그인 전 소개 화면용: 운영 중(active) 과목의 표시 정보만 (분반·강의코드·수강생·교강사 정보 없음) */
-  api.get("/public/courses", (_req, res) => {
-    if (useSupabase) return res.status(501).json({ error: SUPABASE_COURSES_PENDING });
+  api.get("/public/courses", async (_req, res) => {
+    if (useSupabase) {
+      if (!supa) return res.status(503).json({ error: PUBLIC_COURSES_ERROR });
+      try {
+        return res.json(await supa.publicCourses());
+      } catch (err) {
+        console.error("[public-courses]", err instanceof Error ? err.message : "unknown error");
+        return res.status(500).json({ error: PUBLIC_COURSES_ERROR });
+      }
+    }
     try {
       const body: PublicCourse[] = sortCourses(Object.values(db.data.courses).filter((c) => c.status === "active")).map(
         ({ id, drama, title, context, description, weekCount }) => ({ id, drama, title, context, description, weekCount }),
       );
       res.json(body);
     } catch {
-      res.status(500).json({ error: "과목 목록을 불러오지 못했어요." });
+      res.status(500).json({ error: PUBLIC_COURSES_ERROR });
     }
   });
 

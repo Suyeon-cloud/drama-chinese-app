@@ -112,7 +112,7 @@ before(async () => {
 
 after(() => close());
 
-test("Supabase 모드: 과목 생성·수정·공개 목록은 501을 돌려주고 성공으로 보이지 않는다", async () => {
+test("Supabase 모드(설정 없음): 과목 생성·수정·공개 목록은 503을 돌려주고 성공으로 보이지 않는다", async () => {
   const send = (method: string, p: string, body?: unknown, cookie = adminCookie) =>
     fetch(base + p, {
       method,
@@ -120,10 +120,10 @@ test("Supabase 모드: 과목 생성·수정·공개 목록은 501을 돌려주�
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   const create = await send("POST", "/courses", { title: "x" });
-  assert.equal(create.status, 501);
+  assert.equal(create.status, 503);
   assert.match(((await create.json()) as { error: string }).error, /Supabase/);
-  assert.equal((await send("PATCH", "/courses/course-campus", { status: "inactive" })).status, 501);
-  assert.equal((await send("GET", "/public/courses")).status, 501);
-  // 관리자가 아니면 501보다 먼저 권한에서 막힌다
+  assert.equal((await send("PATCH", "/courses/course-campus", { status: "inactive" })).status, 503);
+  assert.equal((await send("GET", "/public/courses")).status, 503);
+  // 관리자가 아니면 503보다 먼저 권한에서 막힌다
   assert.equal((await send("POST", "/courses", { title: "x" }, "")).status, 401);
 });

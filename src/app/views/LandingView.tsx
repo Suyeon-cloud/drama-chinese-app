@@ -25,7 +25,7 @@ const PublicCourseList: React.FC = () => {
     setState({ kind: "loading" });
     courseStore.publicCourses().then(
       (courses) => setState({ kind: "ok", courses }),
-      // 서버 오류 문구 대신 같은 안내를 보여 준다. (연결 끊김·서버 오류·Supabase 미지원 501 모두)
+      // 서버 오류 문구 대신 같은 안내를 보여 준다. (연결 끊김·서버 오류 모두)
       (err: unknown) =>
         setState({
           kind: "error",

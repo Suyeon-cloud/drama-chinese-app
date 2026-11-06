@@ -3,7 +3,6 @@ import { COURSE_GROUPS, coursesInGroup, type CourseFormValues, type CourseGroup 
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
-import { getAuthBackend } from "../../lib/runtimeConfig";
 import { navigate } from "../../router";
 import { courseStore } from "../../store";
 import { useLessons, useStaffCourses } from "../../store/hooks";
@@ -12,20 +11,13 @@ import { PageIntro } from "./AdminShared";
 import { CourseLessonsTable, CourseOverviewCard, CourseTabs, SharedLessonNote } from "./CourseAdminShared";
 import { CourseForm, emptyCourseForm } from "./CourseForm";
 
-/** Supabase 운영 환경: 과목 생성·수정·상태 변경 API가 아직 없다(501). 화면에서 미리 막고, 서버도 501로 거부한다. */
-const SUPABASE_PENDING = "Supabase 운영 환경에서는 강의 생성·수정·비활성화를 아직 쓸 수 없어요. DB 준비 후 열려요.";
-
-const errorText = (err: unknown, fallback: string) =>
-  err instanceof ApiError ? (err.status === 501 ? SUPABASE_PENDING : err.message) : fallback;
+/** 서버 오류 문구(입력 오류 400·기존 자료 403·주차 축소 불가 409 등)를 그대로 보여 준다. */
+const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 
 const isGroup = (v: string | null): v is CourseGroup => v === "active" || v === "inactive" || v === "legacy";
 
 /** 과목 카드 아래 관리 동작: 정보 수정 · 비활성화/다시 운영 (확인 후). 기존 자료 과목에는 없다. */
-const CourseActions: React.FC<{ course: CourseOverview; minWeekCount: number; editable: boolean }> = ({
-  course,
-  minWeekCount,
-  editable,
-}) => {
+const CourseActions: React.FC<{ course: CourseOverview; minWeekCount: number }> = ({ course, minWeekCount }) => {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -89,13 +81,13 @@ const CourseActions: React.FC<{ course: CourseOverview; minWeekCount: number; ed
   return (
     <>
       <div className="row-start course-actions-row">
-        <button className="btn btn-soft btn-sm" onClick={() => setEditing(true)} disabled={!editable || busy}>
+        <button className="btn btn-soft btn-sm" onClick={() => setEditing(true)} disabled={busy}>
           ✏️ 정보 수정
         </button>
         <button
           className={`btn btn-sm ${nextStatus === "inactive" ? "btn-quiet" : "btn-primary"}`}
           onClick={() => setConfirming(true)}
-          disabled={!editable || busy || confirming}
+          disabled={busy || confirming}
         >
           {nextStatus === "inactive" ? "비활성화" : "다시 운영"}
         </button>
@@ -133,7 +125,6 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
   const [creating, setCreating] = useState(false);
   if (!courses || !lessons) return null;
 
-  const editable = getAuthBackend() !== "supabase";
   const selected = courses.find((c) => c.id === params.get("course"));
   const groupParam = params.get("group");
   const group: CourseGroup = selected && isGroup(selected.status) ? selected.status : isGroup(groupParam) ? groupParam : "active";
@@ -162,12 +153,10 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
         title="전체 강의·학습자료"
         desc="강의를 만들고, 강의별 주차 학습자료를 관리해요. 학습자료는 강의의 모든 분반이 함께 써요. 권장 학습 난이도는 실제 대사를 확인한 뒤 HSK 1~6급으로 정해요."
       >
-        <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)} disabled={!editable || creating}>
+        <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)} disabled={creating}>
           + 새 강의
         </button>
       </PageIntro>
-
-      {!editable ? <p className="scope-note">ℹ️ {SUPABASE_PENDING}</p> : null}
 
       {creating ? (
         <CourseForm
@@ -220,7 +209,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
                   편집은 계속돼요.
                 </p>
               ) : null}
-              <CourseActions key={active.id} course={active} minWeekCount={maxLessonWeek} editable={editable} />
+              <CourseActions key={active.id} course={active} minWeekCount={maxLessonWeek} />
               <SharedLessonNote />
             </>
           )}

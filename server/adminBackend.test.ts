@@ -62,6 +62,29 @@ test("AUTH_BACKEND=supabase인데 서버 설정이 없으면 관리자 데이터
   assert.equal((await fetch(`${base}/members`)).status, 401);
 });
 
+test("AUTH_BACKEND=supabase: 과목 생성·수정·공개 목록은 501이 아니라 Supabase 경로로 (입력 오류는 400, 설정 없으면 503, db.json에 쓰지 않음)", async () => {
+  const send = (method: string, p: string, body?: unknown) =>
+    fetch(base + p, { method, headers: { cookie, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const before = readFileSync(path.join(dir, "db.json"), "utf8");
+
+  assert.equal((await send("POST", "/courses", { title: " " })).status, 400);
+  assert.equal((await send("POST", "/courses", { title: "새 과목", id: "course-abcdef" })).status, 400);
+  assert.equal((await send("PATCH", "/courses/course-campus", { status: "legacy" })).status, 400);
+  assert.equal((await send("PATCH", "/courses/course-campus", {})).status, 400);
+
+  const created = await send("POST", "/courses", { title: "새 과목", weekCount: 8 });
+  assert.equal(created.status, 503);
+  assert.equal((await send("PATCH", "/courses/course-campus", { status: "inactive" })).status, 503);
+
+  const pub = await fetch(`${base}/public/courses`);
+  assert.equal(pub.status, 503);
+  assert.deepEqual(await pub.json(), { error: "과목 목록을 불러오지 못했어요." });
+
+  assert.equal(readFileSync(path.join(dir, "db.json"), "utf8"), before);
+  // 관리자 세션이 없으면 생성·수정은 막힌다.
+  assert.equal((await fetch(`${base}/courses`, { method: "POST" })).status, 401);
+});
+
 test("AUTH_BACKEND=supabase에서 SESSION_SECRET이 없으면 db.json의 키로 대신하지 않고 관리자 로그인을 막는다", async () => {
   const noSecretDir = mkdtempSync(path.join(tmpdir(), "zhuiju-backend-nosecret-"));
   const app = express();

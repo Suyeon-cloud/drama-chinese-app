@@ -10,8 +10,11 @@ import type { Lesson } from "../src/content/types";
 import { LESSON_SELECT, lessonConflictFrom, lessonsFromEmbedded } from "./lessonRows";
 import { feedbackFromRow, feedbackProblem, feedbackToRow } from "./feedbackRows";
 import { PROGRESS_SELECT, progressFromRow } from "./progressRows";
+import type { CourseFields, CoursePatch } from "./courseInput";
+import { sortCourses } from "../src/content/courseWeeks";
 import type {
   CourseOverview,
+  PublicCourse,
   FeedbackDraft,
   CourseStudent,
   Enrollment,
@@ -51,11 +54,40 @@ const toAdminError = (e: PgError): AdminDataError => {
   if (e.code === "23503") return new AdminDataError(409, "학습 기록이 있는 강의자료는 삭제할 수 없습니다. 준비 중 상태로 변경해주세요.");
   if (e.code === "42501") return new AdminDataError(403, e.message);
   if (e.code === "23505") return new AdminDataError(409, e.message);
+  // 과목 주차 수 축소 불가 (admin_update_course: 학습자료·학습 기록이 있는 주차보다 작게)
+  if (e.code === "23514") return new AdminDataError(409, e.message);
   if (e.code === "P0002") return new AdminDataError(404, e.message);
   if (e.code === "P0001" || e.code === "22023") return new AdminDataError(400, e.message);
   console.error("[supabase-admin]", e.code ?? "", e.message);
   return new AdminDataError(500, "Supabase 처리 중 오류가 났어요.");
 };
+/** 테스트용: DB 오류 코드 → 화면용 상태 */
+export const adminErrorFromPg = toAdminError;
+
+/** admin_update_course 인자: 보내지 않은 칸은 null (DB 함수가 null 칸은 그대로 둔다) */
+export const courseUpdateArgs = (courseId: string, patch: CoursePatch) => ({
+  p_course_id: courseId,
+  p_title: patch.title ?? null,
+  p_drama: patch.drama ?? null,
+  p_context: patch.context ?? null,
+  p_description: patch.description ?? null,
+  p_week_count: patch.weekCount ?? null,
+  p_status: patch.status ?? null,
+});
+
+/** 기존 분반에 교수자를 배정할 수 있는 과목 상태: 운영(active)·비활성(inactive). JSON 모드 isVisibleCourse와 같음 */
+export const isAssignableCourseStatus = (status: unknown) => status === "active" || status === "inactive";
+
+/** courses 행 → 로그인 전 소개 화면용 공개 과목 (분반·강의코드·수강생 정보 없음) */
+export const publicCourseFromRow = (c: Row): PublicCourse & { createdAt: string } => ({
+  id: String(c.id),
+  drama: String(c.drama ?? ""),
+  title: String(c.title ?? ""),
+  context: String(c.context ?? ""),
+  description: String(c.description ?? ""),
+  weekCount: Number(c.week_count),
+  createdAt: String(c.created_at ?? ""),
+});
 /** 목록·단건 조회 결과 (오류면 던진다). 목록이 비면 [] */
 const ok = <T>(r: { data: T | null; error: PgError | null }): NonNullable<T> => {
   if (r.error) throw toAdminError(r.error);
@@ -274,6 +306,42 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
       });
     },
 
+    /** 과목 하나 (관리자 목록과 같은 형태) */
+    async courseOverview(id: string): Promise<CourseOverview> {
+      const c = (await this.listCourses()).find((x) => x.id === id);
+      if (!c) throw new AdminDataError(404, "과목을 찾을 수 없어요.");
+      return c;
+    },
+
+    /** 새 과목 (admin_create_course): id는 DB가 만들고, 운영 중(active)·분반 없음. 입력은 API가 먼저 검사한다. */
+    async createCourse(input: CourseFields): Promise<CourseOverview> {
+      const c = ok(
+        await sb
+          .rpc("admin_create_course", {
+            p_title: input.title,
+            p_drama: input.drama,
+            p_context: input.context,
+            p_description: input.description,
+            p_week_count: input.weekCount,
+          }),
+      ) as Row;
+      return this.courseOverview(String(c.id));
+    },
+
+    /** 과목 수정 (admin_update_course): 보낸 칸만. 기존 자료 과목 403, 주차 축소 불가 409 (DB가 잠금 안에서 확인) */
+    async updateCourse(id: string, patch: CoursePatch): Promise<CourseOverview> {
+      ok(await sb.rpc("admin_update_course", courseUpdateArgs(id, patch)));
+      return this.courseOverview(id);
+    },
+
+    /** 로그인 전 공개 과목 목록: 운영 중(active) 과목만 */
+    async publicCourses(): Promise<PublicCourse[]> {
+      const rows = ok(
+        await sb.from("courses").select("id,drama,title,context,description,week_count,created_at").eq("status", "active"),
+      ) as Row[];
+      return sortCourses(rows.map(publicCourseFromRow)).map(({ createdAt: _createdAt, ...c }) => c);
+    },
+
     /** 분반 개설 (강의코드 생성·교강사 배정은 DB 함수가 한다. 학습자료는 만들지 않는다) */
     async createSection(courseId: string, body: Record<string, unknown>, by: string): Promise<SectionOverview> {
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 40) : null;
@@ -294,12 +362,12 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
       return sectionOverview(s as Row);
     },
 
-    /** 분반–교강사 배정 (등록된 교수자만, 같은 배정은 한 번만) */
+    /** 분반–교강사 배정 (등록된 교수자만, 같은 배정은 한 번만). 운영·비활성 과목의 기존 분반 (기존 자료 과목 제외) */
     async assignInstructor(sectionId: string, rawEmail: string, by: string) {
       const email = normalizeEmail(rawEmail);
       const s = okMaybe(await sb.from("sections").select("id,course_id,courses(status)").eq("id", sectionId).maybeSingle()) as Row | null;
       const courseStatus = (s?.courses as { status?: string } | null)?.status;
-      if (!s || courseStatus !== "active") throw new AdminDataError(404, "분반을 찾을 수 없어요.");
+      if (!s || !isAssignableCourseStatus(courseStatus)) throw new AdminDataError(404, "분반을 찾을 수 없어요.");
       if (!okMaybe(await sb.from("instructors").select("email").eq("email", email).maybeSingle())) {
         throw new AdminDataError(400, "교수자로 등록된 이메일만 배정할 수 있어요.");
       }
