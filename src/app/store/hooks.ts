@@ -7,6 +7,7 @@ import {
   instructorStore,
   learnerStore,
   lessonStore,
+  materialStore,
   progressStore,
 } from "./index";
 import type {
@@ -19,6 +20,7 @@ import type {
   InstructorRecord,
   LearnerProfile,
   LessonProgress,
+  WeekMaterial,
 } from "./models";
 
 /** 저장소 값을 읽고, 변경되면 다시 읽는다. 로딩 중에는 null. */
@@ -130,3 +132,39 @@ export const useEnrollments = (courseCode: string | null): Enrollment[] | null =
     enrollmentStore.subscribe,
     `enrollments:${courseCode ?? ""}`,
   );
+
+/**
+ * 과목의 주차별 보충 자료. enabled가 false면 부르지 않는다. (Supabase 운영 환경: 아직 제공하지 않음)
+ * 실패는 오류 상태로 돌려준다 — 화면이 빈 목록을 성공처럼 보여 주지 않게.
+ */
+export type MaterialsState =
+  | { state: "off" }
+  | { state: "loading" }
+  | { state: "error"; message: string }
+  | { state: "ready"; list: WeekMaterial[] };
+
+export const useWeekMaterials = (courseId: string, enabled: boolean): MaterialsState => {
+  const [value, setValue] = useState<MaterialsState>(enabled ? { state: "loading" } : { state: "off" });
+  useEffect(() => {
+    if (!enabled || !courseId) {
+      setValue({ state: "off" });
+      return;
+    }
+    let alive = true;
+    const run = () => {
+      materialStore.list(courseId).then(
+        (list) => alive && setValue({ state: "ready", list }),
+        (err: unknown) =>
+          alive && setValue({ state: "error", message: err instanceof Error ? err.message : "추가 자료를 불러오지 못했어요." }),
+      );
+    };
+    setValue({ state: "loading" });
+    run();
+    const off = materialStore.subscribe(run);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [courseId, enabled]);
+  return value;
+};

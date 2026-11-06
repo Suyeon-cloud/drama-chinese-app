@@ -33,13 +33,25 @@ import type {
   SessionUser,
 } from "../src/app/store/models";
 import type { Lesson } from "../src/content/types";
-import { sortCourses } from "../src/content/courseWeeks";
-import type { PublicCourse } from "../src/app/store/models";
+import { MAX_WEEK_COUNT, sortCourses } from "../src/content/courseWeeks";
+import type { PublicCourse, WeekMaterial } from "../src/app/store/models";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 import { feedbackProblem } from "./feedbackRows";
 import { lessonMoveProblem, resolveLessonCourseId } from "./lessonCourse";
 import { minWeekCountFor, newCourseId, parseCourseCreate, parseCoursePatch } from "./courseInput";
+import {
+  MAX_MATERIALS_PER_WEEK,
+  materialsForCourse,
+  newMaterialId,
+  nextPosition,
+  parseMaterialCreate,
+  parseMaterialOrder,
+  parseMaterialPatch,
+  publicMaterial,
+  renumberWeek,
+} from "./weekMaterials";
+import { materialOps } from "./materialRows";
 import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
 import {
   bearerToken,
@@ -50,6 +62,7 @@ import {
   listProgressFor,
   saveLessonAs,
   saveMyProgress,
+  toUserError,
   courseSummaryFromRow,
   createSupabaseUserResolver,
   enrollResult,
@@ -1126,7 +1139,9 @@ export const createApi = (db: Db, env: ApiEnv) => {
       const progressWeeks = Object.values(db.data.progress)
         .filter((p) => lessonIds.has(p.lessonId))
         .map((p) => p.week);
-      const min = minWeekCountFor(lessons.map((l) => l.week), progressWeeks);
+      // 주차별 보충 자료(비공개 포함)가 있는 주차도 지켜야 한다. (자료가 과목 주차 범위 밖에 남지 않게)
+      const materialWeeks = materialsForCourse(db.data.weekMaterials, course.id).map((m) => m.week);
+      const min = minWeekCountFor([...lessons.map((l) => l.week), ...materialWeeks], progressWeeks);
       if (patch.weekCount < min) {
         return res.status(409).json({ error: `${min}주차까지 학습자료나 학습 기록이 있어 ${min}주보다 적게 줄일 수 없어요.` });
       }
@@ -1156,6 +1171,152 @@ export const createApi = (db: Db, env: ApiEnv) => {
     } catch {
       res.status(500).json({ error: PUBLIC_COURSES_ERROR });
     }
+  });
+
+  /* ───────── 주차별 보충 학습자료 (외부 링크, JSON 모드) ───────── */
+  // - 과목 + 주차에 연결한다. 영상 학습자료(lessons)·학습 기록(progress)은 읽지도 바꾸지도 않는다.
+  // - 편집: 관리자(모든 과목, 기존 자료 과목 포함) · 운영 중 담당 분반이 있는 교수자 (비활성 과목 포함 — 강의자료 편집과 같은 규칙)
+  // - 열람: 편집할 수 있는 사람은 비공개 포함 전체, 수강 중인 승인 학습자는 공개(published) 자료만
+  // - Supabase(3-B): 관리자는 service-role로 admin_* RPC, 교수자·학생은 사용자 token으로 조회(RLS)와 교수자 RPC.
+  //   Express는 같은 입력 검사를 먼저 하고(주차는 1~30까지만), 과목 주차 범위·권한·개수 한도·순서 목록은 DB 함수가 최종 확인한다.
+
+  const materialActor = (req: Authed) => (isPlatformAdmin(req) ? "관리자" : req.user?.name?.trim() || req.user?.email || "교수자");
+  /** 비공개 포함 전체 열람: 편집 권한자 + 그 과목 분반 담당 교수자(비활성 분반만 담당해도 목록은 본다) */
+  const canSeeAllMaterials = (req: Authed, courseId: string) =>
+    canManageCourse(req, courseId) || (isStaff(req) && managedSectionIds(req, courseId).size > 0);
+  const canReadMaterials = (req: Authed, courseId: string) =>
+    canSeeAllMaterials(req, courseId) || (!isStaff(req) && isApproved(req) && learnerCourseIds(req.user!.id).has(courseId));
+  type MaterialOps = ReturnType<typeof materialOps>;
+  /** Supabase 경로 실행: 관리자는 admin_* RPC, 그 밖은 사용자 token (access: 사용자 경로의 권한 정보, 관리자는 null) */
+  const viaMaterials = (
+    req: Authed,
+    res: Response,
+    status: number,
+    work: (ops: MaterialOps, access: SupabaseAccess | null) => Promise<unknown>,
+  ) =>
+    isPlatformAdmin(req)
+      ? void viaSupabase(res.status(status), (st) => work(st.materials(materialActor(req)), null))
+      : void viaUser(req, res.status(status), (a) => work(materialOps(a.client, false, toUserError), a));
+
+  /** 과목의 보충 자료 (?week= 그 주차만). 편집 권한이 있으면 비공개 포함, 학습자는 공개 자료만 */
+  api.get("/courses/:id/materials", requireLogin, (req: Authed, res) => {
+    const courseId = req.params.id;
+    const week = typeof req.query.week === "string" && req.query.week ? Number(req.query.week) : null;
+    if (useSupabase) {
+      return viaMaterials(req, res, 200, async (ops, a) => {
+        // 사용자 경로: 담당 분반(비활성 포함)이 있는 교수자 또는 수강 중인 승인 학생만. 학생에게는 RLS가 published만 보낸다.
+        const staffView = !a || isStaff(req);
+        if (a && !(isStaff(req) ? a.mySections.some((s) => s.course_id === courseId) : a.learnerCourseIds.has(courseId))) {
+          throw new AdminDataError(404, "강의를 찾을 수 없어요.");
+        }
+        const all = (await ops.list(courseId)).filter((m) => week === null || m.week === week);
+        return staffView ? all : all.filter((m) => m.status === "published").map(publicMaterial);
+      });
+    }
+    if (!db.data.courses[courseId] || !canReadMaterials(req, courseId)) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    const all = materialsForCourse(db.data.weekMaterials, courseId).filter((m) => week === null || m.week === week);
+    res.json(canSeeAllMaterials(req, courseId) ? all : all.filter((m) => m.status === "published").map(publicMaterial));
+  });
+
+  /** 새 보충 자료 (링크). body: { week, title, description?, url, status? (기본 비공개) } — 그 주차 맨 뒤에 붙는다. */
+  api.post("/courses/:id/materials", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      const parsed = parseMaterialCreate(req.body, MAX_WEEK_COUNT);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const input = parsed.value;
+      return viaMaterials(req, res, 201, (ops) => ops.create(req.params.id, input));
+    }
+    const course = db.data.courses[req.params.id];
+    if (!course) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    if (!canManageCourse(req, course.id)) return res.status(403).json({ error: "담당 강의의 자료만 등록할 수 있어요." });
+    const parsed = parseMaterialCreate(req.body, course.weekCount);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const list = materialsForCourse(db.data.weekMaterials, course.id);
+    if (list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
+      return res.status(409).json({ error: `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.` });
+    }
+    const now = nowIso();
+    const material: WeekMaterial = {
+      id: newMaterialId((x) => !!db.data.weekMaterials[x]),
+      courseId: course.id,
+      kind: "link",
+      ...parsed.value,
+      position: nextPosition(list, parsed.value.week),
+      createdAt: now,
+      updatedAt: now,
+      updatedByLabel: materialActor(req),
+    };
+    db.data.weekMaterials[material.id] = material;
+    db.save();
+    res.status(201).json(material);
+  });
+
+  /** 보충 자료 수정 · 공개/비공개 전환 · 주차 이동 (보낸 칸만). 주차를 옮기면 그 주차 맨 뒤로 간다. */
+  api.patch("/materials/:id", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      const parsed = parseMaterialPatch(req.body, MAX_WEEK_COUNT);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const patch = parsed.value;
+      return viaMaterials(req, res, 200, (ops) => ops.update(req.params.id, patch));
+    }
+    const prev = db.data.weekMaterials[req.params.id];
+    const course = prev ? db.data.courses[prev.courseId] : undefined;
+    if (!prev || !course || !canManageCourse(req, course.id)) return res.status(404).json({ error: "자료를 찾을 수 없어요." });
+    const parsed = parseMaterialPatch(req.body, course.weekCount);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const list = materialsForCourse(db.data.weekMaterials, course.id);
+    const moving = parsed.value.week !== undefined && parsed.value.week !== prev.week;
+    if (moving && list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
+      return res.status(409).json({ error: `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.` });
+    }
+    const next: WeekMaterial = {
+      ...prev,
+      ...parsed.value,
+      position: moving ? nextPosition(list, parsed.value.week!) : prev.position,
+      updatedAt: nowIso(),
+      updatedByLabel: materialActor(req),
+    };
+    db.data.weekMaterials[prev.id] = next;
+    if (moving) renumberWeek(Object.values(db.data.weekMaterials).filter((m) => m.courseId === course.id), prev.week);
+    db.save();
+    res.json(next);
+  });
+
+  /** 보충 자료 삭제 (그 자료만, 같은 주차의 순서는 다시 매긴다) */
+  api.delete("/materials/:id", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaMaterials(req, res, 200, (ops) => ops.remove(req.params.id));
+    const prev = db.data.weekMaterials[req.params.id];
+    if (!prev || !canManageCourse(req, prev.courseId)) return res.status(404).json({ error: "자료를 찾을 수 없어요." });
+    delete db.data.weekMaterials[prev.id];
+    renumberWeek(Object.values(db.data.weekMaterials).filter((m) => m.courseId === prev.courseId), prev.week);
+    db.save();
+    res.json({ ok: true });
+  });
+
+  /** 한 주차의 자료 순서 변경. body: { week, ids: 그 주차 자료 id 전체를 새 순서로 } */
+  api.put("/courses/:id/materials/order", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      // 형식만 먼저 본다. 그 주차 자료 전체와 같은지는 DB 함수가 과목 잠금 안에서 확인한다(다르면 409).
+      const week = req.body?.week;
+      const ids = req.body?.ids;
+      const valid =
+        Number.isInteger(week) && week >= 1 && week <= MAX_WEEK_COUNT &&
+        Array.isArray(ids) && ids.length <= MAX_MATERIALS_PER_WEEK && ids.every((x: unknown) => typeof x === "string") &&
+        new Set(ids).size === ids.length;
+      if (!valid) return res.status(400).json({ error: "순서 정보 형식이 올바르지 않아요." });
+      return viaMaterials(req, res, 200, (ops) => ops.reorder(req.params.id, week as number, ids as string[]));
+    }
+    const course = db.data.courses[req.params.id];
+    if (!course) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    if (!canManageCourse(req, course.id)) return res.status(403).json({ error: "담당 강의의 자료만 정렬할 수 있어요." });
+    const list = materialsForCourse(db.data.weekMaterials, course.id);
+    const parsed = parseMaterialOrder(req.body, course.weekCount, list);
+    if (!parsed.ok) return res.status(409).json({ error: parsed.error });
+    parsed.value.ids.forEach((id, i) => {
+      db.data.weekMaterials[id].position = i;
+    });
+    db.save();
+    res.json(materialsForCourse(db.data.weekMaterials, course.id).filter((m) => m.week === parsed.value.week));
   });
 
   /* ───────── 분반 관리 (관리자) ───────── */

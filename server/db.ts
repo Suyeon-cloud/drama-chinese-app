@@ -22,6 +22,7 @@ import type {
   LessonProgress,
   Section,
   SectionInstructor,
+  WeekMaterial,
 } from "../src/app/store/models";
 import { DB_VERSION, migrateCourses } from "./courses";
 
@@ -48,6 +49,8 @@ export type DbData = {
   instructorNames: Record<string, string>;
   /** 수강 등록. key: sectionId::userId (기존 자료 과목의 예전 기록은 courseId::userId) */
   enrollments: Record<string, Enrollment>;
+  /** 주차별 보충 학습자료 (과목 + 주차, 강의자료와 별개). key: materialId — 이전 파일에는 없어 빈 값으로 시작한다. */
+  weekMaterials: Record<string, WeekMaterial>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
   /** 관리자가 화면에서 연결한 Anthropic API 키 (AI 학습 콘텐츠 생성). 화면에는 끝 4자리만 보여준다. */
@@ -68,6 +71,7 @@ const emptyDb = (): DbData => ({
   sectionInstructors: {},
   instructorNames: {},
   enrollments: {},
+  weekMaterials: {},
   sessionSecret: randomBytes(32).toString("hex"),
 });
 

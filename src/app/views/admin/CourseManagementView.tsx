@@ -5,11 +5,12 @@ import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { navigate } from "../../router";
 import { courseStore } from "../../store";
-import { useLessons, useStaffCourses } from "../../store/hooks";
+import { useLessons, useStaffCourses, useWeekMaterials } from "../../store/hooks";
 import type { CourseOverview, CoursePatchInput } from "../../store/models";
 import { PageIntro } from "./AdminShared";
 import { CourseLessonsTable, CourseOverviewCard, CourseTabs, SharedLessonNote } from "./CourseAdminShared";
 import { CourseForm, emptyCourseForm } from "./CourseForm";
+import { WeekMaterialsPanel } from "./WeekMaterialsPanel";
 
 /** 서버 오류 문구(입력 오류 400·기존 자료 403·주차 축소 불가 409 등)를 그대로 보여 준다. */
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -123,16 +124,20 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
   const lessons = useLessons();
   const toast = useToast();
   const [creating, setCreating] = useState(false);
-  if (!courses || !lessons) return null;
 
-  const selected = courses.find((c) => c.id === params.get("course"));
+  const selected = courses?.find((c) => c.id === params.get("course"));
   const groupParam = params.get("group");
   const group: CourseGroup = selected && isGroup(selected.status) ? selected.status : isGroup(groupParam) ? groupParam : "active";
-  const list = coursesInGroup(courses, group);
+  const list = courses ? coursesInGroup(courses, group) : [];
   const active = selected && list.includes(selected) ? selected : list[0];
+  // 주차별 추가 자료 (JSON·Supabase 공통). 주차 수 축소 하한에도 쓴다.
+  const materials = useWeekMaterials(active?.id ?? "", true);
+  if (!courses || !lessons) return null;
+
   const groupInfo = COURSE_GROUPS.find((g) => g.id === group)!;
+  const materialWeeks = materials.state === "ready" ? materials.list.map((m) => m.week) : [];
   const maxLessonWeek = active
-    ? Math.max(0, ...lessons.filter((l) => l.courseId === active.id).map((l) => l.week))
+    ? Math.max(0, ...lessons.filter((l) => l.courseId === active.id).map((l) => l.week), ...materialWeeks)
     : 0;
 
   const create = async (v: CourseFormValues): Promise<string | null> => {
@@ -215,6 +220,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
           )}
 
           <CourseLessonsTable courseId={active.id} weekCount={active.weekCount} lessons={lessons} />
+          <WeekMaterialsPanel key={active.id} courseId={active.id} weekCount={active.weekCount} materials={materials} editable />
         </>
       )}
     </div>

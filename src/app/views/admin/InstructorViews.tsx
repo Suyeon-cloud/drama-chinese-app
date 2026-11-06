@@ -5,7 +5,8 @@ import React from "react";
 import { weekRangeLabel } from "../../../content/courseWeeks";
 import { useAuth } from "../../auth/AuthContext";
 import { navigate } from "../../router";
-import { useLessons, useStaffCourses } from "../../store/hooks";
+import { useLessons, useStaffCourses, useWeekMaterials } from "../../store/hooks";
+import { WeekMaterialsPanel } from "./WeekMaterialsPanel";
 import { PageIntro } from "./AdminShared";
 import {
   CourseLessonsTable,
@@ -61,6 +62,12 @@ export const InstructorHomeView: React.FC = () => {
       )}
     </div>
   );
+};
+
+/** 주차별 추가 자료 (과목 공통) */
+const CourseMaterials: React.FC<{ courseId: string; weekCount: number; editable: boolean }> = ({ courseId, weekCount, editable }) => {
+  const materials = useWeekMaterials(courseId, true);
+  return <WeekMaterialsPanel courseId={courseId} weekCount={weekCount} materials={materials} editable={editable} />;
 };
 
 type Tab = "students" | "lessons";
@@ -150,6 +157,12 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
         <div className="scope-panel course">
           <SharedLessonNote />
           <CourseLessonsTable courseId={course.id} weekCount={course.weekCount} lessons={lessons} sectionId={section.id} />
+          {/* 추가 자료 편집: 이 과목에 운영 중인 담당 분반이 있을 때 (서버도 같은 기준으로 다시 확인한다) */}
+          <CourseMaterials
+            courseId={course.id}
+            weekCount={course.weekCount}
+            editable={course.sections.some((s) => s.status === "active")}
+          />
         </div>
       )}
     </div>

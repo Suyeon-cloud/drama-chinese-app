@@ -24,6 +24,7 @@ import { isPlainSynced, playbackCues } from "../lib/subtitles";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { CourseBackLink } from "./CourseView";
 import { TextLessonView } from "./TextLessonView";
+import { LessonWeekMaterials } from "./admin/WeekMaterialsPanel";
 
 /** ?lesson=ID → ?ep=에피소드ID(1차 판본 링크) → 공개된 첫 강의자료 */
 const pickLesson = (lessons: Lesson[], params: URLSearchParams): Lesson | null => {
@@ -250,6 +251,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
   return (
     <div className="drama-page">
       <CourseBackLink courseId={lesson.courseId} />
+      <LessonWeekMaterials courseId={lesson.courseId} week={lesson.week} />
       <div className="drama-layout">
         <section className="card video-card">
           <div className="video-head">

@@ -1340,6 +1340,21 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .course-actions-row { margin: -4px 0 12px; }
 .course-status-confirm { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .course-group-filter { margin: 4px 0 14px; }
+/* 주차별 추가 자료 (교수자·관리자 패널, 학생 목록) */
+.material-panel { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.material-head .section-title { margin: 0 0 4px; }
+.material-week-pick { min-width: 160px; }
+.material-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: var(--sky-50); }
+.field-check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.material-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.material-row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.material-row.is-editing { display: block; }
+.material-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 260px; }
+.material-main p { margin: 0; word-break: keep-all; }
+.material-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.material-link { font-weight: 700; color: var(--sky-700); word-break: break-all; }
+.material-student-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .nowrap { white-space: nowrap; }
 .week-locked { background: var(--sky-50); box-shadow: none; min-height: 110px; cursor: default; }
 .week-locked .week-title { color: var(--ink-2); }
@@ -1588,3 +1603,5 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 /* Supabase 로그인 확인 (개발용) */
 /* 로그인 전 소개: 강의 목록 불러오는 중·오류 */
 .journey-status { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; }
+.lesson-materials { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.material-link.is-file { color: var(--ink-2); }

@@ -148,6 +148,39 @@ export type CourseInput = { title: string; drama: string; context: string; descr
 /** 관리자 과목 수정 입력 (PATCH /api/courses/:id): 보낸 칸만 바뀐다. 상태는 active ↔ inactive만 */
 export type CoursePatchInput = Partial<CourseInput> & { status?: "active" | "inactive" };
 
+/**
+ * 주차별 보충 학습자료 (과목 + 주차에 연결, 영상 학습자료(lesson)와 별개). 한 주차에 여러 개, position 순서.
+ * kind: link(외부 링크) · file(파일 — 등록·열기는 3-C). HTML은 4단계에서 더한다.
+ * status: draft는 교수자·관리자만, published는 그 과목 수강생에게도 보인다.
+ */
+export type WeekMaterialKind = "link" | "file";
+export type WeekMaterialStatus = "draft" | "published";
+export type WeekMaterial = {
+  id: string;
+  courseId: string;
+  week: number;
+  kind: WeekMaterialKind;
+  title: string;
+  description: string;
+  /** link: https 주소 (file은 빈 값) */
+  url: string;
+  /** file 자료 정보 (3-C). 저장 경로는 화면에 보내지 않는다. */
+  fileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  status: WeekMaterialStatus;
+  /** 같은 주차 안의 순서 (0부터) */
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  /** 마지막으로 저장한 사람 표시 (교수자·관리자에게만 보낸다) */
+  updatedByLabel?: string | null;
+};
+/** 보충 자료 등록 (POST /api/courses/:id/materials) */
+export type WeekMaterialInput = { week: number; title: string; description?: string; url: string; status?: WeekMaterialStatus };
+/** 보충 자료 수정 (PATCH /api/materials/:id): 보낸 칸만 바뀐다. 주차를 바꾸면 그 주차의 맨 뒤로 간다. */
+export type WeekMaterialPatch = Partial<Omit<WeekMaterialInput, "status">> & { status?: WeekMaterialStatus };
+
 /** 이전 이름 (1과목 시절 GET /api/course 응답) */
 export type CourseInfo = Course;
 

@@ -124,6 +124,23 @@ test("Supabase 모드(설정 없음): 과목 생성·수정·공개 목록은 50
   assert.match(((await create.json()) as { error: string }).error, /Supabase/);
   assert.equal((await send("PATCH", "/courses/course-campus", { status: "inactive" })).status, 503);
   assert.equal((await send("GET", "/public/courses")).status, 503);
+  // 주차별 보충 자료: Supabase 경로로 간다 — 서버 설정이 없으면 관리자 요청은 503 (db.json으로 몰래 돌아가지 않음)
+  for (const [method, p, body] of [
+    ["GET", "/courses/course-campus/materials", undefined],
+    ["POST", "/courses/course-campus/materials", { week: 1, title: "x", url: "https://a.com" }],
+    ["PATCH", "/materials/material-x", { title: "x" }],
+    ["DELETE", "/materials/material-x", undefined],
+    ["PUT", "/courses/course-campus/materials/order", { week: 1, ids: [] }],
+  ] as const) {
+    const r = await send(method, p, body);
+    assert.equal(r.status, 503, `${method} ${p}`);
+    assert.match(((await r.json()) as { error: string }).error, /SUPABASE_URL/);
+  }
+  // 입력 오류는 Supabase에 보내기 전에 400
+  assert.equal((await send("POST", "/courses/course-campus/materials", { week: 1, title: "x", url: "http://a.com" })).status, 400);
+  assert.equal((await send("PUT", "/courses/course-campus/materials/order", { week: 1, ids: "x" })).status, 400);
+  // 학생·교수자(Supabase token 없음)는 401
+  assert.equal((await send("GET", "/courses/course-campus/materials", undefined, "")).status, 401);
   // 관리자가 아니면 503보다 먼저 권한에서 막힌다
   assert.equal((await send("POST", "/courses", { title: "x" }, "")).status, 401);
 });

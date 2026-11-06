@@ -8,6 +8,7 @@ import { QuizCard } from "../learning/QuizCard";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { navigate } from "../router";
 import { CourseBackLink } from "./CourseView";
+import { LessonWeekMaterials } from "./admin/WeekMaterialsPanel";
 import { progressStore } from "../store";
 import { nowIso } from "../store/localJson";
 import { emptyProgress } from "../store/progressStore";
@@ -60,6 +61,7 @@ export const TextLessonView: React.FC<{ lesson: Lesson }> = ({ lesson }) => {
   return (
     <div className="page text-lesson">
       <CourseBackLink courseId={lesson.courseId} />
+      <LessonWeekMaterials courseId={lesson.courseId} week={lesson.week} />
       <section className="card">
         <span className="row-start">
           <span className="pill pill-sky">{lesson.week}주차</span>

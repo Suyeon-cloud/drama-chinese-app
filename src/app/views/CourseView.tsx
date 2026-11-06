@@ -4,8 +4,9 @@ import { recommendedLevelLabel } from "../../content/levels";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { navigate } from "../router";
-import { useCurriculum, useLessons, useUserProgress } from "../store/hooks";
-import type { CurriculumWeek, LessonProgress } from "../store/models";
+import { useCurriculum, useLessons, useUserProgress, useWeekMaterials } from "../store/hooks";
+import type { CurriculumWeek, LessonProgress, WeekMaterial } from "../store/models";
+import { WeekMaterialList } from "./admin/WeekMaterialsPanel";
 import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 import { SectionLine } from "./MyCoursesView";
 
@@ -29,6 +30,8 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
   const progress = useUserProgress(user?.role === "learner" ? user.id : null);
   // 권장 수준·소개 문구: 공개 주차의 강의자료에서 읽는다. (준비 중 주차의 내용은 서버가 보내지 않는다)
   const lessons = useLessons();
+  // 주차별 추가 자료 (학습자: 공개 자료만 — 서버·RLS가 거른다)
+  const materials = useWeekMaterials(courseId, user?.role === "learner");
 
   if (data === undefined) return null;
   if (!data) {
@@ -51,6 +54,8 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
   const openCount = weeks.filter((w) => w.status === "published").length;
   const completed = weeks.filter((w) => progress?.find((p) => p.lessonId === w.lessonId)?.completedAt).length;
   const v = COURSE_VISUALS[course.id];
+  const materialsOf = (week: number): WeekMaterial[] =>
+    materials.state === "ready" ? materials.list.filter((m) => m.week === week && m.status === "published") : [];
 
   return (
     <div className="page">
@@ -80,6 +85,11 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
       </section>
 
       <h3 className="section-title">주차별 학습</h3>
+      {materials.state === "error" ? (
+        <p className="muted small" role="status">
+          주차별 추가 자료를 불러오지 못했어요. 잠시 후 새로고침해 주세요.
+        </p>
+      ) : null}
       <ol className="week-list">
         {weekNumbers.map((week) => {
           const w = byWeek.get(week);
@@ -89,12 +99,14 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
               week={w}
               lesson={lessons?.find((l) => l.id === w.lessonId)}
               record={progress?.find((p) => p.lessonId === w.lessonId)}
+              materials={materialsOf(week)}
             />
           ) : (
             <li key={week} className="week-row is-locked">
               <span className="week-no">{week}주차</span>
               <div className="week-row-main">
                 <b>학습자료 준비 중</b>
+                <WeekMaterialList items={materialsOf(week)} />
               </div>
               <span className="pill pill-cream">준비 중</span>
             </li>
@@ -106,10 +118,11 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
 };
 
 /** 주차 한 줄: 주차 · 학습 주제 · 권장 수준 · 진행 상태 · 학습 버튼. 공개되지 않은 주차는 들어가지 않는다. (서버도 학습 콘텐츠를 보내지 않는다) */
-const WeekRow: React.FC<{ week: CurriculumWeek; lesson?: Lesson; record?: LessonProgress }> = ({
+const WeekRow: React.FC<{ week: CurriculumWeek; lesson?: Lesson; record?: LessonProgress; materials: WeekMaterial[] }> = ({
   week,
   lesson,
   record,
+  materials,
 }) => {
   if (week.status !== "published") {
     return (
@@ -117,6 +130,7 @@ const WeekRow: React.FC<{ week: CurriculumWeek; lesson?: Lesson; record?: Lesson
         <span className="week-no">{week.week}주차</span>
         <div className="week-row-main">
           <b>{week.title}</b>
+          <WeekMaterialList items={materials} />
         </div>
         <span className="pill pill-cream">🔒 준비 중</span>
       </li>
@@ -141,6 +155,7 @@ const WeekRow: React.FC<{ week: CurriculumWeek; lesson?: Lesson; record?: Lesson
             <span className="pill pill-mint">학습 가능</span>
           )}
         </span>
+        <WeekMaterialList items={materials} />
       </div>
       <button className="btn btn-primary btn-sm" onClick={open}>
         {record?.completedAt ? "다시 보기" : record?.startedAt ? "이어서 학습" : "학습 시작"}

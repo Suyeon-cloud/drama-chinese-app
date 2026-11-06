@@ -11,6 +11,7 @@ import { LESSON_SELECT, lessonConflictFrom, lessonsFromEmbedded } from "./lesson
 import { feedbackFromRow, feedbackProblem, feedbackToRow } from "./feedbackRows";
 import { PROGRESS_SELECT, progressFromRow } from "./progressRows";
 import type { CourseFields, CoursePatch } from "./courseInput";
+import { materialOps } from "./materialRows";
 import { sortCourses } from "../src/content/courseWeeks";
 import type {
   CourseOverview,
@@ -332,6 +333,11 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
     async updateCourse(id: string, patch: CoursePatch): Promise<CourseOverview> {
       ok(await sb.rpc("admin_update_course", courseUpdateArgs(id, patch)));
       return this.courseOverview(id);
+    },
+
+    /** 주차별 보충 자료 (admin_* RPC, 기존 자료 과목 포함). label: 마지막 수정자 표시 */
+    materials(label: string) {
+      return materialOps(sb, true, toAdminError, label);
     },
 
     /** 로그인 전 공개 과목 목록: 운영 중(active) 과목만 */

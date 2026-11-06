@@ -46,7 +46,9 @@ const expectOnly = (before: string, after: string, edits: [string | RegExp, stri
 
 test("Phase E1: 마지막 마이그레이션이고 추가형이다 (테이블·행을 지우거나 고치지 않는다)", () => {
   assert.ok(E1_FILE, "Phase E1 마이그레이션 파일");
-  assert.equal(migFiles[migFiles.length - 1], E1_FILE);
+  // E1은 D단계 뒤에 온다. (그 뒤에 3-B 등 다음 단계 마이그레이션이 이어질 수 있다)
+  const lastD = Math.max(...migFiles.map((f, i) => (/_phase_d\d/.test(f) ? i : -1)));
+  assert.ok(migFiles.indexOf(E1_FILE!) > lastD);
   const top = code(E1);
   assert.doesNotMatch(top, /\bdrop\s+table\b/i);
   assert.doesNotMatch(top, /\btruncate\b/i);

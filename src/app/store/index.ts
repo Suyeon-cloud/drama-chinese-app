@@ -9,6 +9,7 @@ import { createRemoteFeedbackStore, type FeedbackStore } from "./feedbackStore";
 import { createRemoteInstructorStore, type InstructorStore } from "./instructorStore";
 import { createRemoteLearnerStore, type LearnerStore } from "./learnerStore";
 import { createRemoteLessonStore, type LessonStore } from "./lessonStore";
+import { createRemoteMaterialStore, type MaterialStore } from "./materialStore";
 import { createRemoteProgressStore, type ProgressStore } from "./progressStore";
 
 export const lessonStore: LessonStore = createRemoteLessonStore();
@@ -18,3 +19,4 @@ export const feedbackStore: FeedbackStore = createRemoteFeedbackStore();
 export const instructorStore: InstructorStore = createRemoteInstructorStore();
 export const courseStore: CourseStore = createRemoteCourseStore();
 export const enrollmentStore: EnrollmentStore = createRemoteEnrollmentStore();
+export const materialStore: MaterialStore = createRemoteMaterialStore();
