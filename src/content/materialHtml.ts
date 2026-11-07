@@ -99,3 +99,11 @@ export const materialHtmlFileName = (title: string) => {
 
 /** 공유 링크 (앱 내부 주소 — 열 때 로그인·수강 권한을 확인한다) */
 export const materialShareHash = (materialId: string) => `#/material?id=${encodeURIComponent(materialId)}`;
+
+/**
+ * 앱 안 srcDoc iframe 표시용: 같은 문서 안 앵커(href="#…")를 href="about:srcdoc#…"로 바꾼다.
+ * srcDoc 문서의 상대 주소는 부모(앱) 주소를 기준으로 해석돼, "#lines"가 앱 주소로의 이동이 되어 sandbox 안에서 빈 화면이 된다.
+ * 태그 안의 href 속성만 바꾼다 (본문 글자·data-href·외부 링크는 그대로). 저장·내려받기 문서에는 쓰지 않는다 — 파일에서는 "#…"가 그대로 동작한다.
+ */
+export const srcdocAnchors = (html: string) =>
+  html.replace(/<[a-zA-Z][^>]*>/g, (tag) => tag.replace(/(\shref\s*=\s*)(["']?)#/gi, "$1$2about:srcdoc#"));

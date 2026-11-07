@@ -18,6 +18,7 @@ import {
   materialHtmlFileName,
   materialHtmlProblem,
   materialShareHash,
+  srcdocAnchors,
 } from "../src/content/materialHtml";
 import { buildLessonDeck, deckToReviewHtml, reviewTitle } from "../src/content/lessonDeck";
 import { SEED_LESSONS, resolveLessonContent } from "../src/content/lessons";
@@ -93,6 +94,37 @@ test("HTML 문서: 맨 앞에 charset·CSP, 원본 head는 CSP 뒤·body는 body
   assert.equal(materialHtmlFileName("关于中韩龙虎俗语的对比研究 (1)"), "关于中韩龙虎俗语的对比研究 (1).html");
   assert.equal(materialHtmlFileName("..."), "학습자료.html");
   assert.equal(materialShareHash("material-abc123"), "#/material?id=material-abc123");
+});
+
+test("srcDoc 앵커: 태그 안 href=#…만 about:srcdoc#…로 (따옴표 유무·대소문자·공백), 외부 링크·본문 글자·data-href·다운로드 문서는 그대로", () => {
+  assert.equal(srcdocAnchors('<a href="#lines">대사</a>'), '<a href="about:srcdoc#lines">대사</a>');
+  assert.equal(srcdocAnchors("<a href='#quiz'>퀴즈</a>"), "<a href='about:srcdoc#quiz'>퀴즈</a>");
+  assert.equal(srcdocAnchors("<a href=#top>위로</a>"), "<a href=about:srcdoc#top>위로</a>");
+  assert.equal(srcdocAnchors('<A class="x" HREF = "#a">A</A>'), '<A class="x" HREF = "about:srcdoc#a">A</A>');
+  assert.equal(srcdocAnchors('<a\nhref="#n">줄바꿈</a>'), '<a\nhref="about:srcdoc#n">줄바꿈</a>');
+  // 그대로 두는 것
+  for (const keep of [
+    '<a href="https://example.com/#frag">외부</a>',
+    '<a href="page.html#x">상대 경로</a>',
+    '<a href="about:srcdoc#done">이미 바뀐 것</a>',
+    '<div data-href="#x">data 속성</div>',
+    '<p>본문에 href="#x" 라는 글자가 있어도</p>',
+    "<pre>&lt;a href=\"#x\"&gt;예시&lt;/a&gt;</pre>",
+    '<h2 id="lines">장면 대사</h2>',
+  ]) {
+    const out = srcdocAnchors(keep);
+    if (keep.startsWith("<p>")) assert.equal(out, keep, "본문 글자");
+    else assert.equal(out, keep, keep);
+  }
+  // 복습 HTML 목차: 표시용만 바뀌고 다운로드 문서(materialHtmlDocument)는 그대로
+  const page = '<nav class="toc"><a href="#lines">장면 대사</a> · <a href="#quiz">퀴즈</a></nav><h2 id="lines">장면 대사</h2><h2 id="quiz">퀴즈</h2>';
+  const download = materialHtmlDocument("복습", page);
+  assert.ok(download.includes('href="#lines"') && !download.includes("about:srcdoc"), "다운로드 문서는 #… 그대로");
+  const shown = srcdocAnchors(download);
+  assert.ok(shown.includes('href="about:srcdoc#lines"') && shown.includes('href="about:srcdoc#quiz"'));
+  assert.ok(shown.includes('<h2 id="lines">'), "대상 id는 그대로");
+  assert.equal(shown.replace(/about:srcdoc#/g, "#"), download, "바뀐 곳은 앵커 href뿐");
+  assert.equal(materialHtmlProblem(srcdocAnchors(page)), null, "바꾼 본문도 4단계 검사 통과 (about:srcdoc#은 금지 주소가 아님)");
 });
 
 /* ───────── 2) JSON 모드 실제 API (임시 폴더) ───────── */

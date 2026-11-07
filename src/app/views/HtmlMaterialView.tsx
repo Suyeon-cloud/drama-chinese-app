@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { materialHtmlDocument, materialHtmlFileName, materialShareHash } from "../../content/materialHtml";
+import { materialHtmlDocument, materialHtmlFileName, materialShareHash, srcdocAnchors } from "../../content/materialHtml";
 import { useToast } from "../components/Toast";
 import { ApiError } from "../lib/api";
 import { materialStore } from "../store";
@@ -10,7 +10,8 @@ import type { WeekMaterialHtml } from "../store/models";
  * sandbox="" — 스크립트·같은 출처 권한·팝업·양식·상위 창 이동 모두 없음. 문서 맨 앞의 CSP가 외부 리소스·스크립트를 한 번 더 막는다.
  */
 export const HtmlMaterialFrame: React.FC<{ title: string; html: string; height?: string }> = ({ title, html, height = "70vh" }) => {
-  const doc = useMemo(() => materialHtmlDocument(title, html), [title, html]);
+  // 목차 등 문서 안 앵커가 앱 주소로 이동하지 않게 (표시용 문서에만 적용)
+  const doc = useMemo(() => srcdocAnchors(materialHtmlDocument(title, html)), [title, html]);
   return (
     // eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion
     <iframe
