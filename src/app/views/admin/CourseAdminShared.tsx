@@ -320,6 +320,9 @@ export const CourseLessonsTable: React.FC<{
                   >
                     미리보기
                   </button>
+                  <button className="link-btn" onClick={() => navigate("present", { lesson: lesson.id })}>
+                    발표 모드
+                  </button>
                   {pendingMove?.id === lesson.id ? (
                     <span className="week-move-confirm">
                       <span className="small">

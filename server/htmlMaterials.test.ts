@@ -19,6 +19,9 @@ import {
   materialHtmlProblem,
   materialShareHash,
 } from "../src/content/materialHtml";
+import { buildLessonDeck, deckToReviewHtml, reviewTitle } from "../src/content/lessonDeck";
+import { SEED_LESSONS, resolveLessonContent } from "../src/content/lessons";
+import { playbackCues } from "../src/app/lib/subtitles";
 import { createApi, readApiEnv } from "./api";
 import { openDb, type Db } from "./db";
 import { SAMPLE_FILES } from "./testZip";
@@ -302,6 +305,18 @@ test("비활성 과목: 담당 교수자 HTML 등록·수강생 공개 HTML 열�
   } finally {
     assert.equal((await call("PATCH", `/courses/${COURSE}`, adminCookie, { status: "active" })).status, 200);
   }
+});
+
+test("5단계 재사용: 학습 데이터로 만든 복습 HTML을 4단계 API 그대로 비공개 등록·수정, 학생은 공개 전에는 못 연다", async () => {
+  const lesson = { ...SEED_LESSONS.find((l) => l.id === "lesson-yjrzm-ep3")!, courseId: COURSE, week: 2 };
+  const deck = buildLessonDeck({ lesson, content: resolveLessonContent(lesson), cues: playbackCues(lesson) });
+  const created = await createHtml(google(T), { week: deck.week, title: reviewTitle(deck), html: deckToReviewHtml(deck, { includeAnswers: false }), status: "draft" });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.status, "draft", "자동 공개하지 않는다");
+  assert.equal((await call("GET", `/materials/${created.body.id}/html`, learner("s1"))).status, 404);
+  const again = await call("PATCH", `/materials/${created.body.id}`, google(T), { html: deckToReviewHtml(deck, { includeAnswers: true }) });
+  assert.equal(again.status, 200, "다시 생성한 문서로 수정");
+  assert.equal((await call("DELETE", `/materials/${created.body.id}`, google(T))).status, 200);
 });
 
 test("HTML 자료 작업은 강의자료·학습 기록·수강 등록을 바꾸지 않는다", () => {

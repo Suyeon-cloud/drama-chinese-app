@@ -1054,15 +1054,16 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .video-frame .lens-panel h3 { font-size: 13px; line-height: 1.35; margin-bottom: 6px; }
   .video-frame .lens-panel .lens-sub, .video-frame .lens-panel .lens-text, .video-frame .lens-panel .lens-caution, .video-frame .lens-panel .relation { display: none; }
   .video-frame .lens-close { width: 24px; height: 24px; }
-  .video-frame .caption-mask { left: 3% !important; width: 94% !important; }
+  .video-frame:not(.present-frame) .caption-mask { left: 3% !important; width: 94% !important; }
 }
 /* 자막 패널: 학습 화면의 작은 영상에서는 3줄이 잘리지 않도록 패널을 위로 늘린다. 아래쪽 위치와 최소 높이는 패널 설정(CaptionMaskBox)을 따른다.
-   편집 화면 미리보기는 슬라이더 값 그대로 보여준다. */
+   편집 화면 미리보기는 슬라이더 값 그대로 보여준다.
+   발표 모드(.present-frame)는 영상 크기와 상관없이 저장된 패널 위치·크기(영상 대비 %)를 그대로 쓴다 — 분할·영상 크게·전체 화면에서 같은 위치. */
 @container (max-width: 700px) {
-  .video-frame .caption-mask { top: auto !important; bottom: var(--mask-bottom, 10%); height: auto !important; min-height: var(--mask-height, 12%); padding: 3px 8px; }
-  .video-frame .ko-subtitle.in-mask span { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 2; }
-  .video-frame .ko-subtitle.in-mask.multi span + span { font-size: 11px; }
-  .video-frame .ko-subtitle.in-mask.multi span.sub-py { font-size: 10.5px; -webkit-line-clamp: 1; }
+  .video-frame:not(.present-frame) .caption-mask { top: auto !important; bottom: var(--mask-bottom, 10%); height: auto !important; min-height: var(--mask-height, 12%); padding: 3px 8px; }
+  .video-frame:not(.present-frame) .ko-subtitle.in-mask span { font-size: 13px; line-height: 1.25; -webkit-line-clamp: 2; }
+  .video-frame:not(.present-frame) .ko-subtitle.in-mask.multi span + span { font-size: 11px; }
+  .video-frame:not(.present-frame) .ko-subtitle.in-mask.multi span.sub-py { font-size: 10.5px; -webkit-line-clamp: 1; }
 }
 .script-py { display: block; color: var(--sky-600); font-size: 12px; }
 .script-py.veiled { filter: blur(5px); user-select: none; }
@@ -1607,3 +1608,59 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .material-link.is-file { color: var(--ink-2); }
 .material-file-buttons { gap: 6px; }
 .material-file-buttons .link-btn { padding: 0; text-align: left; }
+
+/* ───────── 5단계: 교수자 발표 모드 (#/present) ───────── */
+.present-page { max-width: none; }
+.present-stage {
+  display: flex; flex-direction: column; gap: 12px; background: var(--card, #fff);
+  border-radius: 20px; padding: 16px; outline: none; min-height: calc(100vh - 160px);
+}
+.present-stage.is-fullscreen { border-radius: 0; min-height: 100vh; padding: 20px 28px; background: #fff; }
+.present-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.present-title b { font-size: 1.1rem; }
+.present-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.present-main { flex: 1; display: grid; gap: 16px; min-height: 0; }
+.layout-split .present-main { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+.layout-video .present-main { grid-template-columns: minmax(0, 1fr); }
+.layout-slide .present-main { grid-template-columns: minmax(0, 1fr); }
+.present-video { display: flex; flex-direction: column; gap: 8px; }
+/* 영상 프레임은 항상 16:9 (높이를 자르지 않고 너비를 줄인다) — 자막·패널의 % 위치가 영상 화면과 일치 */
+.present-video .video-frame.present-frame { width: min(100%, calc((100vh - 230px) * 16 / 9)); margin: 0 auto; }
+.present-stage.is-fullscreen .present-video .video-frame.present-frame { width: min(100%, calc((100vh - 170px) * 16 / 9)); }
+.present-video-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.present-slide { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.present-card {
+  border: 1px solid var(--line, #d0d7de); border-radius: 16px; padding: clamp(16px, 3vw, 40px);
+  min-height: 40vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; overflow-wrap: anywhere;
+}
+.present-card.is-title { text-align: center; align-items: center; }
+.present-section { color: #6e7781; font-size: clamp(0.9rem, 1.4vw, 1.2rem); font-weight: 700; letter-spacing: 0.02em; }
+.present-h1 { font-size: clamp(2rem, 5vw, 4.2rem); line-height: 1.2; margin: 0; }
+.present-h2 { font-size: clamp(1.5rem, 3vw, 2.6rem); line-height: 1.3; margin: 0; }
+.present-zh { font-size: clamp(2.2rem, 5.5vw, 5rem); line-height: 1.25; font-weight: 700; }
+.layout-split .present-zh { font-size: clamp(1.8rem, 3.6vw, 3.6rem); }
+.present-py { color: #8250df; font-size: clamp(1.1rem, 2.4vw, 2rem); }
+.present-ko { font-size: clamp(1.2rem, 2.6vw, 2.2rem); color: #24292f; }
+.present-sub { font-size: clamp(1rem, 2vw, 1.6rem); color: #57606a; margin: 0; }
+.present-text { font-size: clamp(1rem, 1.9vw, 1.6rem); line-height: 1.6; margin: 0; }
+.present-options { font-size: clamp(1.1rem, 2.4vw, 2rem); line-height: 1.6; padding-left: 1.6em; margin: 0; }
+.present-options .is-answer { color: #1a7f37; font-weight: 700; }
+.present-explain { border-top: 1px dashed #d0d7de; padding-top: 10px; color: #1a7f37; }
+.present-dialogue { font-size: clamp(1rem, 2vw, 1.6rem); padding-left: 1.4em; margin: 0; display: grid; gap: 8px; }
+.present-role { margin-right: 8px; color: #0969da; }
+.present-reveal { align-self: flex-start; }
+.present-bottom { display: flex; align-items: center; gap: 12px; }
+.present-progress { flex: 1; height: 6px; background: #eaeef2; border-radius: 99px; overflow: hidden; }
+.present-progress span { display: block; height: 100%; background: var(--primary, #4f9fe8); transition: width 0.2s; }
+.present-keys { margin: 0; text-align: center; }
+.present-review { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+@media (max-width: 900px) {
+  .layout-split .present-main { grid-template-columns: minmax(0, 1fr); }
+}
+.present-sections { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.present-sections button {
+  border: 1px solid var(--line, #d0d7de); background: transparent; border-radius: 99px; padding: 2px 10px;
+  font-size: 12.5px; color: #57606a; cursor: pointer; line-height: 1.6;
+}
+.present-sections button.is-active { background: var(--sky-50, #ddf4ff); color: #0550ae; border-color: #9cd0f5; font-weight: 700; }
+.present-sections small { color: #8c959f; margin-left: 3px; }

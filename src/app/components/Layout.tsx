@@ -11,6 +11,7 @@ const VIEW_ICONS: Record<ViewKey, IconName> = {
   course: "play",
   lesson: "play",
   material: "book",
+  present: "play",
   situations: "clapper",
   culture: "book",
   mine: "chart",
