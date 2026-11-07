@@ -42,6 +42,8 @@ export const toUserError = (e: PgError): AdminDataError => {
   if (e.code === "42501") return new AdminDataError(403, e.message);
   if (e.code === "P0002") return new AdminDataError(404, e.message);
   if (e.code === "23505") return new AdminDataError(409, e.message);
+  // 5-B: 원본 강의가 그사이 수정됨 (복습 HTML 다시 만들기)
+  if (e.code === "40001") return new AdminDataError(409, e.message);
   if (e.code === "P0001" || e.code === "22023") return new AdminDataError(400, e.message);
   if (e.code === "28000") return new AdminDataError(401, "로그인이 필요해요.");
   console.error("[supabase-user]", e.code ?? "", e.message);

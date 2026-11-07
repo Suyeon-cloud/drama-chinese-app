@@ -415,5 +415,12 @@ export const deckToReviewHtml = (deck: LessonDeck, { includeAnswers }: ReviewOpt
   return out.join("\n");
 };
 
+/** 5-B: 연결된 복습 자료가 원본 강의보다 오래됐는지 (밀리초까지 비교, 어느 쪽 시각이든 모르면 false) */
+export const reviewIsStale = (lessonUpdatedAt: string | null | undefined, generatedFrom: string | null | undefined) => {
+  const a = Date.parse(lessonUpdatedAt ?? "");
+  const b = Date.parse(generatedFrom ?? "");
+  return Number.isFinite(a) && Number.isFinite(b) && Math.floor(a) > Math.floor(b);
+};
+
 /** 복습 자료 기본 제목 (4단계 제목 100자 제한 안) */
 export const reviewTitle = (deck: LessonDeck) => `[복습] ${deck.week}주차 ${deck.heading}`.slice(0, 100);

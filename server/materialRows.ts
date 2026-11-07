@@ -5,8 +5,8 @@
 //   (권한·주차 범위·개수 한도·학생에게 보낼 행과 열은 DB 함수가 최종 확인)
 // - 응답은 JSON 모드 API와 같은 WeekMaterial 형태로 맞춘다.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { WeekMaterial, WeekMaterialHtml } from "../src/app/store/models";
-import type { MaterialCreate, MaterialPatch } from "./weekMaterials";
+import type { WeekMaterial, WeekMaterialHtml, WeekMaterialSource } from "../src/app/store/models";
+import type { MaterialCreate, MaterialPatch, MaterialSourceInput } from "./weekMaterials";
 
 type Row = Record<string, unknown>;
 type PgError = { code?: string; message: string; details?: string | null };
@@ -31,6 +31,9 @@ export const materialFromRow = (r: Row): WeekMaterial => ({
   createdAt: String(r.created_at ?? ""),
   updatedAt: String(r.updated_at ?? ""),
   updatedByLabel: (r.updated_by_label as string | null) ?? null,
+  ...(r.source_kind === "lesson-review"
+    ? { source: { kind: "lesson-review" as const, lessonId: (r.source_lesson_id as string | null) ?? null, lessonUpdatedAt: (r.source_lesson_updated_at as string | null) ?? null } }
+    : {}),
 });
 
 /** 입력 → RPC p_input (camelCase 칸 이름 그대로, 보낸 칸만) */
@@ -90,8 +93,15 @@ export const materialOps = (client: SupabaseClient, admin: boolean, toError: (e:
      * HTML 학습자료 등록(materialId=null) · 수정. html은 본문(바꿀 때만), input은 주차·제목·설명·공개 상태(보낸 칸만).
      * 관리자: admin_save_week_material_html(service-role) / 교수자: save_week_material_html (can_manage_course는 DB가 확인)
      */
-    async saveHtml(courseId: string | null, materialId: string | null, input: MaterialCreate | MaterialPatch, html: string | null): Promise<WeekMaterial> {
-      const args = { p_course_id: courseId, p_material_id: materialId, p_input: materialInput(input), p_html: html };
+    async saveHtml(
+      courseId: string | null,
+      materialId: string | null,
+      input: MaterialCreate | MaterialPatch,
+      html: string | null,
+      /** 5-B: 등록 { kind, lessonId, lessonUpdatedAt } / 재생성 { lessonUpdatedAt } */
+      source?: MaterialSourceInput | { lessonUpdatedAt: string },
+    ): Promise<WeekMaterial> {
+      const args = { p_course_id: courseId, p_material_id: materialId, p_input: { ...materialInput(input), ...(source ? { source } : {}) }, p_html: html };
       const row = admin
         ? ok(await client.rpc("admin_save_week_material_html", { ...args, p_admin_label: adminLabel }))
         : ok(await client.rpc("save_week_material_html", args));
@@ -108,6 +118,27 @@ export const materialOps = (client: SupabaseClient, admin: boolean, toError: (e:
       const r = (Array.isArray(rows) ? rows[0] : rows) as Row | undefined;
       if (!r || (admin && r.kind !== "html") || typeof r.html_body !== "string") return null;
       return { id: String(r.id), title: String(r.title ?? ""), html: r.html_body, updatedAt: String(r.updated_at ?? "") };
+    },
+    /**
+     * 5-B: 그 과목 자동 생성 복습 HTML의 출처 (materialId → 출처). 교수자·관리자 화면용.
+     * 관리자: service-role로 테이블, 교수자: list_week_material_sources RPC (비공개 포함 열람 권한이 있을 때만).
+     * 실패하면(마이그레이션 전·권한 없음) 빈 결과 — 자료 목록 자체는 막지 않는다.
+     */
+    async sources(courseId: string): Promise<Map<string, WeekMaterialSource>> {
+      const out = new Map<string, WeekMaterialSource>();
+      const r = admin
+        ? await client.from("week_materials").select("id,source_kind,source_lesson_id,source_lesson_updated_at").eq("course_id", courseId).not("source_kind", "is", null)
+        : await client.rpc("list_week_material_sources", { p_course_id: courseId });
+      if (r.error) {
+        console.warn("[material-sources]", r.error.code ?? "", r.error.message);
+        return out;
+      }
+      for (const row of (r.data ?? []) as Row[]) {
+        const id = String(row.id ?? row.material_id ?? "");
+        if (!id || row.source_kind !== "lesson-review") continue;
+        out.set(id, { kind: "lesson-review", lessonId: (row.source_lesson_id as string | null) ?? null, lessonUpdatedAt: (row.source_lesson_updated_at as string | null) ?? null });
+      }
+      return out;
     },
     async reorder(courseId: string, week: number, ids: string[]): Promise<WeekMaterial[]> {
       const rows = ok(

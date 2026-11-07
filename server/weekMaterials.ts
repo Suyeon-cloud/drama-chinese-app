@@ -13,8 +13,17 @@ type Fail = { ok: false; error: string };
 const fail = (error: string): Fail => ({ ok: false, error });
 
 export type MaterialCreate = { week: number; title: string; description: string; url: string; status: WeekMaterialStatus };
-/** html: HTML 학습자료의 본문 (HTML 자료에서만 바꿀 수 있다) */
-export type MaterialPatch = Partial<MaterialCreate> & { html?: string };
+/** html: HTML 학습자료의 본문 (HTML 자료에서만 바꿀 수 있다). sourceLessonUpdatedAt: 5-B 재생성 (html과 함께) */
+export type MaterialPatch = Partial<MaterialCreate> & { html?: string; sourceLessonUpdatedAt?: string };
+/** 5-B: 자동 생성 복습 HTML 등록 출처 */
+export type MaterialSourceInput = { kind: "lesson-review"; lessonId: string; lessonUpdatedAt: string };
+
+const LESSON_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+const readInstant = (raw: unknown): string | null =>
+  typeof raw === "string" && raw.length <= 64 && Number.isFinite(Date.parse(raw)) ? raw : null;
+/** 두 시각이 같은 순간인지 (밀리초까지 — 화면의 Lesson.updatedAt은 밀리초, DB는 마이크로초) */
+export const sameInstant = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && Number.isFinite(Date.parse(a)) && Math.floor(Date.parse(a)) === Math.floor(Date.parse(b));
 
 const TEXT_LABEL = { title: "자료 제목", description: "설명" } as const;
 
@@ -88,6 +97,12 @@ export const parseMaterialPatch = (body: unknown, weekCount: number): { ok: true
     if (problem) return fail(problem);
     out.html = body.html as string;
   }
+  if (body.sourceLessonUpdatedAt !== undefined) {
+    const at = readInstant(body.sourceLessonUpdatedAt);
+    if (!at) return fail("원본 강의 수정 시각 형식이 올바르지 않아요.");
+    if (out.html === undefined) return fail("복습 HTML을 다시 만들 때는 HTML 내용도 함께 보내 주세요.");
+    out.sourceLessonUpdatedAt = at;
+  }
   if (Object.keys(out).length === 0) return fail("바꿀 내용이 없어요.");
   return { ok: true, value: out };
 };
@@ -133,7 +148,7 @@ export const renumberWeek = (list: WeekMaterial[], week: number) => {
 };
 
 /** 학생에게 보내는 형태: 공개 자료만, 마지막 수정자 표시는 빼고 */
-export const publicMaterial = ({ updatedByLabel: _label, ...m }: WeekMaterial): WeekMaterial => m;
+export const publicMaterial = ({ updatedByLabel: _label, source: _source, ...m }: WeekMaterial): WeekMaterial => m;
 
 /** JSON 모드 저장 형태: 파일 자료는 서버만 아는 저장 경로를, HTML 자료는 본문을 함께 둔다 (목록 응답에는 보내지 않는다) */
 export type StoredMaterial = WeekMaterial & { storagePath?: string; html?: string };
@@ -173,12 +188,19 @@ export const newMaterialId = (exists: (id: string) => boolean) => {
 export const parseMaterialHtmlCreate = (
   body: unknown,
   weekCount: number,
-): { ok: true; value: { week: number; title: string; description: string; status: WeekMaterialStatus; html: string } } | Fail => {
+): { ok: true; value: { week: number; title: string; description: string; status: WeekMaterialStatus; html: string; source?: MaterialSourceInput } } | Fail => {
   if (!isObject(body)) return fail("자료 정보 형식이 올바르지 않아요.");
-  const { html, ...rest } = body;
+  const { html, source, ...rest } = body;
   const meta = parseMaterialFileInput(rest, weekCount);
   if (!meta.ok) return meta;
   const problem = materialHtmlProblem(html);
   if (problem) return fail(problem);
-  return { ok: true, value: { ...meta.value, html: html as string } };
+  if (source === undefined || source === null) return { ok: true, value: { ...meta.value, html: html as string } };
+  // 5-B: 강의에서 자동 생성한 복습 HTML (강의 존재·같은 과목·원본 시각은 서버/DB가 다시 확인)
+  if (!isObject(source) || source.kind !== "lesson-review" || typeof source.lessonId !== "string" || !LESSON_ID_PATTERN.test(source.lessonId)) {
+    return fail("출처 정보 형식이 올바르지 않아요.");
+  }
+  const at = readInstant(source.lessonUpdatedAt);
+  if (!at) return fail("원본 강의 수정 시각 형식이 올바르지 않아요.");
+  return { ok: true, value: { ...meta.value, html: html as string, source: { kind: "lesson-review", lessonId: source.lessonId, lessonUpdatedAt: at } } };
 };

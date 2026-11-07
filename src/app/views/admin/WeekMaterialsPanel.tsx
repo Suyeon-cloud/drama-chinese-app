@@ -24,7 +24,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { materialStore } from "../../store";
-import { useWeekMaterials, type MaterialsState } from "../../store/hooks";
+import { useLessons, useWeekMaterials, type MaterialsState } from "../../store/hooks";
+import { reviewIsStale } from "../../../content/lessonDeck";
 import type { FileOpenMode } from "../../store/materialStore";
 import type { WeekMaterial, WeekMaterialStatus } from "../../store/models";
 import { HtmlMaterialFrame, copyShareLink, downloadHtmlMaterial } from "../HtmlMaterialView";
@@ -516,7 +517,9 @@ const MaterialRow: React.FC<{
   busy: boolean;
   onMove: (dir: -1 | 1) => void;
   run: (work: () => Promise<unknown>, done: string, fallback: string) => Promise<string | null>;
-}> = ({ m, index, count, weekCount, editable, busy, onMove, run }) => {
+  /** 5-B: 자동 생성 복습 HTML의 원본 강의 수정 시각 (원본이 없으면 null) */
+  sourceLessonUpdatedAt?: string | null;
+}> = ({ m, index, count, weekCount, editable, busy, onMove, run, sourceLessonUpdatedAt }) => {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [replacing, setReplacing] = useState<number | null>(null);
@@ -584,6 +587,15 @@ const MaterialRow: React.FC<{
         <span className="row-start">
           <MaterialTitle m={m} staff />
           <span className={`pill ${m.status === "published" ? "pill-mint" : "pill-cream"}`}>{MATERIAL_STATUS_LABEL[m.status]}</span>
+          {m.source ? (
+            <span className="pill pill-sky" title="발표 모드에서 강의 데이터로 만든 복습 자료 (다시 만들기는 발표 모드의 ‘복습 HTML’에서)">
+              자동 생성 복습
+            </span>
+          ) : null}
+          {m.source && (!m.source.lessonId || sourceLessonUpdatedAt === null) ? <span className="pill pill-cream">원본 강의 없음</span> : null}
+          {m.source?.lessonId && reviewIsStale(sourceLessonUpdatedAt, m.source.lessonUpdatedAt) ? (
+            <span className="pill pill-cream">원본 수정됨</span>
+          ) : null}
         </span>
         <small className="muted">
           {isFile ? `${m.fileName ?? "파일"}${m.sizeBytes ? ` · ${formatBytes(m.sizeBytes)}` : ""}` : isHtml ? "HTML 학습자료" : hostOf(m.url)}
@@ -669,6 +681,10 @@ export const WeekMaterialsPanel: React.FC<{
   editable: boolean;
 }> = ({ courseId, weekCount, materials, editable }) => {
   const toast = useToast();
+  const lessons = useLessons();
+  /** 5-B: 출처 강의의 지금 수정 시각 (강의 목록을 아직 못 받았으면 undefined, 강의가 없으면 null) */
+  const sourceTimeOf = (m: WeekMaterial) =>
+    !m.source?.lessonId || !lessons ? (m.source && !m.source.lessonId ? null : undefined) : (lessons.find((l) => l.id === m.source!.lessonId)?.updatedAt ?? null);
   const [week, setWeek] = useState(1);
   const [adding, setAdding] = useState<"link" | "file" | "html" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -841,6 +857,7 @@ export const WeekMaterialsPanel: React.FC<{
               busy={busy}
               onMove={(dir) => move(i, dir)}
               run={run}
+              sourceLessonUpdatedAt={sourceTimeOf(m)}
             />
           ))}
         </ol>

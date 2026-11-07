@@ -57,6 +57,8 @@ const toAdminError = (e: PgError): AdminDataError => {
   if (e.code === "23503") return new AdminDataError(409, "학습 기록이 있는 강의자료는 삭제할 수 없습니다. 준비 중 상태로 변경해주세요.");
   if (e.code === "42501") return new AdminDataError(403, e.message);
   if (e.code === "23505") return new AdminDataError(409, e.message);
+  // 5-B: 원본 강의가 그사이 수정됨 (복습 HTML 다시 만들기)
+  if (e.code === "40001") return new AdminDataError(409, e.message);
   // 과목 주차 수 축소 불가 (admin_update_course: 학습자료·학습 기록이 있는 주차보다 작게)
   if (e.code === "23514") return new AdminDataError(409, e.message);
   if (e.code === "P0002") return new AdminDataError(404, e.message);

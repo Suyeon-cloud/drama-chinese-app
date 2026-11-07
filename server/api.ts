@@ -37,7 +37,7 @@ import type {
 import type { Lesson } from "../src/content/types";
 import { MAX_WEEK_COUNT, sortCourses } from "../src/content/courseWeeks";
 import { MATERIAL_FILE_MAX_BYTES } from "../src/content/materialRules";
-import type { PublicCourse, WeekMaterial, WeekMaterialHtml } from "../src/app/store/models";
+import type { PublicCourse, WeekMaterial, WeekMaterialHtml, WeekMaterialSource } from "../src/app/store/models";
 import { MATERIAL_HTML_CSP, materialHtmlDocument, materialHtmlFileName } from "../src/content/materialHtml";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
@@ -55,7 +55,7 @@ import {
   publicMaterial,
   renumberWeek,
 } from "./weekMaterials";
-import { clientMaterial, parseMaterialFileInput, parseMaterialHtmlCreate, type StoredMaterial } from "./weekMaterials";
+import { clientMaterial, parseMaterialFileInput, parseMaterialHtmlCreate, sameInstant, type StoredMaterial } from "./weekMaterials";
 import { materialOps } from "./materialRows";
 import { isCourseKey, isPreviewable, newStorageKey, parseFileMeta } from "./materialFiles";
 import { createLocalMaterialStorage, DOWNLOAD_URL_SECONDS, type MaterialStorage } from "./materialStorage";
@@ -694,6 +694,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (useSupabase) return void viaSupabase(res, (st) => st.deleteLesson(req.params.id));
     if (!db.data.lessons[req.params.id]) return res.json({ ok: true });
     delete db.data.lessons[req.params.id];
+    // 5-B: 이 강의에서 만든 복습 HTML은 남기고 출처의 강의 연결만 끊는다 (Supabase는 외래 키 ON DELETE SET NULL)
+    for (const m of Object.values(db.data.weekMaterials)) {
+      if (m.source?.lessonId === req.params.id) m.source = { ...m.source, lessonId: null };
+    }
     db.save();
     res.json({ ok: true });
   });
@@ -1218,7 +1222,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
           throw new AdminDataError(404, "강의를 찾을 수 없어요.");
         }
         const all = (await ops.list(courseId)).filter((m) => week === null || m.week === week);
-        return staffView ? all : all.filter((m) => m.status === "published").map(publicMaterial);
+        if (!staffView) return all.filter((m) => m.status === "published").map(publicMaterial);
+        // 5-B: 자동 생성 복습 HTML의 출처 (교수자 전용 RPC·관리자 테이블. 실패해도 목록은 그대로)
+        const sources = all.some((m) => m.kind === "html") ? await ops.sources(courseId) : new Map<string, WeekMaterialSource>();
+        return all.map((m) => (sources.has(m.id) ? { ...m, source: sources.get(m.id) } : m));
       });
     }
     if (!db.data.courses[courseId] || !canReadMaterials(req, courseId)) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
@@ -1266,10 +1273,13 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (useSupabase) {
       const parsed = parseMaterialPatch(req.body, MAX_WEEK_COUNT);
       if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-      const { html, ...patch } = parsed.value;
+      const { html, sourceLessonUpdatedAt, ...patch } = parsed.value;
       // HTML 본문을 바꾸면 HTML RPC(본문 + 보낸 칸을 한 트랜잭션으로, HTML 자료가 아니면 DB가 거부), 아니면 기존 RPC
+      // 5-B 재생성: 원래 연결된 강의·원본 수정 시각을 DB가 확인한 뒤 본문과 출처 시각만 바꾼다 (id·공개 상태 유지)
       return viaMaterials(req, res, 200, (ops) =>
-        html !== undefined ? ops.saveHtml(null, req.params.id, patch, html) : ops.update(req.params.id, patch),
+        html !== undefined
+          ? ops.saveHtml(null, req.params.id, patch, html, sourceLessonUpdatedAt ? { lessonUpdatedAt: sourceLessonUpdatedAt } : undefined)
+          : ops.update(req.params.id, patch),
       );
     }
     const prev = db.data.weekMaterials[req.params.id];
@@ -1279,6 +1289,20 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
     if (prev.kind !== "link" && parsed.value.url !== undefined) return res.status(400).json({ error: "파일·HTML 자료에는 링크 주소를 넣을 수 없어요." });
     if (prev.kind !== "html" && parsed.value.html !== undefined) return res.status(400).json({ error: "HTML 내용은 HTML 자료에만 넣을 수 있어요." });
+    // 5-B 재생성: 원래 연결된 강의만, 그 강의가 지금도 같은 과목에 있고 화면이 만든 시점의 원본과 같을 때만
+    const { sourceLessonUpdatedAt, ...patchValue } = parsed.value;
+    let nextSource = prev.source;
+    if (sourceLessonUpdatedAt !== undefined) {
+      if (!prev.source) return res.status(400).json({ error: "직접 만든 HTML 자료에는 출처를 연결할 수 없어요." });
+      const lesson = prev.source.lessonId ? db.data.lessons[prev.source.lessonId] : undefined;
+      if (!lesson || lesson.courseId !== course.id) {
+        return res.status(400).json({ error: "원본 강의가 삭제되어 다시 만들 수 없어요. 자료는 그대로 남아 있어요." });
+      }
+      if (!sameInstant(lesson.updatedAt, sourceLessonUpdatedAt)) {
+        return res.status(409).json({ error: "원본 강의가 그사이 수정됐어요. 복습 HTML을 다시 만들어 주세요." });
+      }
+      nextSource = { ...prev.source, lessonUpdatedAt: lesson.updatedAt };
+    }
     const list = materialsForCourse(db.data.weekMaterials, course.id);
     const moving = parsed.value.week !== undefined && parsed.value.week !== prev.week;
     if (moving && list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
@@ -1286,7 +1310,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
     }
     const next: StoredMaterial = {
       ...prev,
-      ...parsed.value,
+      ...patchValue,
+      ...(nextSource ? { source: nextSource } : {}),
       position: moving ? nextPosition(list, parsed.value.week!) : prev.position,
       updatedAt: nowIso(),
       updatedByLabel: materialActor(req),
@@ -1351,13 +1376,29 @@ export const createApi = (db: Db, env: ApiEnv) => {
   // - 본문은 요청마다 권한을 확인한 뒤에만 보낸다: 편집·담당 교수자는 비공개 포함, 학생은 수강 중인 과목의 공개 자료만 (그 밖은 404).
   // - 화면은 JSON으로 받아 sandbox iframe에 그린다. 내려받기는 첨부 파일(attachment)로만 보내고, 앱 주소에서 HTML을 직접 실행하지 않는다.
 
-  /** 새 HTML 학습자료. body: { week, title, description?, status? (기본 비공개), html } — 그 주차 맨 뒤에 붙는다. */
+  const REVIEW_DUPLICATE = "이 강의의 복습 자료가 이미 있어요. 기존 자료를 다시 만들어 업데이트해 주세요.";
+
+  /**
+   * 새 HTML 학습자료. body: { week, title, description?, status? (기본 비공개), html, source? } — 그 주차 맨 뒤에 붙는다.
+   * source(5-B): { kind: "lesson-review", lessonId, lessonUpdatedAt } — 강의에서 자동 생성한 복습 HTML (같은 과목의 강의당 하나)
+   */
   api.post("/courses/:id/materials/html", requireLogin, (req: Authed, res) => {
     if (useSupabase) {
       const parsed = parseMaterialHtmlCreate(req.body, MAX_WEEK_COUNT);
       if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-      const { html, ...input } = parsed.value;
-      return viaMaterials(req, res, 201, (ops) => ops.saveHtml(req.params.id, null, input, html));
+      const { html, source, ...input } = parsed.value;
+      return viaMaterials(req, res, 201, async (ops) => {
+        try {
+          return await ops.saveHtml(req.params.id, null, input, html, source);
+        } catch (err) {
+          // 5-B 중복: DB가 권한(can_manage_course)을 확인한 뒤에야 나는 오류다. 기존 자료 id는 출처 조회(권한 확인)로 찾은 경우에만 돌려준다.
+          if (source && err instanceof AdminDataError && err.status === 409 && /복습 자료가 이미|week_materials_review_source_uniq/.test(err.message)) {
+            const found = [...(await ops.sources(req.params.id))].find(([, s]) => s.lessonId === source.lessonId)?.[0];
+            throw new AdminDataError(409, REVIEW_DUPLICATE, found ? { existingId: found } : undefined);
+          }
+          throw err;
+        }
+      });
     }
     const course = db.data.courses[req.params.id];
     if (!course) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
@@ -1365,6 +1406,19 @@ export const createApi = (db: Db, env: ApiEnv) => {
     const parsed = parseMaterialHtmlCreate(req.body, course.weekCount);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
     const list = materialsForCourse(db.data.weekMaterials, course.id);
+    // 5-B: 강의에서 자동 생성한 복습 HTML — 같은 과목의 강의, 화면이 만든 시점의 원본, 강의당 하나
+    const { source: sourceInput, ...htmlInput } = parsed.value;
+    let source: WeekMaterialSource | undefined;
+    if (sourceInput) {
+      const lesson = db.data.lessons[sourceInput.lessonId];
+      if (!lesson || lesson.courseId !== course.id) return res.status(400).json({ error: "같은 과목의 강의에서 만든 복습 자료만 연결할 수 있어요." });
+      if (!sameInstant(lesson.updatedAt, sourceInput.lessonUpdatedAt)) {
+        return res.status(409).json({ error: "원본 강의가 그사이 수정됐어요. 복습 HTML을 다시 만들어 주세요." });
+      }
+      const existing = list.find((m) => m.source?.lessonId === lesson.id);
+      if (existing) return res.status(409).json({ error: REVIEW_DUPLICATE, existingId: existing.id });
+      source = { kind: "lesson-review", lessonId: lesson.id, lessonUpdatedAt: lesson.updatedAt };
+    }
     if (list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
       return res.status(409).json({ error: `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.` });
     }
@@ -1373,7 +1427,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
       id: newMaterialId((x) => !!db.data.weekMaterials[x]),
       courseId: course.id,
       kind: "html",
-      ...parsed.value,
+      ...htmlInput,
+      ...(source ? { source } : {}),
       url: "",
       position: nextPosition(list, parsed.value.week),
       createdAt: now,

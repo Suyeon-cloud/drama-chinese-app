@@ -351,6 +351,109 @@ test("5단계 재사용: 학습 데이터로 만든 복습 HTML을 4단계 API �
   assert.equal((await call("DELETE", `/materials/${created.body.id}`, google(T))).status, 200);
 });
 
+/* ───────── 3) 5-B: 복습 HTML 출처 연결·중복 방지·재생성 (JSON 모드) ───────── */
+
+test("5-B 등록: 같은 과목 강의·원본 시각 확인, 강의당 하나(409 + 권한 있는 경우만 existingId), 학생 응답에는 출처 없음", async () => {
+  // 이 테스트 전용 강의 (끝에서 지워 다른 테스트의 강의자료 스냅샷에 영향을 주지 않는다)
+  const seed = Object.values(db.data.lessons).find((l) => l.courseId === COURSE)!;
+  const lessonId = "lesson-5b-a";
+  db.data.lessons[lessonId] = { ...seed, id: lessonId, week: 3, updatedAt: "2026-11-07T01:02:03.456Z" };
+  const otherCourse = Object.values(db.data.lessons).find((l) => l.courseId !== COURSE)!;
+  const src = (over: Record<string, unknown> = {}) => ({ kind: "lesson-review", lessonId, lessonUpdatedAt: "2026-11-07T01:02:03.456Z", ...over });
+  const body = (over: Record<string, unknown> = {}) => ({ week: 3, title: "[복습] 3주차", html: "<p>v1</p>", source: src(), ...over });
+  try {
+    // 입력·출처 검사
+    assert.equal((await createHtml(google(T), body({ source: { kind: "other", lessonId } }))).status, 400);
+    assert.equal((await createHtml(google(T), body({ source: src({ lessonId: "../x" }) }))).status, 400);
+    assert.equal((await createHtml(google(T), body({ source: src({ lessonUpdatedAt: "not-a-date" }) }))).status, 400);
+    assert.equal((await createHtml(google(T), body({ source: src({ lessonId: otherCourse.id, lessonUpdatedAt: otherCourse.updatedAt }) }))).status, 400, "다른 과목 강의");
+    assert.equal((await createHtml(google(T), body({ source: src({ lessonId: "lesson-nope" }) }))).status, 400, "없는 강의");
+    const stale = await createHtml(google(T), body({ source: src({ lessonUpdatedAt: "2026-11-01T00:00:00.000Z" }) }));
+    assert.equal(stale.status, 409, "원본이 그사이 수정됨");
+    assert.match(stale.body.error ?? "", /원본 강의가 그사이 수정/);
+    assert.equal((await createHtml(learner("s1"), body())).status, 403);
+    assert.equal(Object.values(db.data.weekMaterials).filter((m) => m.source).length, 0, "실패한 요청은 자료를 만들지 않는다");
+
+    // 정상 등록: 출처는 서버의 강의 시각으로 기록, 비공개
+    const created = await createHtml(google(T), body());
+    assert.equal(created.status, 201);
+    assert.equal(created.body.status, "draft");
+    assert.deepEqual(created.body.source, { kind: "lesson-review", lessonId, lessonUpdatedAt: "2026-11-07T01:02:03.456Z" });
+    const id = created.body.id;
+
+    // 중복: 담당 교수자는 existingId를 받고, 권한 없는 사람은 그 전에 403 (id 노출 없음)
+    const dup = await createHtml(google(T), body({ week: 4, title: "다른 제목" }));
+    assert.equal(dup.status, 409);
+    assert.equal((dup.body as { existingId?: string }).existingId, id);
+    const denied = await createHtml(google(OTHER), body());
+    assert.equal(denied.status, 403);
+    assert.ok(!("existingId" in denied.body));
+    assert.equal(Object.values(db.data.weekMaterials).filter((m) => m.source?.lessonId === lessonId).length, 1, "강의당 하나");
+
+    // 일반 HTML: 같은 주차·'[복습]' 제목이어도 독립적으로 등록, 출처를 붙일 수 없다
+    const manual = await createHtml(google(T), { week: 3, title: "[복습] 직접 만든 자료", html: "<p>manual</p>" });
+    assert.equal(manual.status, 201);
+    assert.equal(manual.body.source, undefined);
+    assert.equal((await call("PATCH", `/materials/${manual.body.id}`, google(T), { html: "<p>x</p>", sourceLessonUpdatedAt: "2026-11-07T01:02:03.456Z" })).status, 400);
+    assert.equal((await call<WeekMaterial>("PATCH", `/materials/${manual.body.id}`, google(T), { html: "<p>manual v2</p>" })).status, 200, "일반 HTML 수정은 4단계 그대로");
+
+    // 목록: 교수자에게는 출처, 학생에게는 없음
+    assert.equal((await call("PATCH", `/materials/${id}`, google(T), { status: "published" })).status, 200);
+    const staffList = (await call<WeekMaterial[]>("GET", `/courses/${COURSE}/materials?week=3`, google(T))).body;
+    assert.equal(staffList.find((m) => m.id === id)?.source?.lessonId, lessonId);
+    const studentList = (await call<WeekMaterial[]>("GET", `/courses/${COURSE}/materials?week=3`, learner("s1"))).body;
+    assert.ok(studentList.some((m) => m.id === id) && studentList.every((m) => !("source" in m)), "학생 응답에 출처 없음");
+    for (const x of [id, manual.body.id]) assert.equal((await call("DELETE", `/materials/${x}`, google(T))).status, 200);
+  } finally {
+    delete db.data.lessons[lessonId];
+  }
+});
+
+test("5-B 재생성: 교수자 확인 뒤 같은 id·공유 링크·공개 상태 유지, 원본 시각 확인·갱신, 원본 강의 삭제 뒤에는 자료 보존·재생성 거부", async () => {
+  const seed = Object.values(db.data.lessons).find((l) => l.courseId === COURSE)!;
+  const lessonId = "lesson-5b-b";
+  db.data.lessons[lessonId] = { ...seed, id: lessonId, week: 4, updatedAt: "2026-11-07T00:00:00.000Z" };
+  try {
+    const created = await createHtml(google(T), {
+      week: 4,
+      title: "[복습] 4주차",
+      html: "<p>v1</p>",
+      status: "published",
+      source: { kind: "lesson-review", lessonId, lessonUpdatedAt: "2026-11-07T00:00:00.000Z" },
+    });
+    assert.equal(created.status, 201);
+    const id = created.body.id;
+    // 원본 강의 수정 → 옛 시각으로는 재생성 거부, html 없이 시각만도 거부
+    db.data.lessons[lessonId].updatedAt = "2026-11-08T09:30:00.123Z";
+    assert.equal((await call("PATCH", `/materials/${id}`, google(T), { html: "<p>v2</p>", sourceLessonUpdatedAt: "2026-11-07T00:00:00.000Z" })).status, 409);
+    assert.equal((await call("PATCH", `/materials/${id}`, google(T), { sourceLessonUpdatedAt: "2026-11-08T09:30:00.123Z" })).status, 400);
+    assert.equal((await call("PATCH", `/materials/${id}`, learner("s1"), { html: "<p>x</p>", sourceLessonUpdatedAt: "2026-11-08T09:30:00.123Z" })).status, 404);
+    assert.equal((await call("PATCH", `/materials/${id}`, google(OTHER), { html: "<p>x</p>", sourceLessonUpdatedAt: "2026-11-08T09:30:00.123Z" })).status, 404);
+    const regen = await call<WeekMaterial>("PATCH", `/materials/${id}`, google(T), { html: "<p>v2</p>", sourceLessonUpdatedAt: "2026-11-08T09:30:00.123Z" });
+    assert.equal(regen.status, 200);
+    assert.equal(regen.body.id, id, "같은 자료 id (공유 링크 유지)");
+    assert.equal(regen.body.status, "published", "공개 상태 유지");
+    assert.equal(regen.body.title, "[복습] 4주차");
+    assert.deepEqual(regen.body.source, { kind: "lesson-review", lessonId, lessonUpdatedAt: "2026-11-08T09:30:00.123Z" });
+    assert.equal((await call<WeekMaterialHtml>("GET", `/materials/${id}/html`, learner("s1"))).body.html, "<p>v2</p>", "학생은 같은 주소로 새 내용");
+
+    // 원본 강의 삭제: 자료·공개 상태는 그대로, 출처의 강의 연결만 끊김, 재생성은 안내와 함께 거부
+    assert.equal((await call("DELETE", `/lessons/${lessonId}`, adminCookie)).status, 200);
+    assert.ok(!db.data.lessons[lessonId]);
+    const kept = db.data.weekMaterials[id];
+    assert.equal(kept.status, "published");
+    assert.deepEqual(kept.source, { kind: "lesson-review", lessonId: null, lessonUpdatedAt: "2026-11-08T09:30:00.123Z" });
+    const after = await call("PATCH", `/materials/${id}`, google(T), { html: "<p>v3</p>", sourceLessonUpdatedAt: "2026-11-08T09:30:00.123Z" });
+    assert.equal(after.status, 400);
+    assert.match(after.body.error ?? "", /원본 강의가 삭제/);
+    assert.equal((await call("GET", `/materials/${id}/html?mode=download`, learner("s1"))).status, 200, "학생 열람·다운로드 유지");
+    assert.equal((await call("PATCH", `/materials/${id}`, google(T), { title: "제목만 수정" })).status, 200, "원본이 없어도 일반 수정은 가능");
+    assert.equal((await call("DELETE", `/materials/${id}`, google(T))).status, 200);
+  } finally {
+    delete db.data.lessons[lessonId];
+  }
+});
+
 test("HTML 자료 작업은 강의자료·학습 기록·수강 등록을 바꾸지 않는다", () => {
   assert.equal(snapshot(), untouched);
 });

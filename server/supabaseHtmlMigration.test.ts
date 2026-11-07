@@ -32,9 +32,10 @@ const fn = (src: string, name: string) => {
 const top = code(H4);
 const NEW_FUNCS = ["_material_html_ok", "_save_week_material_html", "save_week_material_html", "admin_save_week_material_html", "week_material_html"];
 
-test("4단계: 마지막 마이그레이션, begin … commit 한 트랜잭션, 사전 확인이 먼저, 기존 행·함수를 바꾸지 않는다", () => {
+test("4단계: 3-C 뒤 마이그레이션(그 뒤는 5-B 출처 연결만), begin … commit 한 트랜잭션, 사전 확인이 먼저, 기존 행·함수를 바꾸지 않는다", () => {
   assert.ok(H4_FILE);
-  assert.equal(migFiles[migFiles.length - 1], H4_FILE);
+  const after = migFiles.slice(migFiles.indexOf(H4_FILE!) + 1);
+  assert.ok(after.every((f) => /_phase_5b_review_sources\.sql$/.test(f)), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

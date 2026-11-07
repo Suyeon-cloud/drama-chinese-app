@@ -175,13 +175,30 @@ export type WeekMaterial = {
   updatedAt: string;
   /** 마지막으로 저장한 사람 표시 (교수자·관리자에게만 보낸다) */
   updatedByLabel?: string | null;
+  /** 5-B: 자동 생성 복습 HTML의 출처 (교수자·관리자에게만). 원본 강의가 지워졌으면 lessonId가 null */
+  source?: WeekMaterialSource;
 };
+/** 자동 생성 복습 HTML의 출처: 원본 강의와 생성할 때의 원본 수정 시각 */
+export type WeekMaterialSource = { kind: "lesson-review"; lessonId: string | null; lessonUpdatedAt: string | null };
 /** 보충 자료 등록 (POST /api/courses/:id/materials) */
 export type WeekMaterialInput = { week: number; title: string; description?: string; url: string; status?: WeekMaterialStatus };
 /** 보충 자료 수정 (PATCH /api/materials/:id): 보낸 칸만 바뀐다. 주차를 바꾸면 그 주차의 맨 뒤로 간다. */
-export type WeekMaterialPatch = Partial<Omit<WeekMaterialInput, "status">> & { status?: WeekMaterialStatus; html?: string };
+export type WeekMaterialPatch = Partial<Omit<WeekMaterialInput, "status">> & {
+  status?: WeekMaterialStatus;
+  html?: string;
+  /** 5-B 재생성: HTML을 만든 원본 강의의 수정 시각 (html과 함께, 연결된 복습 자료에만) */
+  sourceLessonUpdatedAt?: string;
+};
 /** HTML 학습자료 등록 (POST /api/courses/:id/materials/html) */
-export type WeekMaterialHtmlInput = { week: number; title: string; description?: string; status?: WeekMaterialStatus; html: string };
+export type WeekMaterialHtmlInput = {
+  week: number;
+  title: string;
+  description?: string;
+  status?: WeekMaterialStatus;
+  html: string;
+  /** 5-B: 강의에서 자동 생성한 복습 HTML이면 그 강의 (같은 과목의 강의당 하나) */
+  source?: { kind: "lesson-review"; lessonId: string; lessonUpdatedAt: string };
+};
 /** HTML 학습자료 열기 (GET /api/materials/:id/html) — 열 때마다 서버가 권한을 확인한다 */
 export type WeekMaterialHtml = { id: string; title: string; html: string; updatedAt: string };
 

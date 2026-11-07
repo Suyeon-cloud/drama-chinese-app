@@ -8,6 +8,7 @@ import {
   lineSlideAt,
   presentKeyOf,
   presentReducer,
+  reviewIsStale,
   reviewTitle,
   sectionOf,
   sectionStarts,
@@ -467,7 +468,11 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
   }
 };
 
-/** 학생용 복습 HTML: 생성 → 미리보기 → 4단계 HTML 자료로 비공개 등록 (공개·공유는 주차 자료 화면에서) */
+/**
+ * 학생용 복습 HTML: 생성 → 미리보기 → 4단계 HTML 자료로 등록 (공개·공유는 주차 자료 화면에서).
+ * 5-B: 이 강의에서 만든 복습 자료가 이미 있으면(출처 연결) 새로 등록하지 않고, 교수자가 확인한 뒤 그 자료를 다시 만들어 업데이트한다.
+ *      자료 id·공유 링크·공개 상태는 그대로. 원본 강의가 바뀌었으면 표시만 하고 자동으로 다시 만들지 않는다.
+ */
 const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck, onClose }) => {
   const toast = useToast();
   const [includeAnswers, setIncludeAnswers] = useState(false);
@@ -475,23 +480,31 @@ const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<WeekMaterial | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [existing, setExisting] = useState<WeekMaterial[] | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [htmlList, setHtmlList] = useState<WeekMaterial[] | null>(null);
   const html = useMemo(() => deckToReviewHtml(deck, { includeAnswers }), [deck, includeAnswers]);
   const problem = materialHtmlProblem(html);
+  const reload = useCallback(
+    () =>
+      materialStore
+        .list(deck.courseId)
+        .then((list) => setHtmlList(list.filter((m) => m.kind === "html")))
+        .catch(() => setHtmlList([])),
+    [deck.courseId],
+  );
   useEffect(() => {
-    let alive = true;
-    materialStore
-      .list(deck.courseId)
-      .then((list) => alive && setExisting(list.filter((m) => m.kind === "html" && m.week === deck.week)))
-      .catch(() => alive && setExisting([]));
-    return () => {
-      alive = false;
-    };
-  }, [deck.courseId, deck.week]);
-  const sameTitle = existing?.filter((m) => m.title.trim() === title.trim()) ?? [];
+    void reload();
+  }, [reload]);
+  // 이 강의에서 만든 복습 자료 (출처 연결). 원본이 지워진 자료(lessonId null)는 여기 나오지 않는다.
+  const linked = htmlList?.find((m) => m.source?.lessonId === deck.lessonId) ?? null;
+  const stale = !!linked && reviewIsStale(deck.sourceUpdatedAt, linked.source?.lessonUpdatedAt);
+  // 같은 주차의 '[복습]' 제목 일반 HTML (5-A로 등록한 자료 등) — 자동으로 연결·삭제하지 않고 안내만
+  const reviewLike = htmlList?.filter((m) => !m.source && m.week === deck.week && m.title.trim().startsWith("[복습]")) ?? [];
+
   const register = async () => {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const m = await materialStore.createHtml(deck.courseId, {
         week: deck.week,
@@ -499,15 +512,49 @@ const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck
         description: `${deck.heading} 학습자료에서 자동 생성한 복습 자료`.slice(0, 500),
         status: "draft",
         html,
+        source: { kind: "lesson-review", lessonId: deck.lessonId, lessonUpdatedAt: deck.sourceUpdatedAt },
       });
       setSaved(m);
       toast.show("복습 HTML을 비공개로 등록했어요. 주차별 추가 자료에서 확인한 뒤 공개해 주세요.", "success");
+      void reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "복습 HTML을 등록하지 못했어요.");
+      const existingId = err instanceof ApiError ? (err.data as { existingId?: string } | null)?.existingId : undefined;
+      if (existingId) {
+        // 다른 교수자가 먼저 등록한 경우 등: 새로 만들지 않고 그 자료를 업데이트하는 흐름으로
+        setNotice("이 강의의 복습 자료가 이미 있어요. 아래에서 다시 만들어 업데이트할 수 있어요.");
+        void reload();
+      } else {
+        setError(err instanceof ApiError ? err.message : "복습 HTML을 등록하지 못했어요.");
+      }
     } finally {
       setBusy(false);
     }
   };
+
+  const regenerate = async (target: WeekMaterial) => {
+    const keep =
+      target.status === "published"
+        ? "‘공개’ 상태가 그대로 유지되어, 저장하는 즉시 학생에게 새 내용이 보여요."
+        : "‘비공개’ 상태가 그대로 유지돼요.";
+    const ok = window.confirm(
+      `‘${target.title}’ 자료를 지금 만든 내용으로 바꿉니다.\n자료 주소(공유 링크)는 바뀌지 않고, ${keep}\n제목·설명·주차는 그대로예요.\n\n계속할까요?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const m = await materialStore.update(target.id, { html, sourceLessonUpdatedAt: deck.sourceUpdatedAt });
+      setSaved(m);
+      toast.show(target.status === "published" ? "복습 자료를 업데이트했어요. (공개 유지)" : "복습 자료를 업데이트했어요. (비공개 유지)", "success");
+      void reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "복습 자료를 업데이트하지 못했어요.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="card present-review" aria-label="학생용 복습 HTML 만들기">
       <div className="row-start" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
@@ -517,26 +564,51 @@ const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck
         </button>
       </div>
       <p className="muted small">
-        발표에 쓴 학습 데이터로 복습 문서를 만들어요. 원본 학습자료를 고쳐도 이미 등록한 HTML은 바뀌지 않으니, 필요하면 다시 만들어 주세요. 등록하면
-        비공개로 저장되고, 공개·공유·다운로드는 주차별 추가 자료에서 해요.
+        발표에 쓴 학습 데이터로 복습 문서를 만들어요. 원본 학습자료를 고쳐도 이미 등록한 HTML은 저절로 바뀌지 않아요. 이 강의의 복습 자료는 하나만
+        두고, 필요할 때 다시 만들어 업데이트해요. 공개·공유·다운로드는 주차별 추가 자료에서 해요.
       </p>
+
+      {linked ? (
+        <div className="study-note notice" role="status">
+          이 강의의 복습 자료가 있어요: <b>{linked.title}</b> ({linked.week}주차 · {linked.status === "published" ? "공개" : "비공개"})
+          {stale ? (
+            <span className="pill pill-cream" style={{ marginLeft: 6 }}>
+              원본이 수정됐어요 · 다시 만들기 권장
+            </span>
+          ) : (
+            <span className="muted"> · 원본과 같은 내용으로 만든 자료예요</span>
+          )}
+        </div>
+      ) : null}
+
       <div className="form-grid">
         <label className="field span-2">
           <span>자료 제목</span>
-          <input value={title} maxLength={100} disabled={busy || !!saved} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            value={linked ? linked.title : title}
+            maxLength={100}
+            disabled={busy || !!linked}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          {linked ? <small className="muted">업데이트할 때 기존 자료의 제목·설명·주차는 그대로 둬요.</small> : null}
         </label>
         <label className="field-check span-2">
-          <input type="checkbox" checked={includeAnswers} disabled={busy || !!saved} onChange={(e) => setIncludeAnswers(e.target.checked)} />
+          <input type="checkbox" checked={includeAnswers} disabled={busy} onChange={(e) => setIncludeAnswers(e.target.checked)} />
           <span>퀴즈 정답·해설 포함 (기본: 포함하지 않음 — 학생은 문제만 봐요)</span>
         </label>
       </div>
       <p className="muted small">
         {(htmlByteLength(html) / 1024).toFixed(1)}KB · {deck.week}주차 · 퀴즈 {deck.quiz.length}문제 {includeAnswers ? "(정답 포함)" : "(정답 제외)"}
       </p>
-      {existing && existing.length > 0 ? (
+      {!linked && reviewLike.length > 0 ? (
         <p className="field-error small" role="status">
-          {deck.week}주차에 HTML 자료가 이미 {existing.length}개 있어요{sameTitle.length ? ` (같은 제목 ${sameTitle.length}개)` : ""}. 등록하면 새 자료가 하나 더
-          생겨요. 기존 자료를 바꾸려면 주차별 추가 자료에서 그 자료를 수정해 주세요.
+          {deck.week}주차에 ‘[복습]’ 제목의 HTML 자료가 {reviewLike.length}개 있어요. 이 자료들은 강의와 연결되지 않은 일반 자료라 자동으로 바꾸거나
+          지우지 않아요. 새로 등록하면 연결된 복습 자료가 하나 더 생기니, 필요하면 기존 자료는 주차별 추가 자료에서 정리해 주세요.
+        </p>
+      ) : null}
+      {notice ? (
+        <p className="small" role="status">
+          {notice}
         </p>
       ) : null}
       {problem ? (
@@ -550,17 +622,24 @@ const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck
         </p>
       ) : null}
       <div className="row-start">
-        {saved ? (
-          <a className="btn btn-primary btn-sm" href={materialShareHash(saved.id)}>
-            등록한 자료 열기
-          </a>
+        {htmlList === null ? (
+          <span className="muted small">기존 자료를 확인하는 중…</span>
+        ) : linked ? (
+          <button className="btn btn-primary btn-sm" disabled={busy || !!problem} onClick={() => void regenerate(linked)}>
+            {busy ? "업데이트 중…" : "다시 만들어 업데이트"}
+          </button>
         ) : (
           <button className="btn btn-primary btn-sm" disabled={busy || !!problem || !title.trim()} onClick={() => void register()}>
             {busy ? "등록 중…" : "주차 자료로 등록 (비공개)"}
           </button>
         )}
+        {saved ? (
+          <a className="btn btn-soft btn-sm" href={materialShareHash(saved.id)}>
+            자료 열기
+          </a>
+        ) : null}
       </div>
-      <HtmlMaterialFrame title={title || "복습 자료"} html={html} height="60vh" />
+      <HtmlMaterialFrame title={(linked ? linked.title : title) || "복습 자료"} html={html} height="60vh" />
     </section>
   );
 };
