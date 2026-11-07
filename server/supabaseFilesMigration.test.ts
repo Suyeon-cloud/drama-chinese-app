@@ -29,9 +29,10 @@ const fn = (src: string, name: string) => {
 const top = code(C3);
 const NEW_FUNCS = ["_material_file_path_ok", "admin_insert_week_material_file", "admin_replace_week_material_file", "week_material_download"];
 
-test("3-C: 마지막 마이그레이션, begin … commit 한 트랜잭션, 사전 확인이 먼저, 추가형", () => {
+test("3-C: 3-B 뒤 마이그레이션(그 뒤는 4단계 HTML만), begin … commit 한 트랜잭션, 사전 확인이 먼저, 추가형", () => {
   assert.ok(C3_FILE);
-  assert.equal(migFiles[migFiles.length - 1], C3_FILE);
+  const after = migFiles.slice(migFiles.indexOf(C3_FILE!) + 1);
+  assert.ok(after.every((f) => /_phase_4_html_materials\.sql$/.test(f)), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

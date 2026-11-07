@@ -1,5 +1,5 @@
-import { api, ApiError } from "../lib/api";
-import type { WeekMaterial, WeekMaterialInput, WeekMaterialPatch, WeekMaterialStatus } from "./models";
+import { api, apiBlob, ApiError } from "../lib/api";
+import type { WeekMaterial, WeekMaterialHtml, WeekMaterialHtmlInput, WeekMaterialInput, WeekMaterialPatch, WeekMaterialStatus } from "./models";
 import { createRemoteEmitter } from "./remote";
 
 /** 업로드 시작 응답: 이 주소로 파일을 PUT한다 (JSON 모드는 이 서버, Supabase는 Storage 서명 주소) */
@@ -24,6 +24,12 @@ export interface MaterialStore {
   replaceFile(materialId: string, file: File, onProgress?: (ratio: number) => void): Promise<WeekMaterial>;
   /** 파일 열기·내려받기 주소 (60초). 요청마다 서버가 권한을 확인한다 */
   fileUrl(materialId: string, mode: FileOpenMode): Promise<{ url: string; mode: FileOpenMode }>;
+  /** 새 HTML 학습자료 (4단계). 본문 수정은 update(materialId, { html }) */
+  createHtml(courseId: string, input: WeekMaterialHtmlInput): Promise<WeekMaterial>;
+  /** HTML 본문 열기 — 요청마다 서버가 권한을 확인한다 (학생은 수강 과목의 공개 자료만) */
+  html(materialId: string): Promise<WeekMaterialHtml>;
+  /** 내려받을 완전한 HTML 문서 (서버가 charset·CSP를 맨 앞에 넣는다) */
+  htmlFile(materialId: string): Promise<Blob>;
   subscribe(listener: () => void): () => void;
 }
 
@@ -76,6 +82,9 @@ export const createRemoteMaterialStore = (): MaterialStore => {
       return finish(ticket, file, onProgress);
     },
     fileUrl: (materialId, mode) => api<{ url: string; mode: FileOpenMode }>(`${materialPath(materialId)}/file?mode=${mode}`),
+    createHtml: (courseId, input) => changed(api<WeekMaterial>(`${coursePath(courseId)}/html`, { method: "POST", body: input })),
+    html: (materialId) => api<WeekMaterialHtml>(`${materialPath(materialId)}/html`),
+    htmlFile: (materialId) => apiBlob(`${materialPath(materialId)}/html?mode=download`),
     subscribe: emitter.subscribe,
   };
 };

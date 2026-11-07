@@ -150,10 +150,10 @@ export type CoursePatchInput = Partial<CourseInput> & { status?: "active" | "ina
 
 /**
  * 주차별 보충 학습자료 (과목 + 주차에 연결, 영상 학습자료(lesson)와 별개). 한 주차에 여러 개, position 순서.
- * kind: link(외부 링크) · file(파일 — 등록·열기는 3-C). HTML은 4단계에서 더한다.
+ * kind: link(외부 링크) · file(파일 — 등록·열기는 3-C) · html(HTML 학습자료 — 4단계, 본문은 목록에 넣지 않고 열 때 따로 받는다).
  * status: draft는 교수자·관리자만, published는 그 과목 수강생에게도 보인다.
  */
-export type WeekMaterialKind = "link" | "file";
+export type WeekMaterialKind = "link" | "file" | "html";
 export type WeekMaterialStatus = "draft" | "published";
 export type WeekMaterial = {
   id: string;
@@ -162,7 +162,7 @@ export type WeekMaterial = {
   kind: WeekMaterialKind;
   title: string;
   description: string;
-  /** link: https 주소 (file은 빈 값) */
+  /** link: https 주소 (file·html은 빈 값) */
   url: string;
   /** file 자료 정보 (3-C). 저장 경로는 화면에 보내지 않는다. */
   fileName?: string;
@@ -179,7 +179,11 @@ export type WeekMaterial = {
 /** 보충 자료 등록 (POST /api/courses/:id/materials) */
 export type WeekMaterialInput = { week: number; title: string; description?: string; url: string; status?: WeekMaterialStatus };
 /** 보충 자료 수정 (PATCH /api/materials/:id): 보낸 칸만 바뀐다. 주차를 바꾸면 그 주차의 맨 뒤로 간다. */
-export type WeekMaterialPatch = Partial<Omit<WeekMaterialInput, "status">> & { status?: WeekMaterialStatus };
+export type WeekMaterialPatch = Partial<Omit<WeekMaterialInput, "status">> & { status?: WeekMaterialStatus; html?: string };
+/** HTML 학습자료 등록 (POST /api/courses/:id/materials/html) */
+export type WeekMaterialHtmlInput = { week: number; title: string; description?: string; status?: WeekMaterialStatus; html: string };
+/** HTML 학습자료 열기 (GET /api/materials/:id/html) — 열 때마다 서버가 권한을 확인한다 */
+export type WeekMaterialHtml = { id: string; title: string; html: string; updatedAt: string };
 
 /** 이전 이름 (1과목 시절 GET /api/course 응답) */
 export type CourseInfo = Course;

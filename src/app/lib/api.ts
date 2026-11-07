@@ -53,3 +53,24 @@ export const api = async <T>(
   if (!res.ok) throw new ApiError(res.status, data?.error ?? "요청을 처리하지 못했어요.", data);
   return data as T;
 };
+
+/**
+ * 파일로 받는 GET (로그인 정보는 api와 같게: 쿠키 + Supabase token). 실패하면 ApiError (서버의 JSON 오류 문구).
+ * 받은 내용은 Blob으로 돌려준다 — 화면이 저장(a[download])한다. 주소에 토큰을 넣지 않는다.
+ */
+export const apiBlob = async (path: string): Promise<Blob> => {
+  let res: Response;
+  try {
+    const headers: Record<string, string> = {};
+    const token = tokenPeek?.() ?? (tokenProvider ? await tokenProvider().catch(() => null) : null);
+    if (token) headers.Authorization = `Bearer ${token}`;
+    res = await fetch(`/api${path}`, { credentials: "same-origin", headers });
+  } catch {
+    throw new ApiError(0, "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.");
+  }
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(res.status, data?.error ?? "요청을 처리하지 못했어요.", data);
+  }
+  return res.blob();
+};

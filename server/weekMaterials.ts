@@ -4,6 +4,7 @@
 // - 입력 규칙은 src/content/materialRules.ts (화면과 같음).
 import { randomBytes } from "node:crypto";
 import { MATERIAL_TEXT_LIMITS, MAX_MATERIALS_PER_WEEK, safeHttpsUrl } from "../src/content/materialRules";
+import { materialHtmlProblem } from "../src/content/materialHtml";
 import type { WeekMaterial, WeekMaterialStatus } from "../src/app/store/models";
 
 export { MAX_MATERIALS_PER_WEEK };
@@ -12,7 +13,8 @@ type Fail = { ok: false; error: string };
 const fail = (error: string): Fail => ({ ok: false, error });
 
 export type MaterialCreate = { week: number; title: string; description: string; url: string; status: WeekMaterialStatus };
-export type MaterialPatch = Partial<MaterialCreate>;
+/** html: HTML 학습자료의 본문 (HTML 자료에서만 바꿀 수 있다) */
+export type MaterialPatch = Partial<MaterialCreate> & { html?: string };
 
 const TEXT_LABEL = { title: "자료 제목", description: "설명" } as const;
 
@@ -81,6 +83,11 @@ export const parseMaterialPatch = (body: unknown, weekCount: number): { ok: true
     if (!r.ok) return r;
     out.status = r.value;
   }
+  if (body.html !== undefined) {
+    const problem = materialHtmlProblem(body.html);
+    if (problem) return fail(problem);
+    out.html = body.html as string;
+  }
   if (Object.keys(out).length === 0) return fail("바꿀 내용이 없어요.");
   return { ok: true, value: out };
 };
@@ -128,11 +135,11 @@ export const renumberWeek = (list: WeekMaterial[], week: number) => {
 /** 학생에게 보내는 형태: 공개 자료만, 마지막 수정자 표시는 빼고 */
 export const publicMaterial = ({ updatedByLabel: _label, ...m }: WeekMaterial): WeekMaterial => m;
 
-/** JSON 모드 저장 형태: 파일 자료는 서버만 아는 저장 경로를 함께 둔다 (응답에는 보내지 않는다) */
-export type StoredMaterial = WeekMaterial & { storagePath?: string };
-/** 응답용: 저장 경로를 뺀다 */
+/** JSON 모드 저장 형태: 파일 자료는 서버만 아는 저장 경로를, HTML 자료는 본문을 함께 둔다 (목록 응답에는 보내지 않는다) */
+export type StoredMaterial = WeekMaterial & { storagePath?: string; html?: string };
+/** 응답용: 저장 경로·HTML 본문을 뺀다 (본문은 GET /materials/:id/html 로 권한 확인 뒤에만) */
 export const clientMaterial = (m: StoredMaterial): WeekMaterial => {
-  const { storagePath: _path, ...rest } = m;
+  const { storagePath: _path, html: _html, ...rest } = m;
   return rest;
 };
 
@@ -160,4 +167,18 @@ export const newMaterialId = (exists: (id: string) => boolean) => {
     if (!exists(id)) return id;
   }
   throw new Error("자료 id를 만들지 못했어요.");
+};
+
+/** HTML 학습자료 등록 입력: 주차·제목·html 필수, 설명·공개 상태 선택 */
+export const parseMaterialHtmlCreate = (
+  body: unknown,
+  weekCount: number,
+): { ok: true; value: { week: number; title: string; description: string; status: WeekMaterialStatus; html: string } } | Fail => {
+  if (!isObject(body)) return fail("자료 정보 형식이 올바르지 않아요.");
+  const { html, ...rest } = body;
+  const meta = parseMaterialFileInput(rest, weekCount);
+  if (!meta.ok) return meta;
+  const problem = materialHtmlProblem(html);
+  if (problem) return fail(problem);
+  return { ok: true, value: { ...meta.value, html: html as string } };
 };

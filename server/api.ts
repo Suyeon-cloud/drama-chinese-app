@@ -37,7 +37,8 @@ import type {
 import type { Lesson } from "../src/content/types";
 import { MAX_WEEK_COUNT, sortCourses } from "../src/content/courseWeeks";
 import { MATERIAL_FILE_MAX_BYTES } from "../src/content/materialRules";
-import type { PublicCourse, WeekMaterial } from "../src/app/store/models";
+import type { PublicCourse, WeekMaterial, WeekMaterialHtml } from "../src/app/store/models";
+import { MATERIAL_HTML_CSP, materialHtmlDocument, materialHtmlFileName } from "../src/content/materialHtml";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
 import { feedbackProblem } from "./feedbackRows";
@@ -54,7 +55,7 @@ import {
   publicMaterial,
   renumberWeek,
 } from "./weekMaterials";
-import { clientMaterial, parseMaterialFileInput, type StoredMaterial } from "./weekMaterials";
+import { clientMaterial, parseMaterialFileInput, parseMaterialHtmlCreate, type StoredMaterial } from "./weekMaterials";
 import { materialOps } from "./materialRows";
 import { isCourseKey, isPreviewable, newStorageKey, parseFileMeta } from "./materialFiles";
 import { createLocalMaterialStorage, DOWNLOAD_URL_SECONDS, type MaterialStorage } from "./materialStorage";
@@ -1265,15 +1266,19 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (useSupabase) {
       const parsed = parseMaterialPatch(req.body, MAX_WEEK_COUNT);
       if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-      const patch = parsed.value;
-      return viaMaterials(req, res, 200, (ops) => ops.update(req.params.id, patch));
+      const { html, ...patch } = parsed.value;
+      // HTML 본문을 바꾸면 HTML RPC(본문 + 보낸 칸을 한 트랜잭션으로, HTML 자료가 아니면 DB가 거부), 아니면 기존 RPC
+      return viaMaterials(req, res, 200, (ops) =>
+        html !== undefined ? ops.saveHtml(null, req.params.id, patch, html) : ops.update(req.params.id, patch),
+      );
     }
     const prev = db.data.weekMaterials[req.params.id];
     const course = prev ? db.data.courses[prev.courseId] : undefined;
     if (!prev || !course || !canManageCourse(req, course.id)) return res.status(404).json({ error: "자료를 찾을 수 없어요." });
     const parsed = parseMaterialPatch(req.body, course.weekCount);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-    if (prev.kind === "file" && parsed.value.url !== undefined) return res.status(400).json({ error: "파일 자료에는 링크 주소를 넣을 수 없어요." });
+    if (prev.kind !== "link" && parsed.value.url !== undefined) return res.status(400).json({ error: "파일·HTML 자료에는 링크 주소를 넣을 수 없어요." });
+    if (prev.kind !== "html" && parsed.value.html !== undefined) return res.status(400).json({ error: "HTML 내용은 HTML 자료에만 넣을 수 있어요." });
     const list = materialsForCourse(db.data.weekMaterials, course.id);
     const moving = parsed.value.week !== undefined && parsed.value.week !== prev.week;
     if (moving && list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
@@ -1340,6 +1345,89 @@ export const createApi = (db: Db, env: ApiEnv) => {
     db.save();
     res.json(materialsForCourse(db.data.weekMaterials, course.id).filter((m) => m.week === parsed.value.week).map(clientMaterial));
   });
+
+  /* ───────── HTML 학습자료 (4단계): 등록 · 본문 열기 · .html 내려받기 ───────── */
+  // - 수정(제목·설명·주차·공개·본문)·삭제·정렬은 위의 보충 자료 경로를 같이 쓴다. 목록에는 본문을 넣지 않는다.
+  // - 본문은 요청마다 권한을 확인한 뒤에만 보낸다: 편집·담당 교수자는 비공개 포함, 학생은 수강 중인 과목의 공개 자료만 (그 밖은 404).
+  // - 화면은 JSON으로 받아 sandbox iframe에 그린다. 내려받기는 첨부 파일(attachment)로만 보내고, 앱 주소에서 HTML을 직접 실행하지 않는다.
+
+  /** 새 HTML 학습자료. body: { week, title, description?, status? (기본 비공개), html } — 그 주차 맨 뒤에 붙는다. */
+  api.post("/courses/:id/materials/html", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      const parsed = parseMaterialHtmlCreate(req.body, MAX_WEEK_COUNT);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      const { html, ...input } = parsed.value;
+      return viaMaterials(req, res, 201, (ops) => ops.saveHtml(req.params.id, null, input, html));
+    }
+    const course = db.data.courses[req.params.id];
+    if (!course) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    if (!canManageCourse(req, course.id)) return res.status(403).json({ error: "담당 강의의 자료만 등록할 수 있어요." });
+    const parsed = parseMaterialHtmlCreate(req.body, course.weekCount);
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const list = materialsForCourse(db.data.weekMaterials, course.id);
+    if (list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
+      return res.status(409).json({ error: `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.` });
+    }
+    const now = nowIso();
+    const material: StoredMaterial = {
+      id: newMaterialId((x) => !!db.data.weekMaterials[x]),
+      courseId: course.id,
+      kind: "html",
+      ...parsed.value,
+      url: "",
+      position: nextPosition(list, parsed.value.week),
+      createdAt: now,
+      updatedAt: now,
+      updatedByLabel: materialActor(req),
+    };
+    db.data.weekMaterials[material.id] = material;
+    db.save();
+    res.status(201).json(clientMaterial(material));
+  });
+
+  /** RFC 5987 값: encodeURIComponent가 남기는 ' ( ) * 까지 인코딩 (한 번만) */
+  const rfc5987 = (v: string) => encodeURIComponent(v).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
+  /**
+   * HTML 본문 열기(기본: JSON { id, title, html, updatedAt }) · ?mode=download: 완전한 HTML 문서를 첨부 파일로.
+   * 내려받은 문서 맨 앞에는 charset·CSP가 있어 인터넷 없이 열어도 스크립트·외부 리소스 없이 표시된다.
+   */
+  api.get("/materials/:id/html", requireLogin, (req: Authed, res) =>
+    void (async () => {
+      try {
+        let doc: WeekMaterialHtml | null = null;
+        if (!useSupabase) {
+          const m = db.data.weekMaterials[req.params.id];
+          const readable =
+            !!m && m.kind === "html" && typeof m.html === "string" &&
+            (isPlatformAdmin(req) || canSeeAllMaterials(req, m.courseId) || (m.status === "published" && canReadMaterials(req, m.courseId)));
+          doc = readable ? { id: m.id, title: m.title, html: m.html!, updatedAt: m.updatedAt } : null;
+        } else if (isPlatformAdmin(req)) {
+          if (!supa) throw new AdminDataError(503, "Supabase 서버 설정(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)이 없어요.");
+          doc = await supa.materials(materialActor(req)).readHtml(req.params.id);
+        } else {
+          if (!req.access) throw new AdminDataError(401, "로그인이 필요해요.");
+          doc = await materialOps(req.access.client, false, toUserError).readHtml(req.params.id);
+        }
+        if (!doc) throw new AdminDataError(404, "자료를 찾을 수 없어요.");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Referrer-Policy", "no-referrer");
+        if (req.query.mode === "download") {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.setHeader("Content-Disposition", `attachment; filename="material.html"; filename*=UTF-8''${rfc5987(materialHtmlFileName(doc.title))}`);
+          // 혹시 이 주소를 브라우저가 바로 열어도 스크립트 없는 sandbox 문서로만
+          res.setHeader("Content-Security-Policy", `sandbox; ${MATERIAL_HTML_CSP}`);
+          return void res.status(200).send(materialHtmlDocument(doc.title, doc.html));
+        }
+        res.status(200).json(doc);
+      } catch (err) {
+        if (err instanceof AdminDataError) return void res.status(err.status).json({ error: err.message });
+        console.error("[material-html]", err instanceof Error ? err.message : "unknown error");
+        res.status(500).json({ error: "HTML 자료를 열지 못했어요. 잠시 후 다시 시도해 주세요." });
+      }
+    })(),
+  );
 
   /* ───────── 파일 자료 (3-C): 업로드 시작 → 저장소에 직접 업로드 → 완료(검사 후 자료 행) · 짧은 열기 주소 · 고아 정리 ───────── */
   // - 저장소: JSON 모드는 DATA_DIR/uploads (이 서버의 토큰 주소), Supabase는 비공개 버킷 week-materials (서명 주소)

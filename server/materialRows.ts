@@ -5,7 +5,7 @@
 //   (권한·주차 범위·개수 한도·학생에게 보낼 행과 열은 DB 함수가 최종 확인)
 // - 응답은 JSON 모드 API와 같은 WeekMaterial 형태로 맞춘다.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { WeekMaterial } from "../src/app/store/models";
+import type { WeekMaterial, WeekMaterialHtml } from "../src/app/store/models";
 import type { MaterialCreate, MaterialPatch } from "./weekMaterials";
 
 type Row = Record<string, unknown>;
@@ -19,7 +19,7 @@ export const materialFromRow = (r: Row): WeekMaterial => ({
   id: String(r.id),
   courseId: String(r.course_id),
   week: Number(r.week),
-  kind: r.kind === "file" ? "file" : "link",
+  kind: r.kind === "file" ? "file" : r.kind === "html" ? "html" : "link",
   title: String(r.title ?? ""),
   description: String(r.description ?? ""),
   url: String(r.url ?? ""),
@@ -85,6 +85,29 @@ export const materialOps = (client: SupabaseClient, admin: boolean, toError: (e:
         courseId: (row?.course_id as string | null) ?? null,
         storagePath: (row?.storage_path as string | null) ?? null,
       };
+    },
+    /**
+     * HTML 학습자료 등록(materialId=null) · 수정. html은 본문(바꿀 때만), input은 주차·제목·설명·공개 상태(보낸 칸만).
+     * 관리자: admin_save_week_material_html(service-role) / 교수자: save_week_material_html (can_manage_course는 DB가 확인)
+     */
+    async saveHtml(courseId: string | null, materialId: string | null, input: MaterialCreate | MaterialPatch, html: string | null): Promise<WeekMaterial> {
+      const args = { p_course_id: courseId, p_material_id: materialId, p_input: materialInput(input), p_html: html };
+      const row = admin
+        ? ok(await client.rpc("admin_save_week_material_html", { ...args, p_admin_label: adminLabel }))
+        : ok(await client.rpc("save_week_material_html", args));
+      return materialFromRow(row as Row);
+    },
+    /**
+     * HTML 본문 열기. 사용자: week_material_html RPC (편집·담당 교수자는 비공개 포함, 학생은 수강 과목의 published만 — 그 밖은 P0002).
+     * 관리자: service-role로 그 행을 읽는다. 없거나 HTML 자료가 아니면 null.
+     */
+    async readHtml(materialId: string): Promise<WeekMaterialHtml | null> {
+      const rows = admin
+        ? (ok(await client.from("week_materials").select("id,kind,title,html_body,updated_at").eq("id", materialId).limit(1)) as Row[])
+        : (ok(await client.rpc("week_material_html", { p_material_id: materialId })) as Row[]);
+      const r = (Array.isArray(rows) ? rows[0] : rows) as Row | undefined;
+      if (!r || (admin && r.kind !== "html") || typeof r.html_body !== "string") return null;
+      return { id: String(r.id), title: String(r.title ?? ""), html: r.html_body, updatedAt: String(r.updated_at ?? "") };
     },
     async reorder(courseId: string, week: number, ids: string[]): Promise<WeekMaterial[]> {
       const rows = ok(

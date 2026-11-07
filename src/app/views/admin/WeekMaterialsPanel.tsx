@@ -12,6 +12,14 @@ import {
   safeHttpsUrl,
   type MaterialFormValues,
 } from "../../../content/materialRules";
+import {
+  MATERIAL_HTML_ACCEPT,
+  MATERIAL_HTML_MAX_BYTES,
+  htmlByteLength,
+  materialHtmlExternalCount,
+  materialHtmlProblem,
+  materialShareHash,
+} from "../../../content/materialHtml";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
@@ -19,6 +27,7 @@ import { materialStore } from "../../store";
 import { useWeekMaterials, type MaterialsState } from "../../store/hooks";
 import type { FileOpenMode } from "../../store/materialStore";
 import type { WeekMaterial, WeekMaterialStatus } from "../../store/models";
+import { HtmlMaterialFrame, copyShareLink, downloadHtmlMaterial } from "../HtmlMaterialView";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 const hostOf = (url: string) => {
@@ -94,9 +103,43 @@ const FileOpenButtons: React.FC<{ m: WeekMaterial }> = ({ m }) => {
   );
 };
 
-/** 자료 제목: 링크는 새 탭 링크, 파일은 열기·내려받기 버튼 */
-const MaterialTitle: React.FC<{ m: WeekMaterial }> = ({ m }) =>
-  m.kind === "file" ? <FileOpenButtons m={m} /> : <MaterialLink material={m}>🔗 {m.title}</MaterialLink>;
+/** HTML 학습자료: 앱 안 보기 화면(공유 링크와 같은 주소)과 .html 내려받기 */
+const HtmlOpenButtons: React.FC<{ m: WeekMaterial; withDownload?: boolean }> = ({ m, withDownload = true }) => {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <span className="row-start material-file-buttons">
+      <a className="material-link is-file" href={materialShareHash(m.id)}>
+        📘 {m.title}
+      </a>
+      {withDownload ? (
+        <button
+          type="button"
+          className="btn btn-quiet btn-sm"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const failed = await downloadHtmlMaterial(m.id, m.title);
+            setBusy(false);
+            if (failed) toast.show(failed, "error");
+          }}
+        >
+          .html 내려받기
+        </button>
+      ) : null}
+    </span>
+  );
+};
+
+/** 자료 제목: 링크는 새 탭 링크, 파일은 열기·내려받기 버튼, HTML은 보기·내려받기 */
+const MaterialTitle: React.FC<{ m: WeekMaterial; staff?: boolean }> = ({ m, staff = false }) =>
+  m.kind === "file" ? (
+    <FileOpenButtons m={m} />
+  ) : m.kind === "html" ? (
+    <HtmlOpenButtons m={m} withDownload={!staff} />
+  ) : (
+    <MaterialLink material={m}>🔗 {m.title}</MaterialLink>
+  );
 
 type FormValues = MaterialFormValues & { week: number; status: WeekMaterialStatus };
 type FormProps = {
@@ -207,6 +250,175 @@ const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showSt
 const emptyForm = (week: number): FormValues => ({ title: "", description: "", url: "", week, status: "draft" });
 const progressText = (ratio: number | null) => (ratio === null ? "" : ratio >= 1 ? "파일 확인 중…" : `올리는 중 ${Math.round(ratio * 100)}%`);
 
+type HtmlFormValues = { title: string; description: string; week: number; status: WeekMaterialStatus; html: string };
+
+/**
+ * HTML 학습자료 등록·수정: 직접 붙여 넣기 또는 .html 파일 불러오기(브라우저에서 글자로만 읽는다) → 안전한 미리보기 → 저장.
+ * 화면 검사는 서버와 같은 규칙(materialHtmlProblem). 서버·DB가 한 번 더 확인한다.
+ */
+const HtmlMaterialForm: React.FC<{
+  heading: string;
+  weekCount: number;
+  initial: HtmlFormValues;
+  showStatus: boolean;
+  submitLabel: string;
+  onSubmit: (v: HtmlFormValues) => Promise<string | null>;
+  onCancel: () => void;
+}> = ({ heading, weekCount, initial, showStatus, submitLabel, onSubmit, onCancel }) => {
+  const [v, setV] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const set = <K extends keyof HtmlFormValues>(key: K, value: HtmlFormValues[K]) => {
+    setV((prev) => ({ ...prev, [key]: value }));
+    setError(null);
+  };
+  const bytes = htmlByteLength(v.html);
+  const external = materialHtmlExternalCount(v.html);
+  const importFile = async (f: File | null) => {
+    if (!f) return;
+    if (!/\.html?$/i.test(f.name)) return setError(".html 또는 .htm 파일만 불러올 수 있어요.");
+    if (f.size > MATERIAL_HTML_MAX_BYTES) return setError(`HTML은 ${MATERIAL_HTML_MAX_BYTES / 1024 / 1024}MB까지 저장할 수 있어요.`);
+    const text = await f.text();
+    setV((prev) => ({ ...prev, html: text, title: prev.title.trim() ? prev.title : f.name.replace(/\.[^.]+$/, "").slice(0, MATERIAL_TEXT_LIMITS.title) }));
+    setError(materialHtmlProblem(text));
+  };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    const problem = materialFormProblem({ title: v.title, description: v.description, url: "https://example.com" }) ?? materialHtmlProblem(v.html);
+    if (problem) return setError(problem);
+    setBusy(true);
+    const failed = await onSubmit({ ...v, title: v.title.trim(), description: v.description.trim() });
+    setBusy(false);
+    if (failed) setError(failed);
+  };
+  return (
+    <form className="material-form" onSubmit={(e) => void submit(e)} aria-label={heading}>
+      <b className="small">{heading}</b>
+      <div className="form-grid">
+        <label className="field">
+          <span>자료 제목 *</span>
+          <input value={v.title} maxLength={MATERIAL_TEXT_LIMITS.title} disabled={busy} onChange={(e) => set("title", e.target.value)} required />
+        </label>
+        <label className="field">
+          <span>주차</span>
+          <select value={v.week} disabled={busy} onChange={(e) => set("week", Number(e.target.value))}>
+            {courseWeeks(weekCount).map((w) => (
+              <option key={w} value={w}>
+                {w}주차
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field span-2">
+          <span>설명</span>
+          <textarea rows={2} value={v.description} maxLength={MATERIAL_TEXT_LIMITS.description} disabled={busy} onChange={(e) => set("description", e.target.value)} />
+        </label>
+        <label className="field span-2">
+          <span>.html 파일 불러오기 (선택)</span>
+          <input type="file" accept={MATERIAL_HTML_ACCEPT} disabled={busy} onChange={(e) => void importFile(e.target.files?.[0] ?? null)} />
+        </label>
+        <label className="field span-2">
+          <span>HTML 내용 *</span>
+          <textarea
+            rows={10}
+            value={v.html}
+            disabled={busy}
+            spellCheck={false}
+            style={{ fontFamily: "ui-monospace, Consolas, monospace", fontSize: 13 }}
+            onChange={(e) => set("html", e.target.value)}
+            placeholder="<h1>3과 표현 정리</h1><table>…</table>"
+          />
+          <small className="muted">
+            {(bytes / 1024).toFixed(1)}KB / {MATERIAL_HTML_MAX_BYTES / 1024 / 1024}MB · 스크립트·이벤트 속성(onclick 등)·iframe·form은 저장되지 않아요.
+            이미지는 문서 안에 넣은 data: 이미지만 보여요.
+          </small>
+          {external > 0 ? (
+            <small className="field-error" role="status">
+              외부 이미지·CSS·글꼴 {external}개는 보안을 위해 표시되지 않아요. 내려받은 파일도 인터넷 없이 같은 모습으로 보여요.
+            </small>
+          ) : null}
+        </label>
+        {showStatus ? (
+          <label className="field-check span-2">
+            <input type="checkbox" checked={v.status === "published"} disabled={busy} onChange={(e) => set("status", e.target.checked ? "published" : "draft")} />
+            <span>바로 공개 (체크하지 않으면 비공개로 저장돼 학생에게 보이지 않아요)</span>
+          </label>
+        ) : null}
+      </div>
+      {preview && v.html.trim() ? <HtmlMaterialFrame title={v.title || "미리보기"} html={v.html} height="50vh" /> : null}
+      {error ? (
+        <p className="field-error small" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="row-start">
+        <button className="btn btn-primary btn-sm" type="submit" disabled={busy}>
+          {busy ? "저장 중…" : submitLabel}
+        </button>
+        <button className="btn btn-soft btn-sm" type="button" disabled={busy || !v.html.trim()} onClick={() => setPreview((x) => !x)}>
+          {preview ? "미리보기 닫기" : "미리보기"}
+        </button>
+        <button className="btn btn-soft btn-sm" type="button" onClick={onCancel} disabled={busy}>
+          취소
+        </button>
+      </div>
+    </form>
+  );
+};
+
+/** HTML 자료 수정: 본문을 받아 온 뒤 폼을 연다 */
+const HtmlEditForm: React.FC<{
+  m: WeekMaterial;
+  weekCount: number;
+  run: (work: () => Promise<unknown>, done: string, fallback: string) => Promise<string | null>;
+  onClose: () => void;
+}> = ({ m, weekCount, run, onClose }) => {
+  const [html, setHtml] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    materialStore
+      .html(m.id)
+      .then((d) => alive && setHtml(d.html))
+      .catch((err) => alive && setError(errorText(err, "HTML 내용을 불러오지 못했어요.")));
+    return () => {
+      alive = false;
+    };
+  }, [m.id]);
+  if (error) {
+    return (
+      <p className="field-error small" role="alert">
+        {error}{" "}
+        <button className="btn btn-soft btn-sm" onClick={onClose}>
+          닫기
+        </button>
+      </p>
+    );
+  }
+  if (html === null) return <p className="muted small">HTML 내용을 불러오는 중…</p>;
+  return (
+    <HtmlMaterialForm
+      heading={`HTML 자료 수정 · ${m.title}`}
+      weekCount={weekCount}
+      initial={{ title: m.title, description: m.description, week: m.week, status: m.status, html }}
+      showStatus={false}
+      submitLabel="저장"
+      onCancel={onClose}
+      onSubmit={async (v) => {
+        const failed = await run(
+          () => materialStore.update(m.id, { title: v.title, description: v.description, week: v.week, html: v.html }),
+          v.week !== m.week ? `${v.week}주차로 옮겼어요.` : "HTML 자료를 저장했어요.",
+          "HTML 자료를 저장하지 못했어요.",
+        );
+        if (!failed) onClose();
+        return failed;
+      }}
+    />
+  );
+};
+
 /** 파일 자료 등록: 파일 고르기 → 업로드(진행률) → 서버 확인 → 자료 생성 */
 const FileMaterialForm: React.FC<{
   courseId: string;
@@ -311,6 +523,14 @@ const MaterialRow: React.FC<{
   const fileInput = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const isFile = m.kind === "file";
+  const isHtml = m.kind === "html";
+  if (editing && isHtml) {
+    return (
+      <li className="material-row is-editing">
+        <HtmlEditForm m={m} weekCount={weekCount} run={run} onClose={() => setEditing(false)} />
+      </li>
+    );
+  }
   if (editing) {
     return (
       <li className="material-row is-editing">
@@ -362,11 +582,11 @@ const MaterialRow: React.FC<{
     <li className="material-row">
       <div className="material-main">
         <span className="row-start">
-          <MaterialTitle m={m} />
+          <MaterialTitle m={m} staff />
           <span className={`pill ${m.status === "published" ? "pill-mint" : "pill-cream"}`}>{MATERIAL_STATUS_LABEL[m.status]}</span>
         </span>
         <small className="muted">
-          {isFile ? `${m.fileName ?? "파일"}${m.sizeBytes ? ` · ${formatBytes(m.sizeBytes)}` : ""}` : hostOf(m.url)}
+          {isFile ? `${m.fileName ?? "파일"}${m.sizeBytes ? ` · ${formatBytes(m.sizeBytes)}` : ""}` : isHtml ? "HTML 학습자료" : hostOf(m.url)}
         </small>
         {m.description ? <p className="small">{m.description}</p> : null}
         {replacing !== null ? <p className="small" role="status">{progressText(replacing)}</p> : null}
@@ -395,6 +615,16 @@ const MaterialRow: React.FC<{
           <button className="btn btn-soft btn-sm" disabled={locked} onClick={() => setEditing(true)}>
             수정
           </button>
+          {isHtml ? (
+            <button
+              className="btn btn-soft btn-sm"
+              disabled={locked}
+              title={m.status === "published" ? "로그인한 수강생만 열 수 있어요" : "비공개 자료는 학생이 열 수 없어요"}
+              onClick={() => void copyShareLink(m.id, toast)}
+            >
+              링크 복사
+            </button>
+          ) : null}
           {isFile ? (
             <>
               <input ref={fileInput} type="file" accept={MATERIAL_FILE_ACCEPT} hidden onChange={(e) => void replace(e.target.files?.[0] ?? null)} />
@@ -440,7 +670,7 @@ export const WeekMaterialsPanel: React.FC<{
 }> = ({ courseId, weekCount, materials, editable }) => {
   const toast = useToast();
   const [week, setWeek] = useState(1);
-  const [adding, setAdding] = useState<"link" | "file" | null>(null);
+  const [adding, setAdding] = useState<"link" | "file" | "html" | null>(null);
   const [busy, setBusy] = useState(false);
   const shownWeek = Math.min(Math.max(week, 1), weekCount);
 
@@ -463,7 +693,7 @@ export const WeekMaterialsPanel: React.FC<{
     <div className="material-head">
       <h3 className="section-title">📎 주차별 추가 자료</h3>
       <p className="muted small">
-        영상 학습자료와 별도로 주차마다 참고 링크와 파일(PDF·문서·이미지)을 여러 개 둘 수 있어요. 강의의 모든 분반이 함께 보고,
+        영상 학습자료와 별도로 주차마다 참고 링크·파일(PDF·문서·이미지)·HTML 학습자료를 여러 개 둘 수 있어요. 강의의 모든 분반이 함께 보고,
         ‘공개’한 자료만 학생에게 보여요.
       </p>
     </div>
@@ -529,6 +759,9 @@ export const WeekMaterialsPanel: React.FC<{
             <button className="btn btn-primary btn-sm" disabled={busy || full} onClick={() => setAdding("file")}>
               + 파일 자료 추가
             </button>
+            <button className="btn btn-primary btn-sm" disabled={busy || full} onClick={() => setAdding("html")}>
+              + HTML 자료 추가
+            </button>
           </>
         ) : null}
       </div>
@@ -566,6 +799,29 @@ export const WeekMaterialsPanel: React.FC<{
           onDone={(w) => {
             setAdding(null);
             setWeek(w);
+          }}
+        />
+      ) : null}
+
+      {adding === "html" ? (
+        <HtmlMaterialForm
+          heading={`${shownWeek}주차에 HTML 자료 추가`}
+          weekCount={weekCount}
+          initial={{ title: "", description: "", week: shownWeek, status: "draft", html: "" }}
+          showStatus
+          submitLabel="등록"
+          onCancel={() => setAdding(null)}
+          onSubmit={async (v) => {
+            const failed = await run(
+              () => materialStore.createHtml(courseId, v),
+              v.status === "published" ? "HTML 자료를 등록하고 공개했어요." : "HTML 자료를 비공개로 등록했어요.",
+              "HTML 자료를 등록하지 못했어요.",
+            );
+            if (!failed) {
+              setAdding(null);
+              setWeek(v.week);
+            }
+            return failed;
           }}
         />
       ) : null}

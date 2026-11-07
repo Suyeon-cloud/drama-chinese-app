@@ -8,6 +8,8 @@ export type ViewKey =
   // 과목 커리큘럼 #/course?id={courseId}
   | "course"
   | "lesson"
+  // HTML 학습자료 공유 링크 #/material?id={materialId} (열 때 서버가 로그인·수강·공개 여부를 확인)
+  | "material"
   | "situations"
   | "culture"
   | "mine"
@@ -39,6 +41,7 @@ export const VIEWS: ViewDef[] = [
   { key: "weeks", ko: "내 강의" },
   { key: "course", ko: "내 강의", requiresLogin: true },
   { key: "lesson", ko: "주차별 학습", requiresLogin: true },
+  { key: "material", ko: "학습자료", requiresLogin: true },
   // 상황별 장면은 ‘내 강의’ 화면의 탭으로 합쳐졌다. (이전 링크 호환용)
   { key: "situations", ko: "내 강의" },
   { key: "culture", ko: "한중문화", requiresLogin: true },
@@ -89,6 +92,7 @@ export const menuFor = (user: RoleUser): ViewDef[] =>
 export const MENU_PARENT: Partial<Record<ViewKey, ViewKey>> = {
   course: "weeks",
   lesson: "weeks",
+  material: "weeks",
   situations: "weeks",
   "teach-course": "teach",
   "admin-editor": "admin-course",
