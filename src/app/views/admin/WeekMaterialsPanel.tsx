@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { courseWeeks } from "../../../content/courseWeeks";
 import {
+  MATERIAL_FILE_ACCEPT,
+  MATERIAL_PREVIEW_MIME_TYPES,
   MATERIAL_STATUS_LABEL,
   MATERIAL_TEXT_LIMITS,
   MAX_MATERIALS_PER_WEEK,
+  formatBytes,
+  materialFileProblem,
   materialFormProblem,
   safeHttpsUrl,
   type MaterialFormValues,
@@ -13,6 +17,7 @@ import { useToast } from "../../components/Toast";
 import { ApiError } from "../../lib/api";
 import { materialStore } from "../../store";
 import { useWeekMaterials, type MaterialsState } from "../../store/hooks";
+import type { FileOpenMode } from "../../store/materialStore";
 import type { WeekMaterial, WeekMaterialStatus } from "../../store/models";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -23,6 +28,7 @@ const hostOf = (url: string) => {
     return url;
   }
 };
+const canPreview = (m: Pick<WeekMaterial, "mimeType">) => !!m.mimeType && MATERIAL_PREVIEW_MIME_TYPES.includes(m.mimeType);
 
 /** 자료 링크: https만, 새 탭(opener·referrer 없이). 안전하지 않은 주소면 글자로만 보여 준다. */
 export const MaterialLink: React.FC<{ material: Pick<WeekMaterial, "url" | "title">; children?: React.ReactNode }> = ({
@@ -39,22 +45,74 @@ export const MaterialLink: React.FC<{ material: Pick<WeekMaterial, "url" | "titl
   );
 };
 
-/** 자료 제목: 링크는 새 탭 링크, 파일(3-C 전)은 글자만 */
-const MaterialTitle: React.FC<{ m: WeekMaterial }> = ({ m }) =>
-  m.kind === "file" ? <span className="material-link is-file">📄 {m.title}</span> : <MaterialLink material={m}>🔗 {m.title}</MaterialLink>;
+/**
+ * 파일 열기·내려받기: 누를 때마다 서버에 60초짜리 주소를 받는다(서버가 권한을 다시 확인한다).
+ * 미리보기는 새 탭(팝업 차단을 피하려고 먼저 빈 탭을 연다), 내려받기는 지금 탭에서 받는다(첨부 파일이라 화면은 그대로).
+ */
+const openMaterialFile = async (m: WeekMaterial, mode: FileOpenMode): Promise<string | null> => {
+  const preview = mode === "preview" && canPreview(m);
+  const win = preview ? window.open("", "_blank") : null;
+  try {
+    const r = await materialStore.fileUrl(m.id, preview ? "preview" : "download");
+    const url = new URL(r.url, window.location.href).href;
+    if (win) {
+      win.opener = null;
+      win.location.href = url;
+    } else {
+      window.location.assign(url);
+    }
+    return null;
+  } catch (err) {
+    win?.close();
+    return errorText(err, "파일을 열지 못했어요. 잠시 후 다시 시도해 주세요.");
+  }
+};
 
+/** 파일 자료의 열기·내려받기 버튼 */
+const FileOpenButtons: React.FC<{ m: WeekMaterial }> = ({ m }) => {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const open = async (mode: FileOpenMode) => {
+    setBusy(true);
+    const failed = await openMaterialFile(m, mode);
+    setBusy(false);
+    if (failed) toast.show(failed, "error");
+  };
+  const preview = canPreview(m);
+  return (
+    <span className="row-start material-file-buttons">
+      <button type="button" className="link-btn material-link is-file" disabled={busy} onClick={() => void open(preview ? "preview" : "download")}>
+        📄 {m.title}
+        <span className="sr-only">{preview ? " (새 탭에서 열기)" : " (내려받기)"}</span>
+      </button>
+      {preview ? (
+        <button type="button" className="btn btn-quiet btn-sm" disabled={busy} onClick={() => void open("download")}>
+          내려받기
+        </button>
+      ) : null}
+    </span>
+  );
+};
+
+/** 자료 제목: 링크는 새 탭 링크, 파일은 열기·내려받기 버튼 */
+const MaterialTitle: React.FC<{ m: WeekMaterial }> = ({ m }) =>
+  m.kind === "file" ? <FileOpenButtons m={m} /> : <MaterialLink material={m}>🔗 {m.title}</MaterialLink>;
+
+type FormValues = MaterialFormValues & { week: number; status: WeekMaterialStatus };
 type FormProps = {
   heading: string;
   weekCount: number;
-  initial: MaterialFormValues & { week: number; status: WeekMaterialStatus };
+  initial: FormValues;
   showStatus: boolean;
+  /** false: 파일 자료 정보 수정 (링크 주소 칸 없음) */
+  withUrl?: boolean;
   submitLabel: string;
-  onSubmit: (v: MaterialFormValues & { week: number; status: WeekMaterialStatus }) => Promise<string | null>;
+  onSubmit: (v: FormValues) => Promise<string | null>;
   onCancel?: () => void;
 };
 
-/** 링크 자료 입력 (등록·수정 공통). onSubmit이 오류 문구를 돌려주면 폼에 보여 준다. */
-const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showStatus, submitLabel, onSubmit, onCancel }) => {
+/** 링크 자료 입력·파일 자료 정보 수정 (onSubmit이 오류 문구를 돌려주면 폼에 보여 준다) */
+const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showStatus, withUrl = true, submitLabel, onSubmit, onCancel }) => {
   const [v, setV] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,7 +123,7 @@ const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showSt
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    const problem = materialFormProblem(v);
+    const problem = materialFormProblem(withUrl ? v : { ...v, url: "https://example.com" });
     if (problem) return setError(problem);
     setBusy(true);
     const failed = await onSubmit({ ...v, title: v.title.trim(), description: v.description.trim(), url: v.url.trim() });
@@ -96,18 +154,20 @@ const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showSt
             ))}
           </select>
         </label>
-        <label className="field span-2">
-          <span>링크 주소 (https) *</span>
-          <input
-            type="url"
-            inputMode="url"
-            value={v.url}
-            onChange={(e) => set("url", e.target.value)}
-            placeholder="https://"
-            required
-          />
-          <small className="muted">https://로 시작하는 주소만 등록돼요. 학생 화면에서는 새 탭으로 열려요.</small>
-        </label>
+        {withUrl ? (
+          <label className="field span-2">
+            <span>링크 주소 (https) *</span>
+            <input
+              type="url"
+              inputMode="url"
+              value={v.url}
+              onChange={(e) => set("url", e.target.value)}
+              placeholder="https://"
+              required
+            />
+            <small className="muted">https://로 시작하는 주소만 등록돼요. 학생 화면에서는 새 탭으로 열려요.</small>
+          </label>
+        ) : null}
         <label className="field span-2">
           <span>설명</span>
           <textarea
@@ -144,9 +204,97 @@ const MaterialForm: React.FC<FormProps> = ({ heading, weekCount, initial, showSt
   );
 };
 
-const emptyForm = (week: number) => ({ title: "", description: "", url: "", week, status: "draft" as WeekMaterialStatus });
+const emptyForm = (week: number): FormValues => ({ title: "", description: "", url: "", week, status: "draft" });
+const progressText = (ratio: number | null) => (ratio === null ? "" : ratio >= 1 ? "파일 확인 중…" : `올리는 중 ${Math.round(ratio * 100)}%`);
 
-/** 자료 한 줄: 제목·링크·상태와 순서·공개·수정·삭제 */
+/** 파일 자료 등록: 파일 고르기 → 업로드(진행률) → 서버 확인 → 자료 생성 */
+const FileMaterialForm: React.FC<{
+  courseId: string;
+  weekCount: number;
+  week: number;
+  onDone: (week: number) => void;
+  onCancel: () => void;
+}> = ({ courseId, weekCount, week, onDone, onCancel }) => {
+  const toast = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [v, setV] = useState({ title: "", description: "", week, status: "draft" as WeekMaterialStatus });
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const busy = progress !== null;
+  const pick = (f: File | null) => {
+    setFile(f);
+    setError(f ? materialFileProblem(f) : null);
+    if (f && !v.title.trim()) setV((p) => ({ ...p, title: f.name.replace(/\.[^.]+$/, "").slice(0, MATERIAL_TEXT_LIMITS.title) }));
+  };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (!file) return setError("올릴 파일을 골라 주세요.");
+    const problem = materialFileProblem(file) ?? materialFormProblem({ title: v.title, description: v.description, url: "https://example.com" });
+    if (problem) return setError(problem);
+    setProgress(0);
+    try {
+      await materialStore.uploadFile(courseId, { ...v, title: v.title.trim(), description: v.description.trim() }, file, setProgress);
+      toast.show(v.status === "published" ? "파일 자료를 올리고 공개했어요." : "파일 자료를 비공개로 올렸어요.", "success");
+      onDone(v.week);
+    } catch (err) {
+      setError(errorText(err, "파일 자료를 올리지 못했어요."));
+    } finally {
+      setProgress(null);
+    }
+  };
+  return (
+    <form className="material-form" onSubmit={(e) => void submit(e)} aria-label={`${week}주차에 파일 자료 추가`}>
+      <b className="small">{week}주차에 파일 자료 추가</b>
+      <div className="form-grid">
+        <label className="field span-2">
+          <span>파일 * (PDF·DOCX·PPTX·XLSX·HWP·HWPX·JPG·PNG·WEBP·TXT, 20MB까지)</span>
+          <input type="file" accept={MATERIAL_FILE_ACCEPT} disabled={busy} onChange={(e) => pick(e.target.files?.[0] ?? null)} />
+          {file ? <small className="muted">{file.name} · {formatBytes(file.size)}</small> : null}
+        </label>
+        <label className="field">
+          <span>자료 제목 *</span>
+          <input value={v.title} maxLength={MATERIAL_TEXT_LIMITS.title} disabled={busy} onChange={(e) => setV({ ...v, title: e.target.value })} required />
+        </label>
+        <label className="field">
+          <span>주차</span>
+          <select value={v.week} disabled={busy} onChange={(e) => setV({ ...v, week: Number(e.target.value) })}>
+            {courseWeeks(weekCount).map((w) => (
+              <option key={w} value={w}>
+                {w}주차
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field span-2">
+          <span>설명</span>
+          <textarea rows={2} value={v.description} maxLength={MATERIAL_TEXT_LIMITS.description} disabled={busy} onChange={(e) => setV({ ...v, description: e.target.value })} />
+        </label>
+        <label className="field-check span-2">
+          <input type="checkbox" checked={v.status === "published"} disabled={busy} onChange={(e) => setV({ ...v, status: e.target.checked ? "published" : "draft" })} />
+          <span>바로 공개 (체크하지 않으면 비공개로 저장돼 학생에게 보이지 않아요)</span>
+        </label>
+      </div>
+      <p className="muted small">PDF·이미지는 학생이 바로 열어 보고, 그 밖의 문서는 내려받아요. 학생 개인정보가 담긴 파일은 올리지 마세요.</p>
+      {busy ? <p className="small" role="status">{progressText(progress)}</p> : null}
+      {error ? (
+        <p className="field-error small" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="row-start">
+        <button className="btn btn-primary btn-sm" type="submit" disabled={busy || !file}>
+          {busy ? "올리는 중…" : "올리기"}
+        </button>
+        <button className="btn btn-soft btn-sm" type="button" onClick={onCancel} disabled={busy}>
+          취소
+        </button>
+      </div>
+    </form>
+  );
+};
+
+/** 자료 한 줄: 제목·상태와 순서·공개·수정·(파일) 교체·삭제 */
 const MaterialRow: React.FC<{
   m: WeekMaterial;
   index: number;
@@ -159,6 +307,10 @@ const MaterialRow: React.FC<{
 }> = ({ m, index, count, weekCount, editable, busy, onMove, run }) => {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [replacing, setReplacing] = useState<number | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+  const isFile = m.kind === "file";
   if (editing) {
     return (
       <li className="material-row is-editing">
@@ -167,11 +319,18 @@ const MaterialRow: React.FC<{
           weekCount={weekCount}
           initial={{ title: m.title, description: m.description, url: m.url, week: m.week, status: m.status }}
           showStatus={false}
+          withUrl={!isFile}
           submitLabel="저장"
           onCancel={() => setEditing(false)}
           onSubmit={async (v) => {
             const failed = await run(
-              () => materialStore.update(m.id, { title: v.title, description: v.description, url: v.url, week: v.week }),
+              () =>
+                materialStore.update(m.id, {
+                  title: v.title,
+                  description: v.description,
+                  week: v.week,
+                  ...(isFile ? {} : { url: v.url }),
+                }),
               v.week !== m.week ? `${v.week}주차로 옮겼어요.` : "자료를 저장했어요.",
               "자료를 저장하지 못했어요.",
             );
@@ -182,8 +341,23 @@ const MaterialRow: React.FC<{
       </li>
     );
   }
+  const replace = async (file: File | null) => {
+    if (fileInput.current) fileInput.current.value = "";
+    if (!file) return;
+    const problem = materialFileProblem(file);
+    if (problem) return toast.show(problem, "error");
+    setReplacing(0);
+    try {
+      await materialStore.replaceFile(m.id, file, setReplacing);
+      toast.show("파일을 바꿨어요.", "success");
+    } catch (err) {
+      toast.show(errorText(err, "파일을 바꾸지 못했어요."), "error");
+    } finally {
+      setReplacing(null);
+    }
+  };
   const next: WeekMaterialStatus = m.status === "published" ? "draft" : "published";
-  const isFile = m.kind === "file";
+  const locked = busy || replacing !== null;
   return (
     <li className="material-row">
       <div className="material-main">
@@ -191,25 +365,23 @@ const MaterialRow: React.FC<{
           <MaterialTitle m={m} />
           <span className={`pill ${m.status === "published" ? "pill-mint" : "pill-cream"}`}>{MATERIAL_STATUS_LABEL[m.status]}</span>
         </span>
-        <small className="muted">{isFile ? `${m.fileName ?? "파일"} · 파일 열기는 준비 중` : hostOf(m.url)}</small>
+        <small className="muted">
+          {isFile ? `${m.fileName ?? "파일"}${m.sizeBytes ? ` · ${formatBytes(m.sizeBytes)}` : ""}` : hostOf(m.url)}
+        </small>
         {m.description ? <p className="small">{m.description}</p> : null}
+        {replacing !== null ? <p className="small" role="status">{progressText(replacing)}</p> : null}
       </div>
       {editable ? (
         <div className="material-actions">
-          <button className="btn btn-quiet btn-sm" aria-label={`${m.title} 위로`} disabled={busy || index === 0} onClick={() => onMove(-1)}>
+          <button className="btn btn-quiet btn-sm" aria-label={`${m.title} 위로`} disabled={locked || index === 0} onClick={() => onMove(-1)}>
             ↑
           </button>
-          <button
-            className="btn btn-quiet btn-sm"
-            aria-label={`${m.title} 아래로`}
-            disabled={busy || index === count - 1}
-            onClick={() => onMove(1)}
-          >
+          <button className="btn btn-quiet btn-sm" aria-label={`${m.title} 아래로`} disabled={locked || index === count - 1} onClick={() => onMove(1)}>
             ↓
           </button>
           <button
             className="btn btn-soft btn-sm"
-            disabled={busy}
+            disabled={locked}
             onClick={() =>
               void run(
                 () => materialStore.update(m.id, { status: next }),
@@ -220,26 +392,32 @@ const MaterialRow: React.FC<{
           >
             {next === "published" ? "공개" : "비공개"}
           </button>
-          {isFile ? null : (
-            <button className="btn btn-soft btn-sm" disabled={busy} onClick={() => setEditing(true)}>
-              수정
-            </button>
-          )}
+          <button className="btn btn-soft btn-sm" disabled={locked} onClick={() => setEditing(true)}>
+            수정
+          </button>
+          {isFile ? (
+            <>
+              <input ref={fileInput} type="file" accept={MATERIAL_FILE_ACCEPT} hidden onChange={(e) => void replace(e.target.files?.[0] ?? null)} />
+              <button className="btn btn-soft btn-sm" disabled={locked} onClick={() => fileInput.current?.click()}>
+                파일 교체
+              </button>
+            </>
+          ) : null}
           {confirming ? (
             <span className="row-start" role="alertdialog" aria-label="자료 삭제 확인">
               <button
                 className="btn btn-primary btn-sm"
-                disabled={busy}
+                disabled={locked}
                 onClick={() => void run(() => materialStore.remove(m.id), "자료를 삭제했어요.", "자료를 삭제하지 못했어요.")}
               >
                 삭제 확인
               </button>
-              <button className="btn btn-soft btn-sm" disabled={busy} onClick={() => setConfirming(false)}>
+              <button className="btn btn-soft btn-sm" disabled={locked} onClick={() => setConfirming(false)}>
                 취소
               </button>
             </span>
           ) : (
-            <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => setConfirming(true)}>
+            <button className="btn btn-quiet btn-sm" disabled={locked} onClick={() => setConfirming(true)}>
               삭제
             </button>
           )}
@@ -250,7 +428,7 @@ const MaterialRow: React.FC<{
 };
 
 /**
- * 주차별 추가 자료 (교수자·관리자): 주차를 골라 외부 링크 자료를 등록·수정·삭제·순서 변경·공개 전환한다.
+ * 주차별 추가 자료 (교수자·관리자): 주차를 골라 링크·파일 자료를 등록·수정·삭제·순서 변경·공개 전환한다.
  * 영상 학습자료(주차별 학습자료)와 따로 저장되고, 강의의 모든 분반이 함께 쓴다.
  * editable=false: 목록만 (예: 비활성 분반만 담당 — 서버도 편집을 거부한다)
  */
@@ -262,7 +440,7 @@ export const WeekMaterialsPanel: React.FC<{
 }> = ({ courseId, weekCount, materials, editable }) => {
   const toast = useToast();
   const [week, setWeek] = useState(1);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<"link" | "file" | null>(null);
   const [busy, setBusy] = useState(false);
   const shownWeek = Math.min(Math.max(week, 1), weekCount);
 
@@ -285,8 +463,8 @@ export const WeekMaterialsPanel: React.FC<{
     <div className="material-head">
       <h3 className="section-title">📎 주차별 추가 자료</h3>
       <p className="muted small">
-        영상 학습자료와 별도로 주차마다 참고 링크를 여러 개 둘 수 있어요. 강의의 모든 분반이 함께 보고, ‘공개’한 자료만 학생에게
-        보여요.
+        영상 학습자료와 별도로 주차마다 참고 링크와 파일(PDF·문서·이미지)을 여러 개 둘 수 있어요. 강의의 모든 분반이 함께 보고,
+        ‘공개’한 자료만 학생에게 보여요.
       </p>
     </div>
   );
@@ -333,7 +511,7 @@ export const WeekMaterialsPanel: React.FC<{
             value={shownWeek}
             onChange={(e) => {
               setWeek(Number(e.target.value));
-              setAdding(false);
+              setAdding(null);
             }}
           >
             {courseWeeks(weekCount).map((w) => (
@@ -344,22 +522,27 @@ export const WeekMaterialsPanel: React.FC<{
           </select>
         </label>
         {editable && !adding ? (
-          <button className="btn btn-primary btn-sm" disabled={busy || full} onClick={() => setAdding(true)}>
-            + 링크 자료 추가
-          </button>
+          <>
+            <button className="btn btn-primary btn-sm" disabled={busy || full} onClick={() => setAdding("link")}>
+              + 링크 자료 추가
+            </button>
+            <button className="btn btn-primary btn-sm" disabled={busy || full} onClick={() => setAdding("file")}>
+              + 파일 자료 추가
+            </button>
+          </>
         ) : null}
       </div>
       {full && editable ? <p className="muted small">한 주차에는 자료를 {MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.</p> : null}
       {!editable ? <p className="scope-note">운영 중인 담당 분반이 있을 때 자료를 편집할 수 있어요. 지금은 목록만 볼 수 있어요.</p> : null}
 
-      {adding ? (
+      {adding === "link" ? (
         <MaterialForm
           heading={`${shownWeek}주차에 링크 자료 추가`}
           weekCount={weekCount}
           initial={emptyForm(shownWeek)}
           showStatus
           submitLabel="등록"
-          onCancel={() => setAdding(false)}
+          onCancel={() => setAdding(null)}
           onSubmit={async (v) => {
             const failed = await run(
               () => materialStore.create(courseId, v),
@@ -367,10 +550,22 @@ export const WeekMaterialsPanel: React.FC<{
               "자료를 등록하지 못했어요.",
             );
             if (!failed) {
-              setAdding(false);
+              setAdding(null);
               setWeek(v.week);
             }
             return failed;
+          }}
+        />
+      ) : null}
+      {adding === "file" ? (
+        <FileMaterialForm
+          courseId={courseId}
+          weekCount={weekCount}
+          week={shownWeek}
+          onCancel={() => setAdding(null)}
+          onDone={(w) => {
+            setAdding(null);
+            setWeek(w);
           }}
         />
       ) : null}

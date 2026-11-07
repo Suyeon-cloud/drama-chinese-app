@@ -100,7 +100,7 @@ test("관리자 경로: admin_* RPC에 수정자 표시와 함께 보내고, 목
   await ops.update("material-x", { status: "published" });
   assert.deepEqual((calls.at(-1)!.args as Row).p_input, { status: "published" });
   assert.equal((calls.at(-1)!.args as Row).p_course_id, null);
-  assert.deepEqual(await ops.remove("material-x"), { ok: true });
+  assert.deepEqual(await ops.remove("material-x"), { ok: true, courseId: "course-campus", storagePath: "should/not/leak" });
   assert.equal(calls.at(-1)!.rpc, "admin_delete_week_material");
   await ops.reorder("course-campus", 2, ["material-x", "material-abc123def456"]);
   assert.deepEqual(calls.at(-1)!.args, { p_course_id: "course-campus", p_week: 2, p_ids: ["material-x", "material-abc123def456"] });

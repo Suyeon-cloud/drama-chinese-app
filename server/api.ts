@@ -9,7 +9,9 @@
 //   - 교수자: 배정(courseInstructors의 courseId + email)된 운영 과목만 — 수강생·진도·퀴즈 결과, 강의자료 편집
 //   - 학습자: 본인 정보·본인 학습 기록·수강 중인 과목만. 관리자 승인 전에는 수강 등록·학습 기록을 할 수 없다.
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createReadStream, existsSync } from "node:fs";
+import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { isValidEmail, normalizeEmail } from "../src/app/auth/roles";
 import { lessonPublishProblems } from "../src/app/lib/subtitles";
@@ -34,6 +36,7 @@ import type {
 } from "../src/app/store/models";
 import type { Lesson } from "../src/content/types";
 import { MAX_WEEK_COUNT, sortCourses } from "../src/content/courseWeeks";
+import { MATERIAL_FILE_MAX_BYTES } from "../src/content/materialRules";
 import type { PublicCourse, WeekMaterial } from "../src/app/store/models";
 import type { Db } from "./db";
 import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
@@ -51,7 +54,11 @@ import {
   publicMaterial,
   renumberWeek,
 } from "./weekMaterials";
+import { clientMaterial, parseMaterialFileInput, type StoredMaterial } from "./weekMaterials";
 import { materialOps } from "./materialRows";
+import { isCourseKey, isPreviewable, newStorageKey, parseFileMeta } from "./materialFiles";
+import { createLocalMaterialStorage, DOWNLOAD_URL_SECONDS, type MaterialStorage } from "./materialStorage";
+import { cleanupOrphans, completeUpload, UPLOAD_INTENT_MS, type UploadDeps, type UploadIntent } from "./materialUploads";
 import { AdminDataError, createSupabaseAdminClient, createSupabaseAdminStore, type SupabaseAdminStore } from "./supabaseAdmin";
 import {
   bearerToken,
@@ -1214,7 +1221,9 @@ export const createApi = (db: Db, env: ApiEnv) => {
       });
     }
     if (!db.data.courses[courseId] || !canReadMaterials(req, courseId)) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
-    const all = materialsForCourse(db.data.weekMaterials, courseId).filter((m) => week === null || m.week === week);
+    const all = materialsForCourse(db.data.weekMaterials, courseId)
+      .filter((m) => week === null || m.week === week)
+      .map(clientMaterial);
     res.json(canSeeAllMaterials(req, courseId) ? all : all.filter((m) => m.status === "published").map(publicMaterial));
   });
 
@@ -1264,12 +1273,13 @@ export const createApi = (db: Db, env: ApiEnv) => {
     if (!prev || !course || !canManageCourse(req, course.id)) return res.status(404).json({ error: "자료를 찾을 수 없어요." });
     const parsed = parseMaterialPatch(req.body, course.weekCount);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    if (prev.kind === "file" && parsed.value.url !== undefined) return res.status(400).json({ error: "파일 자료에는 링크 주소를 넣을 수 없어요." });
     const list = materialsForCourse(db.data.weekMaterials, course.id);
     const moving = parsed.value.week !== undefined && parsed.value.week !== prev.week;
     if (moving && list.filter((m) => m.week === parsed.value.week).length >= MAX_MATERIALS_PER_WEEK) {
       return res.status(409).json({ error: `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.` });
     }
-    const next: WeekMaterial = {
+    const next: StoredMaterial = {
       ...prev,
       ...parsed.value,
       position: moving ? nextPosition(list, parsed.value.week!) : prev.position,
@@ -1279,17 +1289,29 @@ export const createApi = (db: Db, env: ApiEnv) => {
     db.data.weekMaterials[prev.id] = next;
     if (moving) renumberWeek(Object.values(db.data.weekMaterials).filter((m) => m.courseId === course.id), prev.week);
     db.save();
-    res.json(next);
+    res.json(clientMaterial(next));
   });
 
-  /** 보충 자료 삭제 (그 자료만, 같은 주차의 순서는 다시 매긴다) */
+  /** 보충 자료 삭제 (그 자료만, 같은 주차의 순서는 다시 매긴다). 파일 자료는 자료 행을 지운 뒤 저장된 파일도 지운다. */
   api.delete("/materials/:id", requireLogin, (req: Authed, res) => {
-    if (useSupabase) return viaMaterials(req, res, 200, (ops) => ops.remove(req.params.id));
+    if (useSupabase) {
+      return viaMaterials(req, res, 200, async (ops) => {
+        const r = await ops.remove(req.params.id);
+        if (r.storagePath && r.courseId && isCourseKey(r.courseId, r.storagePath)) {
+          if (supa) await removeStoredFile(supa.materialFiles().storage, r.storagePath);
+          else console.error(`[material-file] 저장소 설정이 없어 파일을 지우지 못했어요(고아 정리 대상): ${r.storagePath}`);
+        }
+        return { ok: true };
+      });
+    }
     const prev = db.data.weekMaterials[req.params.id];
     if (!prev || !canManageCourse(req, prev.courseId)) return res.status(404).json({ error: "자료를 찾을 수 없어요." });
     delete db.data.weekMaterials[prev.id];
     renumberWeek(Object.values(db.data.weekMaterials).filter((m) => m.courseId === prev.courseId), prev.week);
     db.save();
+    if (prev.storagePath && isCourseKey(prev.courseId, prev.storagePath)) {
+      return void removeStoredFile(localFiles!, prev.storagePath).then(() => res.json({ ok: true }));
+    }
     res.json({ ok: true });
   });
 
@@ -1316,8 +1338,294 @@ export const createApi = (db: Db, env: ApiEnv) => {
       db.data.weekMaterials[id].position = i;
     });
     db.save();
-    res.json(materialsForCourse(db.data.weekMaterials, course.id).filter((m) => m.week === parsed.value.week));
+    res.json(materialsForCourse(db.data.weekMaterials, course.id).filter((m) => m.week === parsed.value.week).map(clientMaterial));
   });
+
+  /* ───────── 파일 자료 (3-C): 업로드 시작 → 저장소에 직접 업로드 → 완료(검사 후 자료 행) · 짧은 열기 주소 · 고아 정리 ───────── */
+  // - 저장소: JSON 모드는 DATA_DIR/uploads (이 서버의 토큰 주소), Supabase는 비공개 버킷 week-materials (서명 주소)
+  // - 권한은 요청마다 서버가 확인한다: 업로드 시작·완료(편집 권한), 열기 주소 발급(열람 권한 — 학생은 수강 과목의 공개 자료만)
+  // - 파일 행은 파일 크기·형식·내용(시그니처·ZIP 내부 구조) 검사를 통과한 뒤에만 만든다.
+
+  const localFiles = useSupabase ? null : createLocalMaterialStorage(path.resolve(path.dirname(db.file), "uploads"), secret || db.data.sessionSecret);
+  const removeStoredFile = (storage: MaterialStorage, key: string) =>
+    storage.remove([key]).catch((e: unknown) => console.error(`[material-file] 파일 삭제 실패(고아 정리 대상) ${key}: ${String(e)}`));
+  /** 파일 처리 공통 실행: AdminDataError → 그 상태, 그 밖은 500 (내용은 감춘다) */
+  const runFile = async (res: Response, status: number, work: () => Promise<unknown>) => {
+    try {
+      const body = await work();
+      res.status(status).json(body);
+    } catch (err) {
+      if (err instanceof AdminDataError) return res.status(err.status).json({ error: err.message, ...err.extra });
+      console.error("[material-file]", err instanceof Error ? err.message : "unknown error");
+      res.status(500).json({ error: "파일을 처리하지 못했어요. 잠시 후 다시 시도해 주세요." });
+    }
+  };
+  /** 지금 요청한 사람의 파일 처리 도구 (JSON: 로컬, Supabase: service-role) */
+  const fileDeps = (): UploadDeps & { kind: "local" | "supabase" } => {
+    if (!useSupabase) {
+      return {
+        kind: "local",
+        storage: localFiles!,
+        intents: {
+          async create(i) {
+            db.data.materialUploads[i.token] = i;
+            db.save();
+          },
+          async get(token) {
+            return db.data.materialUploads[token] ?? null;
+          },
+          async consume(token) {
+            const i = db.data.materialUploads[token];
+            if (!i || i.consumedAt) return null;
+            i.consumedAt = nowIso();
+            db.save();
+            return i;
+          },
+          async remove(token) {
+            delete db.data.materialUploads[token];
+            db.save();
+          },
+          async activeKeys() {
+            const now = Date.now();
+            return new Set(Object.values(db.data.materialUploads).filter((i) => !i.consumedAt && Date.parse(i.expiresAt) > now).map((i) => i.storageKey));
+          },
+          async purgeOld() {
+            const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+            let n = 0;
+            for (const i of Object.values(db.data.materialUploads)) {
+              if ((i.consumedAt && Date.parse(i.consumedAt) < cutoff) || Date.parse(i.expiresAt) < cutoff) {
+                delete db.data.materialUploads[i.token];
+                n++;
+              }
+            }
+            if (n) db.save();
+            return n;
+          },
+        },
+        records: {
+          async insert(i) {
+            const course = db.data.courses[i.courseId];
+            if (!course || !i.input) throw new AdminDataError(404, "강의를 찾을 수 없어요.");
+            if (i.input.week > course.weekCount) throw new AdminDataError(400, `주차는 1~${course.weekCount}주차 중에서 골라 주세요.`);
+            const list = materialsForCourse(db.data.weekMaterials, course.id);
+            if (list.filter((m) => m.week === i.input!.week).length >= MAX_MATERIALS_PER_WEEK) {
+              throw new AdminDataError(409, `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.`);
+            }
+            const now = nowIso();
+            const material: StoredMaterial = {
+              id: newMaterialId((x) => !!db.data.weekMaterials[x]),
+              courseId: course.id,
+              kind: "file",
+              ...i.input,
+              url: "",
+              fileName: i.fileName,
+              mimeType: i.mimeType,
+              sizeBytes: i.sizeBytes,
+              storagePath: i.storageKey,
+              position: nextPosition(list, i.input.week),
+              createdAt: now,
+              updatedAt: now,
+              updatedByLabel: i.actorLabel,
+            };
+            db.data.weekMaterials[material.id] = material;
+            db.save();
+            return clientMaterial(material);
+          },
+          async replace(i) {
+            const prev = db.data.weekMaterials[i.materialId ?? ""];
+            if (!prev || prev.kind !== "file") throw new AdminDataError(404, "파일 자료를 찾을 수 없어요.");
+            if (prev.courseId !== i.courseId) throw new AdminDataError(409, "자료의 강의가 바뀌었어요. 다시 시도해 주세요.");
+            const next: StoredMaterial = {
+              ...prev,
+              fileName: i.fileName,
+              mimeType: i.mimeType,
+              sizeBytes: i.sizeBytes,
+              storagePath: i.storageKey,
+              updatedAt: nowIso(),
+              updatedByLabel: i.actorLabel,
+            };
+            db.data.weekMaterials[prev.id] = next;
+            db.save();
+            return { material: clientMaterial(next), oldKey: prev.storagePath ?? null };
+          },
+          async referencedKeys() {
+            return new Set(Object.values(db.data.weekMaterials).flatMap((m) => (m.storagePath ? [m.storagePath] : [])));
+          },
+        },
+      };
+    }
+    if (!supa) throw new AdminDataError(503, "Supabase 서버 설정(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)이 없어요.");
+    const f = supa.materialFiles();
+    return { kind: "supabase", storage: f.storage, intents: f.intents, records: f.records };
+  };
+  /** 파일 자료 정보 (저장 경로 포함, 서버 내부용) */
+  const fileRowOf = async (id: string) => {
+    if (!useSupabase) {
+      const m = db.data.weekMaterials[id];
+      return m ? { id: m.id, courseId: m.courseId, kind: m.kind, status: m.status, storagePath: m.storagePath ?? null, fileName: m.fileName ?? null, mimeType: m.mimeType ?? null } : null;
+    }
+    if (!supa) throw new AdminDataError(503, "Supabase 서버 설정(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)이 없어요.");
+    return supa.materialFiles().fileRow(id);
+  };
+  /** 그 과목 자료를 편집할 수 있는지 (요청마다 확인) */
+  const canEditMaterials = async (req: Authed, courseId: string) => {
+    if (!useSupabase) return canManageCourse(req, courseId);
+    if (isPlatformAdmin(req)) return !!(await supa?.getCourse(courseId));
+    if (!req.access || !isStaff(req)) return false;
+    const r = await req.access.client.rpc("can_manage_course", { p_course_id: courseId });
+    if (r.error) throw toUserError(r.error);
+    return r.data === true;
+  };
+  const actorOf = (req: Authed) => ({
+    actorKey: isPlatformAdmin(req) ? "admin" : req.user!.id,
+    actorId: isPlatformAdmin(req) || !useSupabase ? null : (req.access?.userId ?? null),
+    actorLabel: materialActor(req),
+  });
+  const weekCountOf = async (courseId: string) =>
+    useSupabase ? ((await supa?.getCourse(courseId))?.weekCount ?? null) : (db.data.courses[courseId]?.weekCount ?? null);
+  const countInWeek = async (courseId: string, week: number) =>
+    useSupabase
+      ? await supa!.materialFiles().countInWeek(courseId, week)
+      : materialsForCourse(db.data.weekMaterials, courseId).filter((m) => m.week === week).length;
+  /** 업로드 의도를 기록하고 업로드 주소를 준다 (주소를 만들지 못하면 의도도 지운다) */
+  const startUpload = async (deps: UploadDeps, intent: UploadIntent) => {
+    await deps.intents.create(intent);
+    try {
+      const up = await deps.storage.createUpload(intent.storageKey, intent.mimeType, intent.token);
+      return { token: intent.token, uploadUrl: up.uploadUrl, headers: up.headers, expiresAt: intent.expiresAt, fileName: intent.fileName, mimeType: intent.mimeType };
+    } catch (e) {
+      await deps.intents.remove(intent.token).catch(() => undefined);
+      throw e;
+    }
+  };
+  const newIntent = (req: Authed, courseId: string, materialId: string | null, meta: { fileName: string; mimeType: string; sizeBytes: number }, input: UploadIntent["input"]): UploadIntent => {
+    const now = Date.now();
+    return {
+      token: randomUUID(),
+      courseId,
+      materialId,
+      storageKey: newStorageKey(courseId, meta.fileName),
+      ...meta,
+      input,
+      ...actorOf(req),
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + UPLOAD_INTENT_MS).toISOString(),
+      consumedAt: null,
+    };
+  };
+
+  /** 새 파일 자료 업로드 시작. body: { week, title, description?, status?, fileName, mimeType, sizeBytes } */
+  api.post("/courses/:id/materials/uploads", requireLogin, (req: Authed, res) =>
+    void runFile(res, 201, async () => {
+      const courseId = req.params.id;
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const deps = fileDeps();
+      const weekCount = await weekCountOf(courseId);
+      if (weekCount === null) throw new AdminDataError(404, "강의를 찾을 수 없어요.");
+      if (!(await canEditMaterials(req, courseId))) throw new AdminDataError(403, "담당 강의의 자료만 올릴 수 있어요.");
+      const { fileName: _f, mimeType: _m, sizeBytes: _s, ...rest } = body;
+      const input = parseMaterialFileInput(rest, weekCount);
+      if (!input.ok) throw new AdminDataError(400, input.error);
+      const meta = parseFileMeta(body);
+      if (!meta.ok) throw new AdminDataError(400, meta.error);
+      if ((await countInWeek(courseId, input.value.week)) >= MAX_MATERIALS_PER_WEEK) {
+        throw new AdminDataError(409, `한 주차에는 자료를 ${MAX_MATERIALS_PER_WEEK}개까지 등록할 수 있어요.`);
+      }
+      return startUpload(deps, newIntent(req, courseId, null, meta.value, input.value));
+    }),
+  );
+
+  /** 파일 자료의 파일 교체 시작. body: { fileName, mimeType, sizeBytes } — 완료하면 옛 파일은 지운다. */
+  api.post("/materials/:id/uploads", requireLogin, (req: Authed, res) =>
+    void runFile(res, 201, async () => {
+      const deps = fileDeps();
+      const row = await fileRowOf(req.params.id);
+      if (!row || row.kind !== "file") throw new AdminDataError(404, "파일 자료를 찾을 수 없어요.");
+      if (!(await canEditMaterials(req, row.courseId))) throw new AdminDataError(404, "파일 자료를 찾을 수 없어요.");
+      const meta = parseFileMeta((req.body ?? {}) as Record<string, unknown>);
+      if (!meta.ok) throw new AdminDataError(400, meta.error);
+      return startUpload(deps, newIntent(req, row.courseId, row.id, meta.value, null));
+    }),
+  );
+
+  /** JSON 모드 전용: 업로드 받기 (Supabase는 브라우저가 서명 주소로 저장소에 직접 올린다) */
+  api.put(
+    "/material-uploads/:token",
+    requireLogin,
+    express.raw({ type: () => true, limit: MATERIAL_FILE_MAX_BYTES + 1024 }),
+    (req: Authed, res) =>
+      void runFile(res, 200, async () => {
+        if (useSupabase || !localFiles) throw new AdminDataError(404, "업로드 주소를 찾을 수 없어요.");
+        const intent = db.data.materialUploads[req.params.token];
+        if (!intent || intent.actorKey !== actorOf(req).actorKey || intent.consumedAt) throw new AdminDataError(404, "업로드 주소를 찾을 수 없어요.");
+        if (Date.parse(intent.expiresAt) < Date.now()) throw new AdminDataError(410, "업로드 시간이 지났어요. 파일을 다시 올려 주세요.");
+        const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+        if (body.length < 1 || body.length > MATERIAL_FILE_MAX_BYTES) throw new AdminDataError(400, "파일 크기가 올바르지 않아요.");
+        localFiles.write(intent.storageKey, body);
+        return { ok: true };
+      }),
+  );
+
+  /** 업로드 완료: 같은 사람·만료·중복·권한을 다시 확인하고, 파일을 검사한 뒤 자료 행을 만든다(또는 파일을 바꾼다) */
+  api.post("/material-uploads/:token/complete", requireLogin, (req: Authed, res) =>
+    void runFile(res, 200, async () => {
+      const deps = fileDeps();
+      return completeUpload(deps, req.params.token, actorOf(req).actorKey, async (intent) => {
+        if (intent.materialId) {
+          const row = await fileRowOf(intent.materialId);
+          if (!row || row.kind !== "file" || row.courseId !== intent.courseId) return false;
+        }
+        return canEditMaterials(req, intent.courseId);
+      });
+    }),
+  );
+
+  /**
+   * 파일 열기·내려받기 주소 (60초). ?mode=preview: PDF·이미지만 브라우저에서 열기, 그 밖은 내려받기.
+   * 요청마다 권한을 확인한다: 편집·담당 교수자는 비공개 포함, 학생은 수강 중인 과목의 공개 자료만.
+   */
+  api.get("/materials/:id/file", requireLogin, (req: Authed, res) =>
+    void runFile(res, 200, async () => {
+      const deps = fileDeps();
+      let file: { courseId: string; storagePath: string | null; fileName: string | null; mimeType: string | null } | null = null;
+      if (!useSupabase || isPlatformAdmin(req)) {
+        const row = await fileRowOf(req.params.id);
+        const readable =
+          row &&
+          row.kind === "file" &&
+          (isPlatformAdmin(req) || canSeeAllMaterials(req, row.courseId) || (row.status === "published" && canReadMaterials(req, row.courseId)));
+        file = readable ? row : null;
+      } else {
+        if (!req.access) throw new AdminDataError(401, "로그인이 필요해요.");
+        const r = await req.access.client.rpc("week_material_download", { p_material_id: req.params.id });
+        if (r.error) throw toUserError(r.error);
+        const row = (Array.isArray(r.data) ? r.data[0] : r.data) as Record<string, unknown> | undefined;
+        const course = typeof row?.storage_path === "string" ? row.storage_path.split("/")[0] : "";
+        file = row ? { courseId: course, storagePath: (row.storage_path as string) ?? null, fileName: (row.file_name as string) ?? null, mimeType: (row.mime_type as string) ?? null } : null;
+      }
+      if (!file || !file.storagePath || !file.fileName || !file.mimeType || !isCourseKey(file.courseId, file.storagePath)) {
+        throw new AdminDataError(404, "파일을 찾을 수 없어요.");
+      }
+      const preview = req.query.mode === "preview" && isPreviewable(file.mimeType);
+      const url = await deps.storage.signedUrl(file.storagePath, { download: preview ? null : file.fileName, mime: file.mimeType });
+      return { url, mode: preview ? "preview" : "download", expiresIn: DOWNLOAD_URL_SECONDS };
+    }),
+  );
+
+  /** JSON 모드 전용: 짧은 토큰으로 파일 보내기 (토큰에 경로·만료·내려받기 이름이 서명돼 있다) */
+  api.get("/material-files/:token", (req, res) => {
+    const t = localFiles?.verify(req.params.token);
+    if (!t || !existsSync(t.file)) return res.status(404).json({ error: "주소가 만료됐거나 파일이 없어요. 다시 열어 주세요." });
+    res.setHeader("Content-Type", t.m);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", t.d ? `attachment; filename*=UTF-8''${encodeURIComponent(t.d)}` : "inline");
+    createReadStream(t.file).pipe(res);
+  });
+
+  /** 관리자: 고아 파일 정리. 기본은 미리 보기(dry-run). body { confirm: true }일 때만 지운다. */
+  api.post("/materials/cleanup", requireAdminMode, (req: Authed, res) =>
+    void runFile(res, 200, async () => cleanupOrphans(fileDeps(), req.body?.confirm === true)),
+  );
 
   /* ───────── 분반 관리 (관리자) ───────── */
 

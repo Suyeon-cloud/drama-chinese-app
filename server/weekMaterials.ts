@@ -128,6 +128,32 @@ export const renumberWeek = (list: WeekMaterial[], week: number) => {
 /** 학생에게 보내는 형태: 공개 자료만, 마지막 수정자 표시는 빼고 */
 export const publicMaterial = ({ updatedByLabel: _label, ...m }: WeekMaterial): WeekMaterial => m;
 
+/** JSON 모드 저장 형태: 파일 자료는 서버만 아는 저장 경로를 함께 둔다 (응답에는 보내지 않는다) */
+export type StoredMaterial = WeekMaterial & { storagePath?: string };
+/** 응답용: 저장 경로를 뺀다 */
+export const clientMaterial = (m: StoredMaterial): WeekMaterial => {
+  const { storagePath: _path, ...rest } = m;
+  return rest;
+};
+
+/** 파일 자료 등록 입력: 주차·제목 필수, 설명·공개 상태 선택 (파일 칸은 parseFileMeta가 따로 본다) */
+export const parseMaterialFileInput = (
+  body: unknown,
+  weekCount: number,
+): { ok: true; value: { week: number; title: string; description: string; status: WeekMaterialStatus } } | Fail => {
+  if (!isObject(body)) return fail("자료 정보 형식이 올바르지 않아요.");
+  if ([...SERVER_FIELDS, "url", "storagePath"].some((f) => f in body)) return fail("id·과목·순서·저장 경로 등은 서버가 정해요. 보내지 마세요.");
+  const week = readWeek(body.week, weekCount);
+  if (!week.ok) return week;
+  const title = readText(body.title ?? "", "title");
+  if (!title.ok) return title;
+  const description = body.description === undefined || body.description === null ? { ok: true as const, value: "" } : readText(body.description, "description");
+  if (!description.ok) return description;
+  const status = body.status === undefined ? { ok: true as const, value: "draft" as const } : readStatus(body.status);
+  if (!status.ok) return status;
+  return { ok: true, value: { week: week.value, title: title.value, description: description.value, status: status.value } };
+};
+
 export const newMaterialId = (exists: (id: string) => boolean) => {
   for (let i = 0; i < 20; i++) {
     const id = `material-${randomBytes(6).toString("hex")}`;

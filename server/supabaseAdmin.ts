@@ -11,7 +11,9 @@ import { LESSON_SELECT, lessonConflictFrom, lessonsFromEmbedded } from "./lesson
 import { feedbackFromRow, feedbackProblem, feedbackToRow } from "./feedbackRows";
 import { PROGRESS_SELECT, progressFromRow } from "./progressRows";
 import type { CourseFields, CoursePatch } from "./courseInput";
-import { materialOps } from "./materialRows";
+import { MATERIAL_COLUMNS, materialFromRow, materialOps } from "./materialRows";
+import { createSupabaseMaterialStorage } from "./materialStorage";
+import type { FileRecords, IntentStore, UploadIntent } from "./materialUploads";
 import { sortCourses } from "../src/content/courseWeeks";
 import type {
   CourseOverview,
@@ -338,6 +340,145 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
     /** 주차별 보충 자료 (admin_* RPC, 기존 자료 과목 포함). label: 마지막 수정자 표시 */
     materials(label: string) {
       return materialOps(sb, true, toAdminError, label);
+    },
+
+    /**
+     * 파일 자료 (service-role): 저장소·업로드 의도·파일 자료 행.
+     * 교수자 요청도 서버가 권한을 확인한 뒤 이 경로로 처리한다. (파일 행은 서버가 파일을 확인한 뒤에만 만든다)
+     */
+    materialFiles() {
+      const storage = createSupabaseMaterialStorage(sb);
+      const intentFromRow = (r: Row): UploadIntent => ({
+        token: String(r.token),
+        courseId: String(r.course_id),
+        materialId: (r.material_id as string | null) ?? null,
+        storageKey: String(r.storage_path),
+        fileName: String(r.file_name),
+        mimeType: String(r.mime_type),
+        sizeBytes: Number(r.size_bytes),
+        input: (r.input as UploadIntent["input"]) ?? null,
+        actorKey: String(r.actor_key),
+        actorId: (r.actor_id as string | null) ?? null,
+        actorLabel: String(r.actor_label ?? ""),
+        createdAt: String(r.created_at),
+        expiresAt: String(r.expires_at),
+        consumedAt: (r.consumed_at as string | null) ?? null,
+      });
+      const intents: IntentStore = {
+        async create(i) {
+          ok(
+            await sb.from("week_material_uploads").insert({
+              token: i.token,
+              course_id: i.courseId,
+              material_id: i.materialId,
+              storage_path: i.storageKey,
+              file_name: i.fileName,
+              mime_type: i.mimeType,
+              size_bytes: i.sizeBytes,
+              input: i.input,
+              actor_key: i.actorKey,
+              actor_id: i.actorId,
+              actor_label: i.actorLabel,
+              created_at: i.createdAt,
+              expires_at: i.expiresAt,
+            }),
+          );
+        },
+        async get(token) {
+          if (!UUID_RE.test(token)) return null;
+          const r = okMaybe(await sb.from("week_material_uploads").select("*").eq("token", token).maybeSingle()) as Row | null;
+          return r ? intentFromRow(r) : null;
+        },
+        async consume(token) {
+          if (!UUID_RE.test(token)) return null;
+          const r = okMaybe(
+            await sb.from("week_material_uploads").update({ consumed_at: nowIso() }).eq("token", token).is("consumed_at", null).select("*").maybeSingle(),
+          ) as Row | null;
+          return r ? intentFromRow(r) : null;
+        },
+        async remove(token) {
+          ok(await sb.from("week_material_uploads").delete().eq("token", token));
+        },
+        async activeKeys() {
+          // 응답 행 수 제한(기본 1000)에 잘리지 않도록 나눠 읽는다 (빠지면 진행 중 업로드를 고아로 볼 수 있다)
+          const keys = new Set<string>();
+          const now = nowIso();
+          for (let from = 0; ; from += 1000) {
+            const rows = ok(
+              await sb.from("week_material_uploads").select("storage_path").is("consumed_at", null).gt("expires_at", now).order("storage_path").range(from, from + 999),
+            ) as Row[];
+            for (const r of rows) keys.add(String(r.storage_path));
+            if (rows.length < 1000) return keys;
+          }
+        },
+        async purgeOld() {
+          const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const rows = ok(await sb.from("week_material_uploads").delete().or(`consumed_at.lt.${cutoff},expires_at.lt.${cutoff}`).select("token")) as Row[];
+          return rows.length;
+        },
+      };
+      const fileArgs = (i: UploadIntent) => ({
+        p_storage_path: i.storageKey,
+        p_file_name: i.fileName,
+        p_mime_type: i.mimeType,
+        p_size_bytes: i.sizeBytes,
+        p_actor: i.actorId,
+        p_actor_label: i.actorLabel,
+      });
+      const readMaterial = async (id: string) => {
+        const row = okMaybe(await sb.from("week_materials").select(MATERIAL_COLUMNS).eq("id", id).maybeSingle()) as Row | null;
+        if (!row) throw new AdminDataError(404, "자료를 찾을 수 없어요.");
+        return materialFromRow(row);
+      };
+      const records: FileRecords = {
+        async insert(i) {
+          const row = ok(await sb.rpc("admin_insert_week_material_file", { p_course_id: i.courseId, p_input: i.input, ...fileArgs(i) }));
+          return materialFromRow(row as Row);
+        },
+        async replace(i) {
+          const r = await sb.rpc("admin_replace_week_material_file", { p_material_id: i.materialId, ...fileArgs(i) });
+          if (r.error) throw toAdminError(r.error);
+          return { material: await readMaterial(i.materialId!), oldKey: (r.data as string | null) ?? null };
+        },
+        async referencedKeys() {
+          // 응답 행 수 제한(기본 1000)에 잘리지 않도록 나눠 읽는다 (빠지면 정상 자료 파일을 고아로 볼 수 있다)
+          const keys = new Set<string>();
+          for (let from = 0; ; from += 1000) {
+            const rows = ok(
+              await sb.from("week_materials").select("storage_path").not("storage_path", "is", null).order("storage_path").range(from, from + 999),
+            ) as Row[];
+            for (const r of rows) keys.add(String(r.storage_path));
+            if (rows.length < 1000) return keys;
+          }
+        },
+      };
+      return {
+        storage,
+        intents,
+        records,
+        /** 자료 한 건의 파일 정보 (관리자·서버 내부용 — 저장 경로 포함) */
+        async fileRow(id: string) {
+          const r = okMaybe(
+            await sb.from("week_materials").select("id,course_id,kind,status,storage_path,file_name,mime_type").eq("id", id).maybeSingle(),
+          ) as Row | null;
+          return r
+            ? {
+                id: String(r.id),
+                courseId: String(r.course_id),
+                kind: String(r.kind),
+                status: String(r.status),
+                storagePath: (r.storage_path as string | null) ?? null,
+                fileName: (r.file_name as string | null) ?? null,
+                mimeType: (r.mime_type as string | null) ?? null,
+              }
+            : null;
+        },
+        async countInWeek(courseId: string, week: number) {
+          const { count, error } = await sb.from("week_materials").select("id", { count: "exact", head: true }).eq("course_id", courseId).eq("week", week);
+          if (error) throw toAdminError(error);
+          return count ?? 0;
+        },
+      };
     },
 
     /** 로그인 전 공개 과목 목록: 운영 중(active) 과목만 */

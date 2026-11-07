@@ -30,6 +30,31 @@ export const MATERIAL_FILE_TYPES: Record<string, readonly string[]> = {
 };
 export const MATERIAL_FILE_MIME_TYPES: readonly string[] = [...new Set(Object.values(MATERIAL_FILE_TYPES).flat())];
 
+/** 브라우저에서 바로 열어 보는 형식 (그 밖의 문서는 내려받기) */
+export const MATERIAL_PREVIEW_MIME_TYPES: readonly string[] = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+/** 파일 선택 창의 형식 목록 */
+export const MATERIAL_FILE_ACCEPT = Object.keys(MATERIAL_FILE_TYPES).map((e) => `.${e}`).join(",");
+export const MATERIAL_FILE_NAME_MAX = 200;
+
+/** 파일 이름의 확장자 (소문자, 점 없이). 없으면 "" */
+export const materialFileExt = (name: string) => {
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(name.trim());
+  return m ? m[1].toLowerCase() : "";
+};
+
+/** 화면에서 고른 파일 검사 (서버도 같은 규칙으로 다시 확인한다). 문제가 없으면 null */
+export const materialFileProblem = (file: { name: string; size: number }): string | null => {
+  if (!MATERIAL_FILE_TYPES[materialFileExt(file.name)]) {
+    return `올릴 수 있는 형식은 ${Object.keys(MATERIAL_FILE_TYPES).join(", ").toUpperCase()}예요.`;
+  }
+  if (file.size <= 0) return "빈 파일은 올릴 수 없어요.";
+  if (file.size > MATERIAL_FILE_MAX_BYTES) return `파일은 ${MATERIAL_FILE_MAX_BYTES / 1024 / 1024}MB까지 올릴 수 있어요.`;
+  return null;
+};
+
+export const formatBytes = (n: number) =>
+  n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : n >= 1024 ? `${Math.round(n / 1024)}KB` : `${n}B`;
+
 /**
  * 안전한 https 링크인지 확인하고 정리한 주소를 돌려준다. 아니면 null.
  * (javascript:·data:·http: 등은 모두 null — 화면에서 링크를 만들 때도 이 함수를 한 번 더 거친다)

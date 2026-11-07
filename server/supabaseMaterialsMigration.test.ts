@@ -57,7 +57,8 @@ const revokedFrom = (name: string) => {
 
 test("3-B: 마지막 마이그레이션, 파일 전체가 begin … commit 한 트랜잭션, 추가형", () => {
   assert.ok(B3_FILE, "3-B 마이그레이션 파일");
-  assert.equal(migFiles[migFiles.length - 1], B3_FILE);
+  // 3-B는 E1 뒤에 온다 (그 뒤에 3-C 등 다음 단계가 이어질 수 있다)
+  assert.ok(migFiles.indexOf(B3_FILE!) > migFiles.findIndex((f) => /_phase_e1_course_management\.sql$/.test(f)));
   // 첫 문장이 begin, 마지막 문장이 commit, 그 사이에 다른 begin/commit/rollback 없음
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);

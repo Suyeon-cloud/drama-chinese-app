@@ -78,9 +78,13 @@ export const materialOps = (client: SupabaseClient, admin: boolean, toError: (e:
       return materialFromRow(row as Row);
     },
     /** 삭제. 지운 행을 돌려준다 (3-C: 파일 자료면 그 storage_path 객체를 서버가 지운다) */
-    async remove(materialId: string): Promise<{ ok: true }> {
-      ok(await client.rpc(admin ? "admin_delete_week_material" : "delete_week_material", { p_material_id: materialId }));
-      return { ok: true };
+    async remove(materialId: string): Promise<{ ok: true; courseId: string | null; storagePath: string | null }> {
+      const row = ok(await client.rpc(admin ? "admin_delete_week_material" : "delete_week_material", { p_material_id: materialId })) as Row;
+      return {
+        ok: true,
+        courseId: (row?.course_id as string | null) ?? null,
+        storagePath: (row?.storage_path as string | null) ?? null,
+      };
     },
     async reorder(courseId: string, week: number, ids: string[]): Promise<WeekMaterial[]> {
       const rows = ok(
