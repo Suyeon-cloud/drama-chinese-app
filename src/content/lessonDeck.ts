@@ -275,7 +275,7 @@ export const presentReducer = (count: number) => (s: PresentState, a: PresentAct
 };
 
 /** 키 → 동작. 글자 입력 중(입력칸·선택칸·편집 영역)이면 null — 슬라이드 단축키를 쓰지 않는다 */
-export type PresentKey = PresentAction["type"] | "toggle-play" | "play-scene" | "fullscreen" | "pinyin" | "korean" | "follow" | "exit" | "section";
+export type PresentKey = PresentAction["type"] | "toggle-play" | "play-scene" | "fullscreen" | "pinyin" | "korean" | "follow" | "motion" | "exit" | "section";
 export const presentKeyOf = (e: { key: string; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; targetTag?: string; editable?: boolean }): PresentKey | null => {
   if (e.altKey || e.ctrlKey || e.metaKey || e.editable || ["INPUT", "TEXTAREA", "SELECT"].includes(e.targetTag ?? "")) return null;
   switch (e.key) {
@@ -305,6 +305,9 @@ export const presentKeyOf = (e: { key: string; altKey?: boolean; ctrlKey?: boole
     case "s":
     case "S":
       return "follow";
+    case "m":
+    case "M":
+      return "motion";
     case "a":
     case "A":
       return "reveal";

@@ -18,9 +18,10 @@ import {
 } from "../../content/lessonDeck";
 import { htmlByteLength, materialHtmlProblem, materialShareHash } from "../../content/materialHtml";
 import { lessonSubtitlePosition, resolveCaptionMask, resolveLessonContent } from "../../content/lessons";
-import type { Lesson } from "../../content/types";
+import type { Lesson, LessonContent, MotionCue } from "../../content/types";
 import { useToast } from "../components/Toast";
 import { CaptionMaskBox } from "../learning/CaptionMask";
+import { MotionOverlayLayer } from "../learning/MotionOverlayLayer";
 import { SubtitleLayer } from "../learning/SubtitleLayer";
 import { useFullscreen } from "../learning/useFullscreen";
 import { useSegmentPlayback, useSimulatedClock, useYouTubeClock, type VideoClock } from "../learning/useVideoClock";
@@ -79,7 +80,7 @@ type Layout = "split" | "slide" | "video";
 const LAYOUT_LABEL: Record<Layout, string> = { split: "영상+슬라이드", slide: "슬라이드만", video: "영상 크게" };
 
 /** 학습자료 → 덱 (학생 학습 화면과 같은 합본·자막·회화) */
-const useLessonDeck = (lesson: Lesson): LessonDeck => {
+const useLessonDeck = (lesson: Lesson): { deck: LessonDeck; content: LessonContent } => {
   const pinyinReady = usePinyinReady();
   return useMemo(() => {
     const py = pinyinReady ? toPinyin : undefined;
@@ -101,7 +102,7 @@ const useLessonDeck = (lesson: Lesson): LessonDeck => {
         };
       }),
     }));
-    return buildLessonDeck({ lesson, content, cues, dialogues, pinyinOf: py });
+    return { deck: buildLessonDeck({ lesson, content, cues, dialogues, pinyinOf: py }), content };
   }, [lesson, pinyinReady]);
 };
 
@@ -109,7 +110,10 @@ const useLessonDeck = (lesson: Lesson): LessonDeck => {
 const noFocus = (e: React.MouseEvent) => e.preventDefault();
 
 const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot | null }> = ({ lesson, clock, video }) => {
-  const deck = useLessonDeck(lesson);
+  const { deck, content } = useLessonDeck(lesson);
+  // 모션그래픽: 학습 화면과 같은 MotionCue(번들 + 교수자 초안 cue)와 같은 영상 시계로 MotionOverlayLayer를 그린다
+  const motionCues = useMemo(() => content.cues.filter((c): c is MotionCue => c.kind === "motion"), [content]);
+  const [showMotion, setShowMotion] = useState(true);
   const slides = useMemo(() => deckToSlides(deck), [deck]);
   const reducer = useMemo(() => presentReducer(slides.length), [slides.length]);
   const [state, dispatch] = useReducer(reducer, { index: 0, revealed: [] });
@@ -170,6 +174,7 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
       else if (key === "fullscreen") void (stage.active ? stage.exit() : stage.enter());
       else if (key === "pinyin") setShowPinyin((x) => !x);
       else if (key === "korean") setShowKo((x) => !x);
+      else if (key === "motion") setShowMotion((x) => !x);
       else if (key === "follow") setFollow((x) => !x);
       else if (key === "exit" && stage.active) void stage.exit();
       else if (key === "section") {
@@ -223,6 +228,11 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
             <button className={`btn btn-sm ${showKo ? "btn-primary" : "btn-soft"}`} onMouseDown={noFocus} onClick={() => setShowKo((x) => !x)} title="K">
               한국어
             </button>
+            {video && motionCues.length > 0 ? (
+              <button className={`btn btn-sm ${showMotion ? "btn-primary" : "btn-soft"}`} onMouseDown={noFocus} onClick={() => setShowMotion((x) => !x)} title="M">
+                모션
+              </button>
+            ) : null}
             {video ? (
               <button className={`btn btn-sm ${follow ? "btn-primary" : "btn-soft"}`} onMouseDown={noFocus} onClick={() => setFollow((x) => !x)} title="S">
                 자막 따라가기
@@ -296,6 +306,7 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
                   </div>
                 ) : null}
                 <div className="overlay-layer" data-sub-position={lessonSubtitlePosition(lesson)}>
+                  {showMotion ? <MotionOverlayLayer cues={motionCues} time={clock.time} playing={clock.playing} /> : null}
                   {mask ? (
                     <CaptionMaskBox mask={mask} lines={subLineCount}>
                       {subLangs.length > 0 ? <SubtitleLayer cues={cues} time={clock.time} langs={subLangs} pinyin={showPinyin} inMask /> : null}
@@ -349,7 +360,7 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
           </button>
         </div>
         <p className="present-keys muted small">
-          → PageDown 다음 · ← PageUp 이전 · 1~{Math.min(9, sections.length)} 섹션 · Space 재생/정지 · Enter 이 장면 · A 정답 · P 병음 · K 한국어 · S 자막 따라가기 · F 전체 화면
+          → PageDown 다음 · ← PageUp 이전 · 1~{Math.min(9, sections.length)} 섹션 · Space 재생/정지 · Enter 이 장면 · A 정답 · P 병음 · K 한국어 · M 모션 · S 자막 따라가기 · F 전체 화면
         </p>
       </div>
       {review ? <ReviewPanel deck={deck} onClose={() => setReview(false)} /> : null}

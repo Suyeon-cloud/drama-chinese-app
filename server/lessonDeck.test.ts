@@ -175,6 +175,9 @@ test("섹션 빠른 이동: 데이터가 있는 섹션만, 섹션마다 한 덩�
   const labels = sectionStarts(deckToSlides({ ...empty, quiz: [] })).map((s) => s.section);
   assert.ok(!labels.includes("장면 대사") && !labels.includes("퀴즈"), labels.join(","));
   assert.equal(presentKeyOf({ key: "3" }), "section");
+  assert.equal(presentKeyOf({ key: "m" }), "motion");
+  assert.equal(presentKeyOf({ key: "M" }), "motion");
+  assert.equal(presentKeyOf({ key: "m", targetTag: "INPUT" }), null);
   assert.equal(presentKeyOf({ key: "0" }), null);
   assert.equal(presentKeyOf({ key: "1", targetTag: "INPUT" }), null);
 });
