@@ -14,7 +14,7 @@ import { MATERIAL_FILE_MAX_BYTES, materialFileProblem } from "../src/content/mat
 import { createApi, readApiEnv } from "./api";
 import { openDb, type Db } from "./db";
 import { cleanFileName, fileContentProblem, isCourseKey, mimeForFile, newStorageKey, parseFileMeta, zipEntryNames } from "./materialFiles";
-import { createSupabaseMaterialStorage, type MaterialStorage, type StoredObject } from "./materialStorage";
+import { createSupabaseMaterialStorage, withDownloadName, type MaterialStorage, type StoredObject } from "./materialStorage";
 import { cleanupOrphans, completeUpload, ORPHAN_MIN_AGE_MS, type UploadDeps, type UploadIntent } from "./materialUploads";
 import { AdminDataError } from "./supabaseAdmin";
 import { makeZip, SAMPLE_FILES } from "./testZip";
@@ -265,7 +265,7 @@ test("Supabase 저장소 어댑터: 서명 업로드(덮어쓰기 금지)·60초
         return async (...args: unknown[]) => {
           calls.push([String(prop), args]);
           if (prop === "createSignedUploadUrl") return { data: { signedUrl: "https://x.supabase.co/upload?token=1", token: "1", path: args[0] }, error: null };
-          if (prop === "createSignedUrl") return { data: { signedUrl: "https://x.supabase.co/signed" }, error: null };
+          if (prop === "createSignedUrl") return { data: { signedUrl: "https://x.supabase.co/storage/v1/object/sign/week-materials/k?token=abc.def" }, error: null };
           if (prop === "info") return { data: { size: 10, contentType: "application/pdf", createdAt: "2026-11-07T00:00:00Z" }, error: null };
           return { data: [], error: null };
         };
@@ -279,10 +279,14 @@ test("Supabase 저장소 어댑터: 서명 업로드(덮어쓰기 금지)·60초
   assert.equal(up.headers["x-upsert"], "false");
   assert.equal(up.headers["Content-Type"], "application/pdf");
   assert.deepEqual(await st.stat(key), { size: 10, contentType: "application/pdf", createdAt: "2026-11-07T00:00:00Z" });
-  await st.signedUrl(key, { download: "자료.pdf", mime: "application/pdf" });
-  assert.deepEqual(calls.at(-1), ["createSignedUrl", [key, 60, { download: "자료.pdf" }]]);
-  await st.signedUrl(key, { download: null, mime: "application/pdf" });
-  assert.deepEqual(calls.at(-1), ["createSignedUrl", [key, 60, { download: false }]]);
+  // 내려받기 이름은 storage-js에 넘기지 않고(이중 인코딩 버그) 서명 주소에 한 번만 인코딩해 붙인다
+  const dl = await st.signedUrl(key, { download: "자료.pdf", mime: "application/pdf" });
+  assert.deepEqual(calls.at(-1), ["createSignedUrl", [key, 60]]);
+  assert.equal(new URL(dl).searchParams.get("download"), "자료.pdf");
+  assert.equal(new URL(dl).searchParams.get("token"), "abc.def");
+  const pv = await st.signedUrl(key, { download: null, mime: "application/pdf" });
+  assert.deepEqual(calls.at(-1), ["createSignedUrl", [key, 60]]);
+  assert.equal(new URL(pv).searchParams.has("download"), false, "미리보기는 내려받기 이름 없음");
   await assert.rejects(st.signedUrl("course-abc123/../../x.pdf", { download: null, mime: "application/pdf" }));
   await assert.rejects(st.remove(["other-bucket-file.pdf"]));
 });
@@ -338,6 +342,22 @@ test("Supabase stat: info를 쓸 수 없으면 폴더 목록의 메타데이터�
   assert.equal(await make([{ name: `${name}x`, id: "y", metadata: {} }]).stat(key), null, "이름이 정확히 같아야 한다");
   assert.equal(await make([]).stat(key), null);
 });
+test("내려받기 파일 이름: 한글·중국어·공백·괄호가 한 번만 인코딩된다 (이중 인코딩 %25 없음)", () => {
+  const signed = "https://x.supabase.co/storage/v1/object/sign/week-materials/course-a/f.pdf?token=eyJ.abc-_";
+  for (const name of ["关于中韩龙虎俗语的对比研究 (1).pdf", "2-1. 한국어 자료 (최종).pdf", "a+b&c=d#e.pdf", "plain.pdf"]) {
+    const url = withDownloadName(signed, name);
+    const raw = url.slice(url.indexOf("download=") + "download=".length);
+    assert.ok(!raw.includes("%25"), `이중 인코딩: ${raw}`);
+    assert.equal(decodeURIComponent(raw), name, "한 번 풀면 원래 이름");
+    assert.equal(new URL(url).searchParams.get("download"), name);
+    assert.equal(new URL(url).searchParams.get("token"), "eyJ.abc-_", "서명 토큰은 그대로");
+    assert.ok(!raw.includes(" ") && !raw.includes("+"), "공백은 %20");
+  }
+  // 이미 download가 붙은 주소도 한 번만
+  const twice = withDownloadName(`${signed}&download=old.pdf`, "새 자료.pdf");
+  assert.deepEqual(new URL(twice).searchParams.getAll("download"), ["새 자료.pdf"]);
+});
+
 /* ───────── 3) JSON 모드 실제 API (임시 폴더) ───────── */
 
 const SECRET = "test-session-secret";
@@ -493,7 +513,9 @@ test("JSON 업로드·열기: 검사 통과 뒤에만 자료 생성, 응답에 �
   assert.deepEqual(Buffer.from(await inline.arrayBuffer()), SAMPLE_FILES.pdf);
   const dl = await call<{ url: string; mode: string }>("GET", `/materials/${m.id}/file?mode=download`, learner("s1"));
   const att = await fetch(origin + dl.body.url);
-  assert.match(att.headers.get("content-disposition") ?? "", /^attachment; filename\*=UTF-8''/);
+  const disp = att.headers.get("content-disposition") ?? "";
+  assert.match(disp, /^attachment; filename\*=UTF-8''/);
+  assert.equal(decodeURIComponent(disp.slice(disp.indexOf("''") + 2)), "강의노트.pdf", "JSON 모드: 한 번 풀면 원래 이름");
   // 토큰 위조 → 404
   const [payload] = dl.body.url.replace("/api/material-files/", "").split(".");
   assert.equal((await fetch(`${base}/material-files/${payload}.forged`)).status, 404);

@@ -122,6 +122,14 @@ export type LocalMaterialStorage = ReturnType<typeof createLocalMaterialStorage>
 
 /* ───────── Supabase Storage ───────── */
 
+/** 서명 주소에 내려받기 파일 이름을 붙인다 (한 번만 인코딩: 공백 %20, 한글·중국어 UTF-8 퍼센트 인코딩, 괄호는 그대로) */
+export const withDownloadName = (signedUrl: string, fileName: string) => {
+  const u = new URL(signedUrl);
+  u.searchParams.delete("download");
+  const base = u.toString();
+  return `${base}${u.search ? "&" : "?"}download=${encodeURIComponent(fileName)}`;
+};
+
 export const createSupabaseMaterialStorage = (sb: SupabaseClient): MaterialStorage => {
   const bucket = () => sb.storage.from(MATERIAL_BUCKET);
   const fail = (what: string, e: { message?: string } | null) => new Error(`Storage ${what} 실패: ${e?.message ?? "알 수 없는 오류"}`);
@@ -157,9 +165,11 @@ export const createSupabaseMaterialStorage = (sb: SupabaseClient): MaterialStora
     },
     async signedUrl(key, opts) {
       assertKey(key);
-      const { data, error } = await bucket().createSignedUrl(key, DOWNLOAD_URL_SECONDS, { download: opts.download ?? false });
+      // download 옵션은 storage-js에 맡기지 않는다: 이름을 URLSearchParams로 한 번 인코딩한 뒤 URL 전체를 encodeURI로
+      // 다시 인코딩해 한글·중국어 이름이 "%25E5…"처럼 이중 인코딩된다. 서명 주소를 받은 뒤 이름을 한 번만 인코딩해 붙인다.
+      const { data, error } = await bucket().createSignedUrl(key, DOWNLOAD_URL_SECONDS);
       if (error || !data) throw fail("내려받기 주소", error);
-      return data.signedUrl;
+      return opts.download ? withDownloadName(data.signedUrl, opts.download) : data.signedUrl;
     },
     async remove(keys) {
       keys.forEach(assertKey);
