@@ -589,6 +589,105 @@ test("JSON 고아 정리: 관리자만, 기본은 미리 보기, confirm일 때�
   await call("DELETE", `/materials/${kept.done!.body.id}`, adminCookie);
 });
 
+/* ───────── 4) 3-D 통합: 링크(3-A·3-B)와 파일(3-C)을 한 주차에 함께 ───────── */
+
+test("3-D 통합: 링크·파일 한 주차 — 순서 바꾸기, 학생은 공개 자료만 순서대로, 링크에 파일 주소 없음, 주차 이동 뒤에도 같은 파일", async () => {
+  const filesBefore = storedFiles().length; // 앞 테스트가 남긴 형식 밖 파일(notes.txt)은 빼고 센다
+  const W = 5;
+  const l1 = await call<WeekMaterial>("POST", `/courses/${COURSE}/materials`, google(T), { week: W, title: "링크1", url: "https://example.com/a", status: "published" });
+  const l2 = await call<WeekMaterial>("POST", `/courses/${COURSE}/materials`, google(T), { week: W, title: "링크2", url: "https://example.com/b" });
+  const f = await upload(google(T), "자료 (1).pdf", SAMPLE_FILES.pdf, { week: W, status: "published" });
+  assert.equal(l1.status, 201);
+  assert.equal(f.done!.status, 200);
+  const fid = f.done!.body.id;
+  const key = db.data.weekMaterials[fid].storagePath!;
+
+  // 순서는 종류와 상관없이 그 주차 전체
+  const order = await call<WeekMaterial[]>("PUT", `/courses/${COURSE}/materials/order`, google(T), { week: W, ids: [fid, l2.body.id, l1.body.id] });
+  assert.equal(order.status, 200);
+  assert.equal((await call("PUT", `/courses/${COURSE}/materials/order`, google(T), { week: W, ids: [fid, l1.body.id] })).status, 409, "링크를 빼면 거부");
+
+  // 학생: 공개 자료(파일·링크1)만, 바꾼 순서대로, 내부 칸 없음
+  const seen = (await call<WeekMaterial[]>("GET", `/courses/${COURSE}/materials?week=${W}`, learner("s1"))).body;
+  assert.deepEqual(seen.map((x) => x.id), [fid, l1.body.id]);
+  assert.deepEqual(seen.map((x) => x.kind), ["file", "link"]);
+  assert.ok(seen.every((x) => !("storagePath" in x)));
+  // 링크 자료에는 파일 주소가 없고, 링크를 파일 자료로 바꿀 수 없다
+  assert.equal((await call("GET", `/materials/${l1.body.id}/file`, learner("s1"))).status, 404);
+  assert.equal((await call("GET", `/materials/${l1.body.id}/file`, google(T))).status, 404);
+  assert.equal((await call("PATCH", `/materials/${l1.body.id}`, google(T), { kind: "file" })).status, 400);
+
+  // 주차 이동: 같은 저장 파일 그대로, 학생은 계속 열 수 있다
+  const moved = await call<WeekMaterial>("PATCH", `/materials/${fid}`, google(T), { week: W + 1 });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.week, W + 1);
+  assert.equal(db.data.weekMaterials[fid].storagePath, key);
+  assert.equal((await call("GET", `/materials/${fid}/file`, learner("s1"))).status, 200);
+  // 비공개로 돌리면 학생은 다시 못 연다
+  assert.equal((await call("PATCH", `/materials/${fid}`, google(T), { status: "draft" })).status, 200);
+  assert.equal((await call("GET", `/materials/${fid}/file`, learner("s1"))).status, 404);
+
+  // 주차 수는 파일 자료가 있는 주차보다 줄일 수 없다 (과목은 그대로)
+  const weeks = db.data.courses[COURSE].weekCount;
+  assert.equal((await call("PATCH", `/courses/${COURSE}`, adminCookie, { weekCount: W })).status, 409);
+  assert.equal(db.data.courses[COURSE].weekCount, weeks);
+
+  // 링크를 지워도 파일은 남고, 파일 자료를 지우면 파일도 지운다
+  for (const x of [l1.body.id, l2.body.id]) assert.equal((await call("DELETE", `/materials/${x}`, google(T))).status, 200);
+  assert.equal(storedFiles().length, filesBefore + 1);
+  assert.equal((await call("DELETE", `/materials/${fid}`, google(T))).status, 200);
+  assert.equal(storedFiles().length, filesBefore);
+});
+
+test("3-D 통합: 주차당 20개는 링크·파일을 합쳐 센다 — 업로드 중 링크로 꽉 차면 완료가 거부되고 올린 파일을 지운다", async () => {
+  const filesBefore = storedFiles().length; // 앞 테스트가 남긴 형식 밖 파일(notes.txt)은 빼고 센다
+  const W = 7;
+  const ids: string[] = [];
+  for (let i = 0; i < 18; i++) {
+    const r = await call<WeekMaterial>("POST", `/courses/${COURSE}/materials`, google(T), { week: W, title: `L${i}`, url: `https://example.com/${i}` });
+    assert.equal(r.status, 201);
+    ids.push(r.body.id);
+  }
+  const file = await upload(google(T), "19번째.pdf", SAMPLE_FILES.pdf, { week: W });
+  assert.equal(file.done!.status, 200);
+  ids.push(file.done!.body.id);
+  // 19개에서 업로드 시작 → 그 사이 링크로 20개 → 완료 거부
+  const start = await call<Ticket>("POST", `/courses/${COURSE}/materials/uploads`, google(T), { week: W, title: "x", fileName: "x.pdf", sizeBytes: SAMPLE_FILES.pdf.length });
+  assert.equal(start.status, 201);
+  const last = await call<WeekMaterial>("POST", `/courses/${COURSE}/materials`, google(T), { week: W, title: "L20", url: "https://example.com/20" });
+  assert.equal(last.status, 201);
+  ids.push(last.body.id);
+  await put(start.body, SAMPLE_FILES.pdf, google(T));
+  assert.equal((await call("POST", `/material-uploads/${start.body.token}/complete`, google(T), {})).status, 409);
+  assert.equal(storedFiles().length, filesBefore + 1, "거부된 업로드 파일은 지운다");
+  // 꽉 찬 주차: 링크 등록·업로드 시작·다른 주차에서 옮겨 오기 모두 거부
+  assert.equal((await call("POST", `/courses/${COURSE}/materials`, google(T), { week: W, title: "x", url: "https://example.com/x" })).status, 409);
+  assert.equal((await call("POST", `/courses/${COURSE}/materials/uploads`, google(T), { week: W, title: "x", fileName: "x.pdf", sizeBytes: 100 })).status, 409);
+  const other = await upload(google(T), "다른주차.pdf", SAMPLE_FILES.pdf, { week: W + 1 });
+  assert.equal((await call("PATCH", `/materials/${other.done!.body.id}`, google(T), { week: W })).status, 409);
+  ids.push(other.done!.body.id);
+  assert.equal(Object.values(db.data.weekMaterials).filter((m) => m.courseId === COURSE && m.week === W).length, 20);
+  for (const id of ids) assert.equal((await call("DELETE", `/materials/${id}`, adminCookie)).status, 200);
+  assert.equal(storedFiles().length, filesBefore);
+});
+
+test("3-D 통합: 비활성 과목은 담당 교수자 업로드·학생 공개 파일 열기 유지, 학생은 여전히 쓰기 불가", async () => {
+  const filesBefore = storedFiles().length; // 앞 테스트가 남긴 형식 밖 파일(notes.txt)은 빼고 센다
+  assert.equal((await call("PATCH", `/courses/${COURSE}`, adminCookie, { status: "inactive" })).status, 200);
+  try {
+    const f = await upload(google(T), "비활성.pdf", SAMPLE_FILES.pdf, { week: 3, status: "published" });
+    assert.equal(f.done!.status, 200);
+    assert.equal((await call("GET", `/materials/${f.done!.body.id}/file?mode=download`, learner("s1"))).status, 200);
+    assert.equal((await call("GET", `/materials/${f.done!.body.id}/file`, learner("s2"))).status, 404);
+    assert.equal((await call("DELETE", `/materials/${f.done!.body.id}`, learner("s1"))).status, 404);
+    assert.equal((await call("POST", `/materials/${f.done!.body.id}/uploads`, learner("s1"), { fileName: "a.pdf", sizeBytes: 10 })).status, 404);
+    assert.equal((await call("DELETE", `/materials/${f.done!.body.id}`, google(T))).status, 200);
+  } finally {
+    assert.equal((await call("PATCH", `/courses/${COURSE}`, adminCookie, { status: "active" })).status, 200);
+  }
+  assert.equal(storedFiles().length, filesBefore);
+});
+
 test("파일 자료 작업은 강의자료·학습 기록·수강 등록을 바꾸지 않는다", () => {
   assert.equal(snapshot(), untouched);
 });
