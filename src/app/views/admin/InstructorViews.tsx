@@ -8,6 +8,7 @@ import { navigate } from "../../router";
 import { useLessons, useStaffCourses, useWeekMaterials } from "../../store/hooks";
 import { WeekMaterialsPanel } from "./WeekMaterialsPanel";
 import { PageIntro } from "./AdminShared";
+import { LiveQuizEntry } from "../LiveQuizEditorView";
 import {
   CourseLessonsTable,
   CourseStudentsPanel,
@@ -163,6 +164,7 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
             weekCount={course.weekCount}
             editable={course.sections.some((s) => s.status === "active")}
           />
+          <LiveQuizEntry courseId={course.id} />
         </div>
       )}
     </div>

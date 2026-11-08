@@ -30,11 +30,12 @@ export const setApiTokenProvider = (provider: (() => Promise<string | null>) | n
 
 export const api = async <T>(
   path: string,
-  init: { method?: string; body?: unknown; keepalive?: boolean } = {},
+  init: { method?: string; body?: unknown; keepalive?: boolean; headers?: Record<string, string> } = {},
 ): Promise<T> => {
   let res: Response;
   try {
-    const headers: Record<string, string> = {};
+    // init.headers: 요청별 추가 헤더 (예: 6-A 교수자 개인 AI 키 — 저장하지 않고 이 요청에만 보낸다)
+    const headers: Record<string, string> = { ...(init.headers ?? {}) };
     if (init.body !== undefined) headers["Content-Type"] = "application/json";
     // 메모리의 유효한 token이 있으면 기다리지 않는다. (await 없이 아래 fetch까지 바로 실행된다)
     const token = tokenPeek?.() ?? (tokenProvider ? await tokenProvider().catch(() => null) : null);

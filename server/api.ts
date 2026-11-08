@@ -57,6 +57,9 @@ import {
 } from "./weekMaterials";
 import { clientMaterial, parseMaterialFileInput, parseMaterialHtmlCreate, sameInstant, type StoredMaterial } from "./weekMaterials";
 import { materialOps } from "./materialRows";
+import { liveQuizOps } from "./liveQuizRows";
+import { isAnthropicKeyShape, parseLiveQuizSetInput, quizKey, type LiveQuizSet, type LiveQuizSetInput } from "../src/content/liveQuiz";
+import { resolveLessonContent } from "../src/content/lessons";
 import { isCourseKey, isPreviewable, newStorageKey, parseFileMeta } from "./materialFiles";
 import { createLocalMaterialStorage, DOWNLOAD_URL_SECONDS, type MaterialStorage } from "./materialStorage";
 import { cleanupOrphans, completeUpload, UPLOAD_INTENT_MS, type UploadDeps, type UploadIntent } from "./materialUploads";
@@ -106,6 +109,8 @@ export type ApiEnv = {
   sessionSecret: string;
   /** (선택) Anthropic API 키. 관리자가 화면에서 연결한 키가 있으면 그 키를 먼저 쓴다. */
   anthropicApiKey: string;
+  /** 6-A: 실시간 퀴즈 AI 생성에 공용 서버 키를 써도 되는지 (관리자가 LIVE_QUIZ_SHARED_AI_KEY=allow로 명시적으로 허용할 때만) */
+  liveQuizSharedAi: boolean;
   /**
    * 회원·교수자·과목·분반·수강 데이터의 저장소. dbjson(기본): data/db.json / supabase: Supabase.
    * Phase C3에서는 관리자 API만 이 값을 따른다. 학생·교수자 로그인은 C4에서 함께 바꾼다.
@@ -127,6 +132,7 @@ export const readApiEnv = (env: Record<string, string | undefined>): ApiEnv => (
   initialInstructorEmail: normalizeEmail(env.INITIAL_INSTRUCTOR_EMAIL || env.VITE_INITIAL_INSTRUCTOR_EMAIL || ""),
   sessionSecret: env.SESSION_SECRET || "",
   anthropicApiKey: (env.ANTHROPIC_API_KEY || "").trim(),
+  liveQuizSharedAi: (env.LIVE_QUIZ_SHARED_AI_KEY || "").trim().toLowerCase() === "allow",
   authBackend: (env.AUTH_BACKEND || "").trim().toLowerCase() === "supabase" ? "supabase" : "dbjson",
   supabaseUrl: (env.SUPABASE_URL || "").trim(),
   supabaseServiceRoleKey: (env.SUPABASE_SERVICE_ROLE_KEY || "").trim(),
@@ -698,6 +704,10 @@ export const createApi = (db: Db, env: ApiEnv) => {
     for (const m of Object.values(db.data.weekMaterials)) {
       if (m.source?.lessonId === req.params.id) m.source = { ...m.source, lessonId: null };
     }
+    // 6-A: 이 강의자료로 만든 실시간 퀴즈 세트는 남기고 연결만 끊는다 (Supabase는 외래 키 ON DELETE SET NULL)
+    for (const s of Object.values(db.data.liveQuizSets)) {
+      if (s.lessonId === req.params.id) s.lessonId = null;
+    }
     db.save();
     res.json({ ok: true });
   });
@@ -908,6 +918,8 @@ export const createApi = (db: Db, env: ApiEnv) => {
       // supabase: 설정 여부만 알려 주고 키의 어떤 부분도 내려보내지 않는다.
       hint: key && !useSupabase ? `…${key.slice(-4)}` : null,
       model: AI_MODEL,
+      // 6-A: 실시간 퀴즈 생성에 공용 키를 쓸 수 있는지 (관리자가 명시적으로 허용 + 키 있음)
+      liveQuizShared: !!key && env.liveQuizSharedAi,
     });
   });
 
@@ -943,6 +955,34 @@ export const createApi = (db: Db, env: ApiEnv) => {
       res.json(await generateDraftText(key, prompt));
     } catch (err) {
       res.status(502).json({ error: aiErrorMessage(err) });
+    }
+  });
+
+  /**
+   * 6-A: 실시간 퀴즈 초안 생성. 교수자 개인 키(X-Anthropic-Key 헤더)를 우선 쓰고, 없으면 관리자가 허용한 공용 키만 쓴다.
+   * 개인 키는 이 요청에만 쓰고 저장·로그 출력하지 않는다. 둘 다 없으면 프롬프트 복사 → 외부 AI → JSON 붙여넣기로 안내한다.
+   */
+  api.post("/ai/live-quiz", requireAiUser, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const header = req.headers["x-anthropic-key"];
+    const personal = typeof header === "string" ? header.trim() : "";
+    if (personal && !isAnthropicKeyShape(personal)) return res.status(400).json({ error: "개인 API 키 형식이 올바르지 않아요. sk-ant- 로 시작하는 키를 넣어 주세요." });
+    const shared = env.liveQuizSharedAi ? aiKey() : "";
+    const key = personal || shared;
+    if (!key) {
+      return res.status(400).json({
+        error: "개인 API 키를 입력하거나, ‘프롬프트 복사’로 외부 AI에서 만든 JSON을 붙여 넣어 주세요.",
+        manual: true,
+      });
+    }
+    const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+    if (!prompt.trim() || prompt.length > 200_000) return res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
+    try {
+      res.json({ ...(await generateDraftText(key, prompt)), keySource: personal ? "personal" : "shared" });
+    } catch (err) {
+      // 오류 문구에 키가 섞여 나가지 않게 (SDK 메시지는 키를 담지 않지만 한 번 더 지운다)
+      const message = aiErrorMessage(err).split(key).join("[API 키]");
+      res.status(502).json({ error: message });
     }
   });
 
@@ -1483,6 +1523,161 @@ export const createApi = (db: Db, env: ApiEnv) => {
       }
     })(),
   );
+
+  /* ───────── 실시간 퀴즈 문제 세트 (6-A): 교수자·관리자 전용 (학생 진행·응답은 6-B) ───────── */
+  // - 기존 학습 퀴즈(강의자료)·복습 HTML·학습 기록은 읽지도 바꾸지도 않는다.
+  // - 열람: 그 과목 자료를 비공개 포함 볼 수 있는 교수자 / 저장·삭제: 담당(관리자, 운영 중 담당 분반) — Supabase는 DB 함수가 최종 확인
+  // - 같은 과목의 실시간 문제끼리 완전 중복(보기 순서만 다른 것 포함)은 저장 거부, 동시 편집은 version으로 막는다.
+
+  type LiveQuizOps = ReturnType<typeof liveQuizOps>;
+  const viaLiveQuiz = (req: Authed, res: Response, status: number, work: (ops: LiveQuizOps) => Promise<unknown>) =>
+    isPlatformAdmin(req)
+      ? void viaSupabase(res.status(status), (st) => work(st.liveQuiz(materialActor(req))))
+      : void viaUser(req, res.status(status), (a) => work(liveQuizOps(a.client, false, toUserError)));
+  const newLiveId = (prefix: string, exists: (id: string) => boolean) => {
+    for (let i = 0; i < 20; i++) {
+      const id = `${prefix}${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+      if (!exists(id)) return id;
+    }
+    throw new Error("id를 만들지 못했어요.");
+  };
+  /** JSON 모드: 같은 과목의 다른 세트와 완전 중복인 문제 번호 (없으면 -1) */
+  const liveDuplicateIndex = (courseId: string, setId: string | null, questions: { question: string; options: string[] }[]) => {
+    const others = new Set(
+      Object.values(db.data.liveQuizSets)
+        .filter((s) => s.courseId === courseId && s.id !== setId)
+        .flatMap((s) => s.questions.map(quizKey)),
+    );
+    return questions.findIndex((q) => others.has(quizKey(q)));
+  };
+  /** JSON 모드 저장 (새 세트 또는 수정) */
+  const saveLiveSetJson = (req: Authed, courseId: string, prev: LiveQuizSet | null, body: unknown): { status: number; body: unknown } => {
+    const course = db.data.courses[courseId];
+    if (!course) return { status: 404, body: { error: "강의를 찾을 수 없어요." } };
+    const { version, ...rest } = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const parsed = parseLiveQuizSetInput(rest, course.weekCount);
+    if (!parsed.ok) return { status: 400, body: { error: parsed.error } };
+    const input = parsed.value;
+    if (prev && version !== prev.version) {
+      return { status: 409, body: { error: "다른 곳에서 이 문제 세트를 먼저 저장했어요. 새로고침한 뒤 다시 편집해 주세요." } };
+    }
+    if (input.lessonId && db.data.lessons[input.lessonId]?.courseId !== course.id) {
+      return { status: 400, body: { error: "같은 과목의 강의자료만 연결할 수 있어요." } };
+    }
+    const dup = liveDuplicateIndex(course.id, prev?.id ?? null, input.questions);
+    if (dup >= 0) {
+      return { status: 409, body: { error: `${dup + 1}번 문제와 같은 문제(보기 순서만 다른 경우 포함)가 이 과목의 실시간 문제 세트에 이미 있어요.` } };
+    }
+    const prevIds = new Set(prev?.questions.map((q) => q.id) ?? []);
+    const used = new Set<string>();
+    const allIds = new Set(Object.values(db.data.liveQuizSets).flatMap((s) => s.questions.map((q) => q.id)));
+    const questions = input.questions.map((q) => {
+      const id = q.id && prevIds.has(q.id) && !used.has(q.id) ? q.id : newLiveId("lq-", (x) => allIds.has(x) || used.has(x));
+      used.add(id);
+      return { id, question: q.question, options: q.options, answer: q.answer, explanation: q.explanation, origin: q.origin };
+    });
+    const now = nowIso();
+    const next: LiveQuizSet = {
+      id: prev?.id ?? newLiveId("livequiz-", (x) => !!db.data.liveQuizSets[x]),
+      courseId: course.id,
+      week: input.week,
+      lessonId: input.lessonId ?? null,
+      title: input.title,
+      status: input.status ?? "draft",
+      questions,
+      version: (prev?.version ?? 0) + 1,
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+      updatedByLabel: materialActor(req),
+    };
+    db.data.liveQuizSets[next.id] = next;
+    db.save();
+    return { status: prev ? 200 : 201, body: next };
+  };
+  /**
+   * 그 과목 강의자료의 학습 퀴즈(강의자료 퀴즈 + 정답이 정해진 교수자 초안 퀴즈)와 완전 중복인 문제를 찾는다.
+   * 화면 검사와 별개로 서버가 확인한다. Supabase는 service-role로 강의자료를 읽어 키만 비교한다(응답에는 넣지 않는다).
+   */
+  const lessonQuizDuplicate = async (courseId: string, questions: LiveQuizSetInput["questions"]) => {
+    const lessons = useSupabase ? (supa ? await supa.listLessons(courseId) : []) : lessonsForCourse(db.data.lessons, courseId);
+    const keys = new Map<string, string>();
+    for (const l of lessons) for (const q of resolveLessonContent(l).quiz) keys.set(quizKey(q), `${l.week}주차 학습 퀴즈`);
+    const i = questions.findIndex((q) => keys.has(quizKey(q)));
+    return i < 0 ? null : `${i + 1}번 문제는 ${keys.get(quizKey(questions[i]))}와 같은 문제예요. (보기 순서만 다른 경우 포함) 수정하거나 지운 뒤 저장해 주세요.`;
+  };
+  /** Supabase: 편집 권한이 확인된 경우에만 학습 퀴즈 중복을 검사한다 (권한이 없으면 RPC가 거부하므로 정보가 새지 않게) */
+  const assertNoLessonDuplicate = async (req: Authed, courseId: string | null, questions: LiveQuizSetInput["questions"]) => {
+    if (!courseId || !(await canEditMaterials(req, courseId))) return;
+    const dup = await lessonQuizDuplicate(courseId, questions);
+    if (dup) throw new AdminDataError(409, dup);
+  };
+  const liveSort = (list: LiveQuizSet[]) => [...list].sort((a, b) => a.week - b.week || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+
+  /** JSON 모드 저장 응답: 입력 검사 뒤 학습 퀴즈 중복(서버)을 확인하고 저장 */
+  const respondLiveSave = async (req: Authed, res: Response, courseId: string, prev: LiveQuizSet | null) => {
+    const course = db.data.courses[courseId];
+    const { version: _v, ...rest } = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+    const parsed = course ? parseLiveQuizSetInput(rest, course.weekCount) : null;
+    if (parsed?.ok) {
+      const dup = await lessonQuizDuplicate(courseId, parsed.value.questions);
+      if (dup) return void res.status(409).json({ error: dup });
+    }
+    const r = saveLiveSetJson(req, courseId, prev, req.body);
+    res.status(r.status).json(r.body);
+  };
+
+  /** 과목의 실시간 퀴즈 세트 (문제 포함) — 교수자·관리자만 */
+  api.get("/courses/:id/live-quiz-sets", requireLogin, (req: Authed, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (useSupabase) {
+      if (!isPlatformAdmin(req) && !isStaff(req)) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+      return viaLiveQuiz(req, res, 200, (ops) => ops.list(req.params.id));
+    }
+    if (!db.data.courses[req.params.id] || !canSeeAllMaterials(req, req.params.id)) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    res.json(liveSort(Object.values(db.data.liveQuizSets).filter((s) => s.courseId === req.params.id)));
+  });
+
+  /** 새 세트. body: { week, lessonId?, title, status?, questions[] } */
+  api.post("/courses/:id/live-quiz-sets", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      const { version: _v, ...rest } = (req.body ?? {}) as Record<string, unknown>;
+      const parsed = parseLiveQuizSetInput(rest, MAX_WEEK_COUNT);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      return viaLiveQuiz(req, res, 201, async (ops) => {
+        await assertNoLessonDuplicate(req, req.params.id, parsed.value.questions);
+        return ops.save(req.params.id, null, parsed.value, null);
+      });
+    }
+    if (!db.data.courses[req.params.id]) return res.status(404).json({ error: "강의를 찾을 수 없어요." });
+    if (!canManageCourse(req, req.params.id)) return res.status(403).json({ error: "담당 강의의 문제 세트만 저장할 수 있어요." });
+    void respondLiveSave(req, res, req.params.id, null);
+  });
+
+  /** 세트 수정 (통째로). body: { version(편집을 시작한 버전), week, lessonId?, title, status?, questions[] } */
+  api.put("/live-quiz-sets/:id", requireLogin, (req: Authed, res) => {
+    if (useSupabase) {
+      const { version, ...rest } = (req.body ?? {}) as Record<string, unknown>;
+      if (typeof version !== "number" || !Number.isInteger(version)) return res.status(400).json({ error: "편집을 시작한 버전(version)을 함께 보내 주세요." });
+      const parsed = parseLiveQuizSetInput(rest, MAX_WEEK_COUNT);
+      if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+      return viaLiveQuiz(req, res, 200, async (ops) => {
+        await assertNoLessonDuplicate(req, supa ? await supa.liveQuizCourseOf(req.params.id) : null, parsed.value.questions);
+        return ops.save(null, req.params.id, parsed.value, version);
+      });
+    }
+    const prev = db.data.liveQuizSets[req.params.id];
+    if (!prev || !canManageCourse(req, prev.courseId)) return res.status(404).json({ error: "문제 세트를 찾을 수 없어요." });
+    void respondLiveSave(req, res, prev.courseId, prev);
+  });
+
+  api.delete("/live-quiz-sets/:id", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLiveQuiz(req, res, 200, (ops) => ops.remove(req.params.id));
+    const prev = db.data.liveQuizSets[req.params.id];
+    if (!prev || !canManageCourse(req, prev.courseId)) return res.status(404).json({ error: "문제 세트를 찾을 수 없어요." });
+    delete db.data.liveQuizSets[prev.id];
+    db.save();
+    res.json({ ok: true });
+  });
 
   /* ───────── 파일 자료 (3-C): 업로드 시작 → 저장소에 직접 업로드 → 완료(검사 후 자료 행) · 짧은 열기 주소 · 고아 정리 ───────── */
   // - 저장소: JSON 모드는 DATA_DIR/uploads (이 서버의 토큰 주소), Supabase는 비공개 버킷 week-materials (서명 주소)

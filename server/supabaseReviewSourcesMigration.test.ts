@@ -34,7 +34,9 @@ const top = code(B5);
 
 test("5-B: 마지막 마이그레이션, begin … commit 한 트랜잭션, 사전 확인이 먼저, 기존 행을 바꾸지 않는다", () => {
   assert.ok(B5_FILE);
-  assert.equal(migFiles[migFiles.length - 1], B5_FILE);
+  // 5-B 뒤에는 6-A(실시간 퀴즈)만 올 수 있다
+  const after = migFiles.slice(migFiles.indexOf(B5_FILE!) + 1);
+  assert.ok(after.every((f) => f.endsWith("_phase_6a_live_quiz_sets.sql")), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

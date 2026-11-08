@@ -11,6 +11,7 @@ import { PageIntro } from "./AdminShared";
 import { CourseLessonsTable, CourseOverviewCard, CourseTabs, SharedLessonNote } from "./CourseAdminShared";
 import { CourseForm, emptyCourseForm } from "./CourseForm";
 import { WeekMaterialsPanel } from "./WeekMaterialsPanel";
+import { LiveQuizEntry } from "../LiveQuizEditorView";
 
 /** 서버 오류 문구(입력 오류 400·기존 자료 403·주차 축소 불가 409 등)를 그대로 보여 준다. */
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -221,6 +222,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
 
           <CourseLessonsTable courseId={active.id} weekCount={active.weekCount} lessons={lessons} />
           <WeekMaterialsPanel key={active.id} courseId={active.id} weekCount={active.weekCount} materials={materials} editable />
+          <LiveQuizEntry courseId={active.id} />
         </>
       )}
     </div>

@@ -12,6 +12,7 @@ import { feedbackFromRow, feedbackProblem, feedbackToRow } from "./feedbackRows"
 import { PROGRESS_SELECT, progressFromRow } from "./progressRows";
 import type { CourseFields, CoursePatch } from "./courseInput";
 import { MATERIAL_COLUMNS, materialFromRow, materialOps } from "./materialRows";
+import { liveQuizOps } from "./liveQuizRows";
 import { createSupabaseMaterialStorage } from "./materialStorage";
 import type { FileRecords, IntentStore, UploadIntent } from "./materialUploads";
 import { sortCourses } from "../src/content/courseWeeks";
@@ -342,6 +343,16 @@ export const createSupabaseAdminStore = (sb: SupabaseClient) => {
     /** 주차별 보충 자료 (admin_* RPC, 기존 자료 과목 포함). label: 마지막 수정자 표시 */
     materials(label: string) {
       return materialOps(sb, true, toAdminError, label);
+    },
+    /** 6-A: 실시간 퀴즈 문제 세트 (admin_* RPC) */
+    liveQuiz(label: string) {
+      return liveQuizOps(sb, true, toAdminError, label);
+    },
+    /** 6-A: 세트의 과목 (서버 안 중복 검사용, 없으면 null) */
+    async liveQuizCourseOf(setId: string): Promise<string | null> {
+      const r = await sb.from("live_quiz_sets").select("course_id").eq("id", setId).maybeSingle();
+      if (r.error) throw toAdminError(r.error);
+      return (r.data?.course_id as string | undefined) ?? null;
     },
 
     /**
