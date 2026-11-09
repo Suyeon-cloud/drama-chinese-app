@@ -285,3 +285,101 @@ test("실시간 진행 전체: 참여(수강생만)·출제·제출 1회·마감
 test("실시간 퀴즈 진행은 강의자료·학습 기록·수강 등록·주차 자료를 바꾸지 않는다", () => {
   assert.equal(snapshot(), untouched);
 });
+
+/* ───────── 3) 여러 학생·동시 요청·중간 참여·종료 뒤·같은 과목 다른 분반 (JSON 모드 — PostgreSQL 실제 동시성 검증이 아니다) ───────── */
+
+test("여러 학생: 3명 동시 참여·동시 제출 집계, 같은 학생 동시 중복 제출 1건만, 동시 진행 조작 1건만, 중간 참여, 종료 뒤 제출 차단", async () => {
+  const section = db.data.sections[sectionId];
+  for (const id of ["s4", "s5"]) db.data.members[id] = member(id);
+  db.save();
+  assert.equal((await call("POST", "/enrollments", learner("s4"), { courseCode: section.code })).status, 200);
+  const set = (await call<LiveQuizSet>("POST", `/courses/${COURSE}/live-quiz-sets`, google(T), { week: 3, title: "여러 명", status: "ready", questions: qs(3).map((q) => ({ ...q, question: `${q.question} 다수` })) })).body;
+  const host = (await call<LiveHostState>("POST", "/live/sessions", google(T), { setId: set.id, sectionId })).body;
+  const id = host.id;
+  const ctl = (action: string, version: number) => call<LiveHostState>("POST", `/live/sessions/${id}/control`, google(T), { action, version });
+  const answer = (sid: string, questionIndex: number, choice: number) => call<LiveStudentState>("POST", `/live/sessions/${id}/answers`, learner(sid), { questionIndex, choice });
+
+  // 3명 동시 참여
+  const joins = await Promise.all(["s1", "s3", "s4"].map((sid) => call("POST", "/live/join", learner(sid), { code: host.joinCode })));
+  assert.deepEqual(joins.map((r) => r.status), [200, 200, 200]);
+  let h = (await ctl("next", 1)).body;
+  assert.deepEqual([h.participants, h.currentIndex, h.phase], [3, 0, "open"]);
+
+  // 동시 제출: s1(0)·s3(1)·s4(0) + s1 중복 4건을 한꺼번에
+  const subs = await Promise.all([answer("s1", 0, 0), answer("s3", 0, 1), answer("s4", 0, 0), answer("s1", 0, 2), answer("s1", 0, 3), answer("s1", 0, 1), answer("s1", 0, 0)]);
+  const s1 = [subs[0], ...subs.slice(3)].map((r) => r.status);
+  assert.equal(s1.filter((x) => x === 200).length, 1, `s1 제출 중 1건만 성공: ${s1}`);
+  assert.equal(s1.filter((x) => x === 409).length, 4, "나머지는 409");
+  assert.deepEqual([subs[1].status, subs[2].status], [200, 200]);
+  h = (await call<LiveHostState>("GET", `/live/sessions/${id}/host`, google(T))).body;
+  const s1Choice = (await call<LiveStudentState>("GET", `/live/sessions/${id}/state`, learner("s1"))).body.myChoice!;
+  const expected = [0, 0, 0, 0];
+  for (const c of [s1Choice, 1, 0]) expected[c] += 1;
+  assert.deepEqual(h.counts, expected, "보기별 응답 수 = 학생당 1건");
+  assert.equal(h.counts.reduce((a, b) => a + b, 0), 3);
+  assert.ok(!["s1", "s3", "s4"].some((sid) => JSON.stringify(h).includes(sid)), "교수자 상태에 학생 id 없음");
+  // 학생은 자기 답만 본다
+  assert.equal((await call<LiveStudentState>("GET", `/live/sessions/${id}/state`, learner("s3"))).body.myChoice, 1);
+  assert.equal((await call<LiveStudentState>("GET", `/live/sessions/${id}/state`, learner("s4"))).body.myChoice, 0);
+
+  // 같은 버전으로 동시 진행 조작(여러 탭): 1건만 성공, 나머지 409
+  const both = await Promise.all([ctl("close", h.version), ctl("close", h.version), ctl("end", h.version)]);
+  assert.equal(both.filter((r) => r.status === 200).length, 1, `동시 조작 1건만: ${both.map((r) => r.status)}`);
+  assert.ok(both.filter((r) => r.status !== 200).every((r) => r.status === 409));
+  h = (await call<LiveHostState>("GET", `/live/sessions/${id}/host`, google(T))).body;
+  assert.equal(h.phase, "closed", "JSON 모드는 요청 순서대로 처리 — 첫 close가 이긴다");
+  h = (await ctl("reveal", h.version)).body;
+  assert.deepEqual(h.summary[0], { index: 0, responded: 3, correct: (s1Choice === 0 ? 1 : 0) + 1 });
+
+  // 중간 참여: 2번 문제 진행 중에 s5가 수강·참여 → 지금 문제만 답할 수 있고 집계에 들어간다
+  h = (await ctl("next", h.version)).body;
+  assert.equal((await call("POST", "/enrollments", learner("s5"), { courseCode: section.code })).status, 200);
+  const late = await call<LiveStudentState>("POST", "/live/join", learner("s5"), { code: host.joinCode });
+  assert.deepEqual([late.status, late.body.currentIndex, late.body.phase, late.body.myChoice], [200, 1, "open", null]);
+  assert.equal((await answer("s5", 0, 0)).status, 409, "지난 문제에는 답할 수 없음");
+  assert.equal((await answer("s5", 1, 2)).status, 200);
+  h = (await call<LiveHostState>("GET", `/live/sessions/${id}/host`, google(T))).body;
+  assert.deepEqual([h.participants, h.counts], [4, [0, 0, 1, 0]]);
+
+  // 종료 뒤: 열린 문제였어도 제출 차단, 재참여 404, 학생 화면 종료, 집계 그대로
+  h = (await ctl("end", h.version)).body;
+  assert.equal(h.status, "ended");
+  assert.equal((await answer("s1", 1, 0)).status, 409, "종료 뒤 제출");
+  assert.equal((await call("POST", "/live/join", learner("s4"), { code: host.joinCode })).status, 404);
+  assert.equal((await call<LiveStudentState>("GET", `/live/sessions/${id}/state`, learner("s4"))).body.status, "ended");
+  assert.equal((await call<LiveHostState>("GET", `/live/sessions/${id}/host`, google(T))).body.summary[1].responded, 1, "종료 뒤 제출은 집계되지 않음");
+  await call("DELETE", `/live-quiz-sets/${set.id}`, google(T));
+});
+
+test("같은 과목 다른 분반: 그 분반 학생은 참여·상태·제출 불가, 그 분반 교수자는 이 분반 세션 조회·진행·시작 불가", async () => {
+  const B = "b@teach.test";
+  db.data.instructors[B] = { email: B, source: "local", addedBy: null, addedAt: null };
+  db.data.members.s6 = member("s6");
+  db.save();
+  const made = await call("POST", `/courses/${COURSE}/sections`, adminCookie, { name: "다른 분반 검사", instructors: [B] });
+  assert.ok(made.status === 200 || made.status === 201, made.text);
+  const other = Object.values(db.data.sections).find((s) => s.courseId === COURSE && s.id !== sectionId && s.status === "active" && !!db.data.sectionInstructors[sectionInstructorKey(s.id, B)]);
+  assert.ok(other, "같은 과목의 두 번째 분반");
+  assert.equal((await call("POST", "/enrollments", learner("s6"), { courseCode: other.code })).status, 200);
+
+  const set = (await call<LiveQuizSet>("POST", `/courses/${COURSE}/live-quiz-sets`, google(T), { week: 3, title: "분반", status: "ready", questions: qs(1).map((q) => ({ ...q, question: `${q.question} 분반` })) })).body;
+  const host = (await call<LiveHostState>("POST", "/live/sessions", google(T), { setId: set.id, sectionId })).body;
+  const id = host.id;
+  assert.equal((await call("POST", "/live/join", learner("s1"), { code: host.joinCode })).status, 200);
+  const h = (await call<LiveHostState>("POST", `/live/sessions/${id}/control`, google(T), { action: "next", version: 1 })).body;
+
+  // 다른 분반 학생
+  assert.equal((await call("POST", "/live/join", learner("s6"), { code: host.joinCode })).status, 404);
+  assert.equal((await call("GET", `/live/sessions/${id}/state`, learner("s6"))).status, 404);
+  assert.equal((await call("POST", `/live/sessions/${id}/answers`, learner("s6"), { questionIndex: 0, choice: 0 })).status, 404);
+  // 다른 분반 교수자 (같은 과목)
+  assert.equal((await call("GET", `/live/sessions/${id}/host`, google(B))).status, 404);
+  assert.equal((await call("POST", `/live/sessions/${id}/control`, google(B), { action: "close", version: h.version })).status, 404);
+  assert.deepEqual((await call<unknown[]>("GET", `/courses/${COURSE}/live/sessions`, google(B))).body, []);
+  assert.equal((await call("POST", "/live/sessions", google(B), { setId: set.id, sectionId })).status, 403, "남의 분반에서 시작 불가");
+  // 세션은 그대로: 참여 1명·응답 0·버전 변화 없음
+  const now = (await call<LiveHostState>("GET", `/live/sessions/${id}/host`, google(T))).body;
+  assert.deepEqual([now.participants, now.counts.reduce((a, b) => a + b, 0), now.version], [1, 0, h.version]);
+  await call("POST", `/live/sessions/${id}/control`, google(T), { action: "end", version: h.version });
+  await call("DELETE", `/live-quiz-sets/${set.id}`, google(T));
+});
