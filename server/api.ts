@@ -40,7 +40,7 @@ import { MATERIAL_FILE_MAX_BYTES } from "../src/content/materialRules";
 import type { PublicCourse, WeekMaterial, WeekMaterialHtml, WeekMaterialSource } from "../src/app/store/models";
 import { MATERIAL_HTML_CSP, materialHtmlDocument, materialHtmlFileName } from "../src/content/materialHtml";
 import type { Db } from "./db";
-import { AI_MODEL, aiErrorMessage, checkAnthropicKey, generateDraftText } from "./aiDraft";
+import { AI_MODEL, aiErrorMessage, generateDraftText } from "./aiDraft";
 import { feedbackProblem } from "./feedbackRows";
 import { lessonMoveProblem, resolveLessonCourseId } from "./lessonCourse";
 import { minWeekCountFor, newCourseId, parseCourseCreate, parseCoursePatch } from "./courseInput";
@@ -117,10 +117,6 @@ export type ApiEnv = {
   adminEmail: string;
   initialInstructorEmail: string;
   sessionSecret: string;
-  /** (선택) Anthropic API 키. 관리자가 화면에서 연결한 키가 있으면 그 키를 먼저 쓴다. */
-  anthropicApiKey: string;
-  /** 6-A: 실시간 퀴즈 AI 생성에 공용 서버 키를 써도 되는지 (관리자가 LIVE_QUIZ_SHARED_AI_KEY=allow로 명시적으로 허용할 때만) */
-  liveQuizSharedAi: boolean;
   /**
    * 회원·교수자·과목·분반·수강 데이터의 저장소. dbjson(기본): data/db.json / supabase: Supabase.
    * Phase C3에서는 관리자 API만 이 값을 따른다. 학생·교수자 로그인은 C4에서 함께 바꾼다.
@@ -141,8 +137,6 @@ export const readApiEnv = (env: Record<string, string | undefined>): ApiEnv => (
   adminEmail: normalizeEmail(env.ADMIN_EMAIL || ""),
   initialInstructorEmail: normalizeEmail(env.INITIAL_INSTRUCTOR_EMAIL || env.VITE_INITIAL_INSTRUCTOR_EMAIL || ""),
   sessionSecret: env.SESSION_SECRET || "",
-  anthropicApiKey: (env.ANTHROPIC_API_KEY || "").trim(),
-  liveQuizSharedAi: (env.LIVE_QUIZ_SHARED_AI_KEY || "").trim().toLowerCase() === "allow",
   authBackend: (env.AUTH_BACKEND || "").trim().toLowerCase() === "supabase" ? "supabase" : "dbjson",
   supabaseUrl: (env.SUPABASE_URL || "").trim(),
   supabaseServiceRoleKey: (env.SUPABASE_SERVICE_ROLE_KEY || "").trim(),
@@ -904,14 +898,13 @@ export const createApi = (db: Db, env: ApiEnv) => {
     res.json({ ok: true });
   });
 
-  /* ───────── AI 학습 콘텐츠 생성 (본인 API 키 연결) ───────── */
+  /* ───────── AI 생성 (BYOK: 관리자·교수자 모두 본인 Anthropic API 키) ───────── */
 
-  // supabase: 키는 서버 환경변수 ANTHROPIC_API_KEY만 쓴다. (DB·Supabase·Vault·db.json에 저장하지 않는다)
-  const aiKey = () => (useSupabase ? env.anthropicApiKey : db.data.anthropicApiKey || env.anthropicApiKey);
-  const ENV_ONLY_KEY = "Supabase 서버에서는 화면에서 API 키를 저장하지 않아요. 서버 환경변수 ANTHROPIC_API_KEY로 설정해 주세요.";
+  // 개인 키는 브라우저 메모리에만 있고 요청마다 X-Anthropic-Key 헤더로 온다. 서버는 이 요청에만 쓰고 저장·로그 출력하지 않는다.
+  // 공용 키(예전 관리자 화면 연결 키 db.json anthropicApiKey · 서버 환경변수 ANTHROPIC_API_KEY)는 더 이상 읽지 않는다.
   /**
-   * AI 사용 권한. supabase: 관리자 또는 운영 중인 담당 분반(Supabase 배정)이 있는 교수자만.
-   * 키 설정 여부보다 먼저 확인해, 권한 없는 사용자는 키가 있는지 알 수 없게 한다. dbjson: 기존대로 교수자·관리자.
+   * AI 사용 권한 (키보다 먼저 확인). supabase: 관리자 또는 운영 중인 담당 분반이 있는 교수자 / dbjson: 교수자·관리자.
+   * 키를 넣어도 권한은 넓어지지 않는다 — 생성 결과는 화면의 초안으로만 돌아가고, 저장은 기존 역할별 권한 API를 거친다.
    */
   const requireAiUser = (req: Authed, res: Response, next: NextFunction) => {
     if (!useSupabase) return requireStaff(req, res, next);
@@ -921,80 +914,32 @@ export const createApi = (db: Db, env: ApiEnv) => {
   };
 
   api.get("/ai/status", requireAiUser, (_req, res) => {
-    const key = aiKey();
-    res.json({
-      connected: !!key,
-      source: useSupabase ? (key ? "env" : null) : db.data.anthropicApiKey ? "app" : env.anthropicApiKey ? "env" : null,
-      // supabase: 설정 여부만 알려 주고 키의 어떤 부분도 내려보내지 않는다.
-      hint: key && !useSupabase ? `…${key.slice(-4)}` : null,
-      model: AI_MODEL,
-      // 6-A: 실시간 퀴즈 생성에 공용 키를 쓸 수 있는지 (관리자가 명시적으로 허용 + 키 있음)
-      liveQuizShared: !!key && env.liveQuizSharedAi,
-    });
-  });
-
-  // 키 연결·해제는 관리자 모드에서만. 키 값은 저장만 하고 다시 내려보내지 않는다. (supabase: 환경변수만, 화면 저장 없음)
-  api.put("/ai/key", requireAdminMode, async (req, res) => {
-    if (useSupabase) return res.status(400).json({ error: ENV_ONLY_KEY });
-    const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
-    if (!apiKey.startsWith("sk-ant-")) return res.status(400).json({ error: "Anthropic API 키는 sk-ant- 로 시작해요." });
-    try {
-      await checkAnthropicKey(apiKey);
-    } catch (err) {
-      return res.status(400).json({ error: aiErrorMessage(err) });
-    }
-    db.data.anthropicApiKey = apiKey;
-    db.save();
-    res.json({ ok: true });
-  });
-
-  api.delete("/ai/key", requireAdminMode, (_req, res) => {
-    if (useSupabase) return res.status(400).json({ error: ENV_ONLY_KEY });
-    delete db.data.anthropicApiKey;
-    db.save();
-    res.json({ ok: true });
-  });
-
-  api.post("/ai/draft", requireAiUser, async (req, res) => {
-    const key = aiKey();
-    if (!key && useSupabase) return res.status(400).json({ error: "AI 키가 설정되지 않았어요. 서버 환경변수 ANTHROPIC_API_KEY를 설정해 주세요." });
-    if (!key) return res.status(400).json({ error: "연결된 API 키가 없어요. 관리자 모드에서 먼저 연결해 주세요." });
-    const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
-    if (!prompt.trim() || prompt.length > 200_000) return res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
-    try {
-      res.json(await generateDraftText(key, prompt));
-    } catch (err) {
-      res.status(502).json({ error: aiErrorMessage(err) });
-    }
+    res.json({ model: AI_MODEL, personalKey: true });
   });
 
   /**
-   * 6-A: 실시간 퀴즈 초안 생성. 교수자 개인 키(X-Anthropic-Key 헤더)를 우선 쓰고, 없으면 관리자가 허용한 공용 키만 쓴다.
-   * 개인 키는 이 요청에만 쓰고 저장·로그 출력하지 않는다. 둘 다 없으면 프롬프트 복사 → 외부 AI → JSON 붙여넣기로 안내한다.
+   * 개인 키로 생성 (강의자료 초안·번역·병음 /ai/draft, 실시간 퀴즈 /ai/live-quiz 공통).
+   * 키 없음 → 400 manual(프롬프트 복사 → 외부 AI → JSON 붙여넣기 안내) / 형식 오류 400 / Anthropic 오류 502 — 응답에 키를 넣지 않는다.
    */
-  api.post("/ai/live-quiz", requireAiUser, async (req, res) => {
+  const generateWithPersonalKey = async (req: Authed, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const header = req.headers["x-anthropic-key"];
-    const personal = typeof header === "string" ? header.trim() : "";
-    if (personal && !isAnthropicKeyShape(personal)) return res.status(400).json({ error: "개인 API 키 형식이 올바르지 않아요. sk-ant- 로 시작하는 키를 넣어 주세요." });
-    const shared = env.liveQuizSharedAi ? aiKey() : "";
-    const key = personal || shared;
+    const key = typeof header === "string" ? header.trim() : "";
     if (!key) {
-      return res.status(400).json({
-        error: "개인 API 키를 입력하거나, ‘프롬프트 복사’로 외부 AI에서 만든 JSON을 붙여 넣어 주세요.",
-        manual: true,
-      });
+      return void res.status(400).json({ error: "본인 Anthropic API 키를 입력하거나, ‘프롬프트 복사’로 외부 AI에서 만든 JSON을 붙여 넣어 주세요.", manual: true });
     }
+    if (!isAnthropicKeyShape(key)) return void res.status(400).json({ error: "API 키 형식이 올바르지 않아요. sk-ant- 로 시작하는 키를 넣어 주세요." });
     const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
-    if (!prompt.trim() || prompt.length > 200_000) return res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
+    if (!prompt.trim() || prompt.length > 200_000) return void res.status(400).json({ error: "프롬프트가 비었거나 너무 길어요." });
     try {
-      res.json({ ...(await generateDraftText(key, prompt)), keySource: personal ? "personal" : "shared" });
+      res.json(await generateDraftText(key, prompt));
     } catch (err) {
       // 오류 문구에 키가 섞여 나가지 않게 (SDK 메시지는 키를 담지 않지만 한 번 더 지운다)
-      const message = aiErrorMessage(err).split(key).join("[API 키]");
-      res.status(502).json({ error: message });
+      res.status(502).json({ error: aiErrorMessage(err).split(key).join("[API 키]") });
     }
-  });
+  };
+  api.post("/ai/draft", requireAiUser, generateWithPersonalKey);
+  api.post("/ai/live-quiz", requireAiUser, generateWithPersonalKey);
 
   /* ───────── 과목 · 수강 등록 ───────── */
 

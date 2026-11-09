@@ -182,17 +182,17 @@ try {
   check("관리자 피드백 삭제", del.status === 200 && gone.length === 0);
   check("supabase 모드는 db.json 피드백을 읽지도 쓰지도 않음", JSON.stringify(db.data.feedback) === dbFeedbackBefore);
 
-  // ── AI: 키 없음(지금 dev 환경)
-  const st = (a: Auth) => call<{ connected: boolean; source: string | null; hint: string | null }>("GET", "/ai/status", a);
-  const dr = (a: Auth) => call<{ error: string }>("POST", "/ai/draft", a, { prompt: "테스트" });
+  // ── AI (BYOK): 본인 키 헤더가 없으면 생성하지 않고 프롬프트 복사·JSON 붙여넣기로 안내 (Anthropic 호출 없음)
+  const st = (a: Auth) => call<{ model?: string; personalKey?: boolean }>("GET", "/ai/status", a);
+  const dr = (a: Auth) => call<{ error: string; manual?: boolean }>("POST", "/ai/draft", a, { prompt: "테스트" });
   const aS = await st(admin);
   const aD = await dr(admin);
   const tS = await st(TA);
   const tD = await dr(TA);
   check(
-    "키 없음: 관리자·배정 교수자는 상태 ‘설정되지 않음’(connected false, hint 없음), 생성은 400 ‘AI 키가 설정되지 않았어요’ (Anthropic 호출 없음)",
-    aS.status === 200 && aS.body.connected === false && aS.body.source === null && aS.body.hint === null && aD.status === 400 && /설정되지 않았어요/.test(aD.body.error) &&
-      tS.status === 200 && tS.body.connected === false && tD.status === 400 && /설정되지 않았어요/.test(tD.body.error),
+    "본인 키 없음: 관리자·배정 교수자 상태 200(personalKey), 생성은 400 manual ‘프롬프트 복사’ 안내 (Anthropic 호출 없음)",
+    aS.status === 200 && aS.body.personalKey === true && aD.status === 400 && aD.body.manual === true &&
+      tS.status === 200 && tS.body.personalKey === true && tD.status === 400 && tD.body.manual === true,
   );
   const denied = [
     ["미배정 교수자", TN, 403], ["비활성 분반만 담당한 교수자", TI, 403], ["승인 학생", S1, 403], ["승인 대기 학생", SP, 403],
@@ -212,20 +212,21 @@ try {
   const delKey = await call<{ error: string }>("DELETE", "/ai/key", admin);
   const putKeyTeacher = await call("PUT", "/ai/key", TA, { apiKey: FAKE_KEY });
   check(
-    "관리자 화면의 키 저장·해제 비활성: 400 ‘서버 환경변수 ANTHROPIC_API_KEY로 설정’, 교수자는 403, db.json에도 저장 안 됨",
-    putKey.status === 400 && /ANTHROPIC_API_KEY/.test(putKey.body.error) && delKey.status === 400 && putKeyTeacher.status === 403 && !("anthropicApiKey" in db.data),
+    "서버 키 저장 경로 없음(BYOK): PUT·DELETE /ai/key 404(관리자·교수자), db.json에도 저장 안 됨",
+    putKey.status === 404 && delKey.status === 404 && putKeyTeacher.status === 404 && !("anthropicApiKey" in db.data),
   );
 
-  // ── AI: 서버 환경변수에 키가 있을 때 (가짜 키, 생성 요청은 보내지 않는다)
+  // ── AI: 서버 환경변수 ANTHROPIC_API_KEY가 있어도 자동으로 쓰지 않는다 (가짜 키, 생성 요청은 Anthropic까지 가지 않는다)
   const withKey = await serve({ ANTHROPIC_API_KEY: FAKE_KEY });
-  const kA = await withKey.call<{ connected: boolean; source: string | null; hint: string | null }>("GET", "/ai/status", withKey.admin);
-  const kT = await withKey.call<{ connected: boolean }>("GET", "/ai/status", TA);
+  const kA = await withKey.call<{ personalKey?: boolean }>("GET", "/ai/status", withKey.admin);
+  const kT = await withKey.call<{ personalKey?: boolean }>("GET", "/ai/status", TA);
+  const kD = await withKey.call<{ manual?: boolean }>("POST", "/ai/draft", TA, { prompt: "테스트" });
   const kN = await withKey.call("GET", "/ai/status", TN);
   const kS = await withKey.call("GET", "/ai/status", S1);
   check(
-    "키 있음(서버 환경변수): 관리자·배정 교수자는 ‘설정됨’(source env, hint 없음), 응답 어디에도 키 문자열 없음, 미배정 교수자·학생은 403",
-    kA.status === 200 && kA.body.connected === true && kA.body.source === "env" && kA.body.hint === null && kT.status === 200 && kT.body.connected === true &&
-      kN.status === 403 && kS.status === 403 && ![kA, kT, kN, kS].some((r) => r.text.includes(FAKE_KEY) || r.text.includes(FAKE_KEY.slice(-4))),
+    "서버 환경변수 키는 쓰지 않음: 헤더 없는 생성은 400 manual, 상태·응답 어디에도 키 문자열 없음, 미배정 교수자·학생은 403",
+    kA.status === 200 && kA.body.personalKey === true && kT.status === 200 && kD.status === 400 && kD.body.manual === true &&
+      kN.status === 403 && kS.status === 403 && ![kA, kT, kN, kS, kD].some((r) => r.text.includes(FAKE_KEY) || r.text.includes(FAKE_KEY.slice(-4))),
   );
 } catch (err) {
   check("검사 중 오류", false, err instanceof Error ? err.message : String(err));

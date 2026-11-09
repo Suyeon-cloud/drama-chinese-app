@@ -303,7 +303,7 @@ test("서버 직접 호출: 개인 학습 퀴즈와 완전 중복(보기 순서�
   }
 });
 
-test("AI 생성: 개인 키가 없고 공용 키도 허용되지 않으면 수동(JSON 붙여넣기) 안내, 잘못된 키 형식 400, 학생은 사용 불가 — 키는 응답에 없다", async () => {
+test("AI 생성: 본인 키가 없으면 수동(JSON 붙여넣기) 안내, 잘못된 키 형식 400, 학생은 사용 불가 — 키는 응답에 없다 (BYOK 전체는 aiByok.test)", async () => {
   assert.equal((await call("POST", "/ai/live-quiz", learner("s1"), { prompt: "x" })).status, 403);
   const manual = await call("POST", "/ai/live-quiz", google(T), { prompt: "x" });
   assert.equal(manual.status, 400);
@@ -311,26 +311,6 @@ test("AI 생성: 개인 키가 없고 공용 키도 허용되지 않으면 수�
   const bad = await call("POST", "/ai/live-quiz", google(T), { prompt: "x" }, { "X-Anthropic-Key": "not-a-key" });
   assert.equal(bad.status, 400);
   assert.ok(!JSON.stringify(bad.body).includes("not-a-key"));
-  assert.equal((await call<{ liveQuizShared?: boolean }>("GET", "/ai/status", google(T))).body.liveQuizShared, false);
-
-  // 공용 키가 있어도 관리자가 허용하지 않으면 쓰지 않는다
-  db.data.anthropicApiKey = "sk-ant-shared-key-for-test-0000000000";
-  try {
-    const noAllow = await call("POST", "/ai/live-quiz", google(T), { prompt: "x" });
-    assert.equal(noAllow.status, 400);
-    assert.equal(noAllow.body.manual, true);
-    const allowed = await startServer({ LIVE_QUIZ_SHARED_AI_KEY: "allow" });
-    try {
-      const st = await fetch(`${allowed.base}/ai/status`, { headers: { cookie: google(T) } }).then((r) => r.json() as Promise<{ liveQuizShared?: boolean; hint?: string }>);
-      assert.equal(st.liveQuizShared, true, "허용하면 공용 키 사용 가능으로 표시");
-      const empty = await fetch(`${allowed.base}/ai/live-quiz`, { method: "POST", headers: { cookie: google(T), "Content-Type": "application/json" }, body: JSON.stringify({ prompt: " " }) });
-      assert.equal(empty.status, 400, "빈 프롬프트는 키를 쓰기 전에 거부");
-    } finally {
-      allowed.close();
-    }
-  } finally {
-    delete db.data.anthropicApiKey;
-  }
 });
 
 test("실시간 퀴즈 작업은 강의자료·학습 기록·수강 등록·주차 자료를 바꾸지 않는다", () => {

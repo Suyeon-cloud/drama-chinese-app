@@ -62,7 +62,7 @@ export type DbData = {
   liveSessions: Record<string, StoredLiveSession>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
-  /** 관리자가 화면에서 연결한 Anthropic API 키 (AI 학습 콘텐츠 생성). 화면에는 끝 4자리만 보여준다. */
+  /** 예전 관리자 공용 Anthropic API 키. BYOK로 바뀌어 더 이상 읽지 않는다 (기존 db.json 값은 지우지 않고 그대로 둔다). */
   anthropicApiKey?: string;
 };
 

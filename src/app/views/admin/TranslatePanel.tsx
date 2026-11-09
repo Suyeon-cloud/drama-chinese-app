@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/Toast";
 import {
   DraftResultError,
@@ -12,13 +11,14 @@ import { ApiError, api } from "../../lib/api";
 import type { CueLang } from "../../lib/subtitles";
 import type { LearningDirection, SubtitleCue } from "../../../content/types";
 import { fillCueField } from "../../lib/subtitles";
-import { KeyForm, useAiStatus } from "./AiDraftPanel";
+import { personalAiKeyHeaders, usePersonalAiKey } from "../../store/aiKey";
+import { AiKeyField } from "./AiDraftPanel";
 
 type CueField = CueLang | "pinyin";
 
 /**
  * 자막 한 줄마다 from 칸의 문장으로 to 칸을 채운다. (번역 자막, 병음)
- * 4단계 AI 패널과 같은 방식: 프롬프트를 외부 AI에 붙여 넣고 답을 다시 붙여 넣거나, 연결한 API로 바로 만든다.
+ * 4단계 AI 패널과 같은 방식: 프롬프트를 외부 AI에 붙여 넣고 답을 다시 붙여 넣거나, 본인 API 키(BYOK)로 바로 만든다.
  */
 const CueFillPanel: React.FC<{
   cues: SubtitleCue[];
@@ -32,10 +32,8 @@ const CueFillPanel: React.FC<{
   placeholder: string;
   onApply: (cues: SubtitleCue[]) => void;
 }> = ({ cues, from, to, icon, name, buildPrompt, parse, placeholder, onApply }) => {
-  const { user } = useAuth();
-  const adminMode = user?.provider === "admin";
   const toast = useToast();
-  const { status, reload } = useAiStatus();
+  const keySet = usePersonalAiKey();
   const [overwrite, setOverwrite] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [result, setResult] = useState("");
@@ -87,7 +85,7 @@ const CueFillPanel: React.FC<{
     setError(null);
     setSent(targets);
     try {
-      const res = await api<{ text: string }>("/ai/draft", { method: "POST", body: { prompt } });
+      const res = await api<{ text: string }>("/ai/draft", { method: "POST", body: { prompt }, headers: personalAiKeyHeaders() });
       applyText(res.text);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : `${name}을(를) 만들지 못했어요.`);
@@ -152,24 +150,16 @@ const CueFillPanel: React.FC<{
           </div>
 
           <div className="ai-step">
-            <b>방법 2 · 연결한 API로 바로 만들기</b>
-            {status?.connected ? (
+            <b>방법 2 · 본인 API 키로 바로 만들기</b>
+            <AiKeyField />
+            {keySet ? (
               <div className="row-start">
                 <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void generate()}>
                   {busy ? "만드는 중… (1~2분 걸릴 수 있어요)" : `✨ ${name} 바로 만들기`}
                 </button>
-                <small className="muted">
-                  {status.model}
-                  {status.hint ? ` · 키 ${status.hint}` : ""}
-                </small>
               </div>
             ) : (
-              <>
-                <p className="muted small">
-                  연결된 API 키가 없어요. {adminMode ? "아래에서 본인 키를 연결해 주세요." : "관리자 모드로 로그인해 키를 연결해 주세요."}
-                </p>
-                {adminMode ? <KeyForm status={status} onChanged={reload} /> : null}
-              </>
+              <p className="muted small">API 키가 없으면 방법 1(프롬프트 복사 → 외부 AI → 결과 붙여넣기)을 써 주세요.</p>
             )}
           </div>
         </>

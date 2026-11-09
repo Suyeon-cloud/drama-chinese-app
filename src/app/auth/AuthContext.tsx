@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useToast } from "../components/Toast";
 import { setApiTokenProvider } from "../lib/api";
 import { getAuthBackend, loadRuntimeConfig } from "../lib/runtimeConfig";
+import { clearPersonalAiKey } from "../store/aiKey";
 import { refreshAllStores } from "../store/remote";
 import {
   AUTH_ERROR_MESSAGE,
@@ -132,6 +133,7 @@ export const AuthProvider: React.FC<{
 
   const signOut = useCallback(async () => {
     gmailService.clear(); // Gmail 발송 토큰이 있으면 폐기하고 메모리에서 지운다.
+    clearPersonalAiKey(); // 본인 AI API 키(메모리)도 지운다 — 같은 브라우저의 다음 사용자가 쓰지 않게
     await service.signOut();
     setUser(null);
     toast.show("로그아웃되었습니다.", "info");

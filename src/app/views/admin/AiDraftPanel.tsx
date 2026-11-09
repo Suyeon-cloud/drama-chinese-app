@@ -1,110 +1,88 @@
-import React, { useEffect, useState } from "react";
-import { useAuth } from "../../auth/AuthContext";
+import React, { useState } from "react";
+import { isAnthropicKeyShape } from "../../../content/liveQuiz";
 import { useToast } from "../../components/Toast";
 import { DraftResultError, buildDraftPrompt, parseDraftResult, type DraftPromptInput } from "../../lib/aiDraft";
 import { ApiError, api } from "../../lib/api";
-import { getAuthBackend } from "../../lib/runtimeConfig";
+import { clearPersonalAiKey, personalAiKeyHeaders, setPersonalAiKey, usePersonalAiKey } from "../../store/aiKey";
 import type { LessonDraft } from "../../../content/types";
 
-export type AiStatus = { connected: boolean; source: "app" | "env" | null; hint: string | null; model: string };
-
-/** 연결된 API 키 상태 (reload: 연결·해제 뒤 다시 읽기) */
-export const useAiStatus = () => {
-  const [status, setStatus] = useState<AiStatus | null>(null);
-  const reload = () =>
-    void api<AiStatus>("/ai/status")
-      .then(setStatus)
-      .catch(() => setStatus(null));
-  useEffect(reload, []);
-  return { status, reload };
-};
-
 /**
- * 관리자 모드: 본인 Anthropic API 키 연결·해제.
- * Supabase 저장소에서는 키를 화면에서 저장하지 않고 서버 환경변수(ANTHROPIC_API_KEY)만 쓰므로 설정 여부만 보여 준다.
+ * 본인 Anthropic API 키 입력·바꾸기·지우기 (관리자·교수자 공통, BYOK).
+ * 키는 브라우저 메모리(store/aiKey)에만 두고 강의자료 초안·번역·병음·실시간 퀴즈가 함께 쓴다. 서버·DB·브라우저 저장소에 저장하지 않는다.
  */
-export const KeyForm: React.FC<{ status: AiStatus | null; onChanged: () => void }> = (props) =>
-  getAuthBackend() === "supabase" ? (
-    <p className="ai-key-form muted small">
-      AI 키는 서버 환경변수 <b>ANTHROPIC_API_KEY</b>로만 설정해요 (화면에서 저장하지 않아요). 현재:{" "}
-      <b>{props.status?.connected ? "설정됨" : "설정되지 않음"}</b>
-    </p>
-  ) : (
-    <AppKeyForm {...props} />
-  );
-
-const AppKeyForm: React.FC<{ status: AiStatus | null; onChanged: () => void }> = ({ status, onChanged }) => {
-  const toast = useToast();
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const run = async (work: () => Promise<unknown>, done: string) => {
-    setBusy(true);
-    try {
-      await work();
-      toast.show(done, "success");
-      setKey("");
-      onChanged();
-    } catch (err) {
-      toast.show(err instanceof ApiError ? err.message : "처리하지 못했어요.", "error");
-    } finally {
-      setBusy(false);
-    }
+export const AiKeyField: React.FC = () => {
+  const keySet = usePersonalAiKey();
+  const [input, setInput] = useState("");
+  const [editing, setEditing] = useState(false);
+  const valid = isAnthropicKeyShape(input.trim());
+  const use = () => {
+    if (!valid) return;
+    setPersonalAiKey(input);
+    setInput("");
+    setEditing(false);
   };
   return (
-    <form
-      className="ai-key-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void run(() => api("/ai/key", { method: "PUT", body: { apiKey: key } }), "API 키를 연결했어요.");
-      }}
-    >
-      <label className="field">
-        <span>Anthropic API 키 {status?.source === "app" ? `(연결됨 ${status.hint})` : ""}</span>
-        <input
-          type="password"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-ant-…"
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-      <div className="row-start">
-        <button className="btn btn-primary btn-sm" type="submit" disabled={busy || !key.trim()}>
-          {busy ? "확인 중…" : status?.source === "app" ? "키 바꾸기" : "연결"}
-        </button>
-        {status?.source === "app" ? (
-          <button
-            type="button"
-            className="link-btn danger"
-            disabled={busy}
-            onClick={() => void run(() => api("/ai/key", { method: "DELETE" }), "API 키 연결을 해제했어요.")}
-          >
-            연결 해제
+    <div className="ai-key-form">
+      {keySet && !editing ? (
+        <div className="row-start" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className="small">🔑 본인 API 키 입력됨 (새로고침·로그아웃하면 지워져요)</span>
+          <button type="button" className="link-btn" onClick={() => setEditing(true)}>
+            키 바꾸기
           </button>
-        ) : null}
-      </div>
+          <button type="button" className="link-btn danger" onClick={clearPersonalAiKey}>
+            지우기
+          </button>
+        </div>
+      ) : (
+        <>
+          <label className="field">
+            <span>본인 Anthropic API 키</span>
+            <input
+              type="password"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  use();
+                }
+              }}
+              placeholder="sk-ant-…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          {input.trim() && !valid ? <small className="field-error">sk-ant- 로 시작하는 Anthropic API 키 형식이 아니에요.</small> : null}
+          <div className="row-start">
+            <button type="button" className="btn btn-soft btn-sm" disabled={!valid} onClick={use}>
+              키 사용
+            </button>
+            {editing ? (
+              <button type="button" className="link-btn" onClick={() => (setEditing(false), setInput(""))}>
+                취소
+              </button>
+            ) : null}
+          </div>
+        </>
+      )}
       <small className="muted">
-        console.anthropic.com에서 만든 본인 키를 넣어요. 키는 서버에만 저장되고 화면에는 끝 4자리만 보여요. 생성할 때마다
-        이 키의 계정에 사용량(토큰)만큼 요금이 청구돼요.
+        console.anthropic.com에서 만든 본인 키를 넣어요. 키는 서버·DB·브라우저 저장소에 저장되지 않고 AI 생성 요청에만 쓰여요.
+        생성할 때마다 이 키의 계정에 사용량(토큰)만큼 요금이 청구돼요.
       </small>
-    </form>
+    </div>
   );
 };
 
 /**
  * 생성형 AI로 학습 콘텐츠 채우기.
  * ① 프롬프트를 복사해 외부 AI(ChatGPT·Claude 등)에 붙여 넣고 답을 다시 붙여 넣거나,
- * ② 연결한 API 키로 바로 생성한다. 두 방법 모두 같은 프롬프트·결과 형식을 쓴다.
+ * ② 본인 API 키(BYOK)로 바로 생성한다. 두 방법 모두 같은 프롬프트·결과 형식을 쓴다.
  */
 export const AiDraftPanel: React.FC<
   DraftPromptInput & { hasDraft: boolean; onApply: (draft: LessonDraft) => void }
 > = ({ hasDraft, onApply, ...input }) => {
-  const { user } = useAuth();
-  const adminMode = user?.provider === "admin";
   const toast = useToast();
-  const { status, reload: loadStatus } = useAiStatus();
-  const [showKey, setShowKey] = useState(false);
+  const keySet = usePersonalAiKey();
   const [showPrompt, setShowPrompt] = useState(false);
   const [result, setResult] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +124,7 @@ export const AiDraftPanel: React.FC<
       const res = await api<{ text: string; usage: { input: number; output: number } }>("/ai/draft", {
         method: "POST",
         body: { prompt },
+        headers: personalAiKeyHeaders(),
       });
       setResult(res.text);
       toast.show(`생성했어요. (입력 ${res.usage.input.toLocaleString()} · 출력 ${res.usage.output.toLocaleString()} 토큰)`, "success");
@@ -193,32 +172,17 @@ export const AiDraftPanel: React.FC<
       </div>
 
       <div className="ai-step">
-        <b>방법 2 · 연결한 API로 바로 생성</b>
-        {status?.connected ? (
+        <b>방법 2 · 본인 API 키로 바로 생성</b>
+        <AiKeyField />
+        {keySet ? (
           <div className="row-start">
             <button type="button" className="btn btn-primary btn-sm" disabled={generating} onClick={() => void generate()}>
               {generating ? "생성 중… (1~2분 걸릴 수 있어요)" : "✨ AI로 바로 생성"}
             </button>
-            <small className="muted">
-              {status.model}
-              {status.hint ? ` · 키 ${status.hint}` : ""}
-              {status.source === "env" ? " (서버 환경변수)" : ""}
-            </small>
           </div>
         ) : (
-          <p className="muted small">
-            연결된 API 키가 없어요. {adminMode ? "아래에서 본인 키를 연결해 주세요." : "관리자 모드로 로그인해 키를 연결해 주세요."}
-          </p>
+          <p className="muted small">API 키가 없으면 방법 1(프롬프트 복사 → 외부 AI → JSON 붙여넣기)을 써 주세요.</p>
         )}
-        {adminMode ? (
-          showKey || !status?.connected ? (
-            <KeyForm status={status} onChanged={loadStatus} />
-          ) : (
-            <button type="button" className="link-btn" onClick={() => setShowKey(true)}>
-              API 키 관리
-            </button>
-          )
-        ) : null}
       </div>
 
       {error ? <p className="field-error small">{error}</p> : null}

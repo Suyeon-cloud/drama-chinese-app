@@ -180,8 +180,8 @@ try {
   const legacyProfile = await call("PUT", "/me/profile", { token: S }, {});
   const legacyKey = await call("PUT", "/ai/key", admin, { apiKey: "sk-ant-x" });
   check(
-    "예전 경로가 끼어들지 않음: 예전 Google 쿠키(올바른 서명이어도) 무시, /auth/google·/me/profile·/ai/key 저장 400 (db.json 접근 없음)",
-    legacy.status === 200 && legacy.body.user === null && legacyGoogle.status === 400 && legacyProfile.status === 400 && legacyKey.status === 400,
+    "예전 경로가 끼어들지 않음: 예전 Google 쿠키(올바른 서명이어도) 무시, /auth/google·/me/profile 400, /ai/key 경로 없음 404 (BYOK, db.json 접근 없음)",
+    legacy.status === 200 && legacy.body.user === null && legacyGoogle.status === 400 && legacyProfile.status === 400 && legacyKey.status === 404,
   );
   check("검사 내내 DATA_DIR 폴더·db.json이 만들어지지 않음", !existsSync(missingDir));
 

@@ -6,7 +6,6 @@ import {
   LiveQuizResultError,
   buildLiveQuizPrompt,
   duplicateReport,
-  isAnthropicKeyShape,
   parseLiveQuizResult,
   parseLiveQuizSetInput,
   type LiveQuizOrigin,
@@ -22,7 +21,9 @@ import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { playbackCues } from "../lib/subtitles";
 import { navigate } from "../router";
 import { useLessons, useStaffCourses } from "../store/hooks";
-import { clearPersonalAiKey, hasPersonalAiKey, liveQuizStore, setPersonalAiKey, type AiStatus } from "../store/liveQuizStore";
+import { usePersonalAiKey } from "../store/aiKey";
+import { liveQuizStore } from "../store/liveQuizStore";
+import { AiKeyField } from "./admin/AiDraftPanel";
 
 type EditQ = { id?: string; question: string; options: string[]; answer: number; explanation: string; origin: LiveQuizOrigin };
 type Draft = { id: string | null; version: number | null; week: number; lessonId: string | null; title: string; status: "draft" | "ready"; questions: EditQ[] };
@@ -359,21 +360,15 @@ const move = <T,>(list: T[], i: number, dir: -1 | 1) => {
   return next;
 };
 
-/** AI 초안: 개인 키(메모리에만) → 관리자가 허용한 공용 키 → 프롬프트 복사 + JSON 붙여넣기 (항상 사용 가능) */
+/** AI 초안: 본인 API 키(BYOK, 메모리에만 — 강의자료 AI와 같은 키) 또는 프롬프트 복사 + JSON 붙여넣기 (항상 사용 가능) */
 const AiPanel: React.FC<{ lesson: Lesson | null; avoid: string[]; room: number; onAdd: (qs: LiveQuizSetInput["questions"]) => void }> = ({ lesson, avoid, room, onAdd }) => {
   const toast = useToast();
   const pinyinReady = usePinyinReady();
-  const [status, setStatus] = useState<AiStatus | null>(null);
-  const [keyInput, setKeyInput] = useState("");
-  const [keySet, setKeySet] = useState(hasPersonalAiKey());
+  const keySet = usePersonalAiKey();
   const [count, setCount] = useState(5);
   const [paste, setPaste] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  useEffect(() => {
-    liveQuizStore.aiStatus().then(setStatus).catch(() => setStatus(null));
-  }, []);
-
   const prompt = useMemo(() => {
     if (!lesson) return "";
     const py = pinyinReady ? toPinyin : undefined;
@@ -409,14 +404,13 @@ const AiPanel: React.FC<{ lesson: Lesson | null; avoid: string[]; room: number; 
     setMessage(null);
     try {
       const r = await liveQuizStore.generate(prompt);
-      if (take(r.text, "ai")) toast.show(r.keySource === "personal" ? "개인 API로 초안을 만들었어요." : "공용 API로 초안을 만들었어요.", "success");
+      if (take(r.text, "ai")) toast.show("본인 API 키로 초안을 만들었어요.", "success");
     } catch (err) {
       setMessage(errorText(err, "AI 생성에 실패했어요. 프롬프트 복사로 외부 AI를 써 주세요."));
     } finally {
       setBusy(false);
     }
   };
-  const canAi = keySet || !!status?.liveQuizShared;
 
   return (
     <details className="card live-quiz-ai" open>
@@ -435,53 +429,15 @@ const AiPanel: React.FC<{ lesson: Lesson | null; avoid: string[]; room: number; 
             ))}
           </select>
         </label>
-        <label className="field">
-          <span>개인 Anthropic API 키 (선택 · 이 화면 메모리에만, 저장 안 함)</span>
-          <span className="row-start" style={{ gap: 4 }}>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={keySet ? "입력됨 (새로고침하면 지워져요)" : "sk-ant-…"}
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            {keySet ? (
-              <button
-                className="btn btn-quiet btn-sm"
-                onClick={() => {
-                  clearPersonalAiKey();
-                  setKeySet(false);
-                }}
-              >
-                지우기
-              </button>
-            ) : (
-              <button
-                className="btn btn-soft btn-sm"
-                disabled={!isAnthropicKeyShape(keyInput.trim())}
-                onClick={() => {
-                  setPersonalAiKey(keyInput);
-                  setKeyInput("");
-                  setKeySet(true);
-                }}
-              >
-                사용
-              </button>
-            )}
-          </span>
-        </label>
       </div>
+      <AiKeyField />
       <p className="muted small">
         {keySet
-          ? "개인 키로 생성해요. 키는 서버에 저장되지 않고 요청할 때만 쓰여요."
-          : status?.liveQuizShared
-            ? "개인 키가 없으면 관리자가 허용한 공용 키로 생성해요."
-            : "개인 키가 없으면 ‘프롬프트 복사’로 외부 AI(ChatGPT·Claude 등)에서 만든 JSON을 아래에 붙여 넣어 주세요."}
+          ? "본인 키로 생성해요. 키는 서버에 저장되지 않고 요청할 때만 쓰여요."
+          : "API 키가 없으면 ‘프롬프트 복사’로 외부 AI(ChatGPT·Claude 등)에서 만든 JSON을 아래에 붙여 넣어 주세요."}
       </p>
       <div className="row-start" style={{ gap: 6, flexWrap: "wrap" }}>
-        <button className="btn btn-primary btn-sm" disabled={!lesson || !canAi || busy || room <= 0} onClick={() => void generate()}>
+        <button className="btn btn-primary btn-sm" disabled={!lesson || !keySet || busy || room <= 0} onClick={() => void generate()}>
           {busy ? "만드는 중…" : "AI로 만들기"}
         </button>
         <button
