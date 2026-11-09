@@ -9,6 +9,7 @@ import type { CurriculumWeek, LessonProgress, WeekMaterial } from "../store/mode
 import { WeekMaterialList } from "./admin/WeekMaterialsPanel";
 import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 import { SectionLine } from "./MyCoursesView";
+import { LiveJoinEntry } from "./LiveSessionViews";
 
 /** 학습 화면 위 복귀 링크: 학생이 수강 중인 과목의 주차 목록으로 돌아간다. */
 export const CourseBackLink: React.FC<{ courseId: string }> = ({ courseId }) => {
@@ -59,9 +60,12 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
 
   return (
     <div className="page">
-      <button className="link-btn back-link" onClick={() => navigate("weeks")}>
-        ← 내 강의
-      </button>
+      <div className="row-start" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+        <button className="link-btn back-link" onClick={() => navigate("weeks")}>
+          ← 내 강의
+        </button>
+        <LiveJoinEntry />
+      </div>
       <section className="card course-hero">
         <CourseImage courseId={course.id} drama={course.drama} />
         <div className="course-hero-body">

@@ -26,6 +26,7 @@ import type {
 import type { UploadIntent } from "./materialUploads";
 import type { StoredMaterial } from "./weekMaterials";
 import type { LiveQuizSet } from "../src/content/liveQuiz";
+import type { StoredLiveSession } from "../src/content/liveSession";
 import { DB_VERSION, migrateCourses } from "./courses";
 
 export type DbData = {
@@ -57,6 +58,8 @@ export type DbData = {
   materialUploads: Record<string, UploadIntent>;
   /** 6-A: 실시간 수업용 퀴즈 문제 세트 (기존 학습 퀴즈와 별개) */
   liveQuizSets: Record<string, LiveQuizSet>;
+  /** 6-B: 실시간 퀴즈 세션 (참여·응답 포함) */
+  liveSessions: Record<string, StoredLiveSession>;
   /** 로그인 쿠키 서명 키 (SESSION_SECRET 환경변수가 없을 때 사용) */
   sessionSecret: string;
   /** 관리자가 화면에서 연결한 Anthropic API 키 (AI 학습 콘텐츠 생성). 화면에는 끝 4자리만 보여준다. */
@@ -80,6 +83,7 @@ const emptyDb = (): DbData => ({
   weekMaterials: {},
   materialUploads: {},
   liveQuizSets: {},
+  liveSessions: {},
   sessionSecret: randomBytes(32).toString("hex"),
 });
 

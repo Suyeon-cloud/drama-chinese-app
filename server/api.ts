@@ -57,7 +57,17 @@ import {
 } from "./weekMaterials";
 import { clientMaterial, parseMaterialFileInput, parseMaterialHtmlCreate, sameInstant, type StoredMaterial } from "./weekMaterials";
 import { materialOps } from "./materialRows";
-import { liveQuizOps } from "./liveQuizRows";
+import { liveQuizOps, liveSessionOps } from "./liveQuizRows";
+import {
+  JOIN_CODE_ALPHABET,
+  isJoinCode,
+  liveHostState,
+  liveStudentState,
+  nextLiveState,
+  normalizeJoinCode,
+  type LiveAction,
+  type StoredLiveSession,
+} from "../src/content/liveSession";
 import { isAnthropicKeyShape, parseLiveQuizSetInput, quizKey, type LiveQuizSet, type LiveQuizSetInput } from "../src/content/liveQuiz";
 import { resolveLessonContent } from "../src/content/lessons";
 import { isCourseKey, isPreviewable, newStorageKey, parseFileMeta } from "./materialFiles";
@@ -1677,6 +1687,212 @@ export const createApi = (db: Db, env: ApiEnv) => {
     delete db.data.liveQuizSets[prev.id];
     db.save();
     res.json({ ok: true });
+  });
+
+  /* ───────── 실시간 퀴즈 세션 (6-B): 교수자 진행 · 학생 참여·응답 ───────── */
+  // - 교수자: 운영 중 과목의 운영 중 담당 분반에서 준비 완료 세트로 시작. 관리자 계정은 진행하지 않는다(교수자 계정으로).
+  // - 학생: 그 분반 수강생(승인)만 참여 코드로 참여. 정답·해설은 '정답 공개' 상태에서만 학생 응답에 들어간다.
+  // - 동기화: 상태가 바뀌면 Supabase Realtime Broadcast로 '버전이 바뀌었다'는 신호만 보낸다(데이터 없음). 화면은 신호를 받으면
+  //   이 API로 다시 읽고, 신호가 없어도 짧은 간격으로 다시 읽는다(폴링 fallback). 기록·권한 판단은 항상 서버·DB.
+
+  const LIVE_ACTIONS: readonly LiveAction[] = ["next", "close", "reveal", "end"];
+  /** Realtime Broadcast 신호 (Supabase 모드만, 실패해도 무시 — 화면이 폴링으로 맞춘다). 내용은 버전 번호뿐.
+   *  Vercel 서버리스는 응답 뒤 작업이 끊길 수 있어 응답 전에 기다린다(최대 1.5초). */
+  const signalLive = async (sessionId: string, version: number): Promise<void> => {
+    if (!useSupabase || !env.supabaseUrl || !env.supabaseServiceRoleKey) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1500);
+    await fetch(`${env.supabaseUrl.replace(/\/$/, "")}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { apikey: env.supabaseServiceRoleKey, Authorization: `Bearer ${env.supabaseServiceRoleKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ topic: `live-quiz-${sessionId}`, event: "state", payload: { v: version }, private: false }] }),
+    })
+      .catch(() => undefined)
+      .finally(() => clearTimeout(timer));
+  };
+  type LiveSessionOps = ReturnType<typeof liveSessionOps>;
+  /** Supabase 사용자 경로 (교수자·학생 모두 본인 token). 관리자 계정은 auth 사용자가 아니어서 진행·참여할 수 없다 */
+  const viaLive = (req: Authed, res: Response, status: number, work: (ops: LiveSessionOps) => Promise<unknown>) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (isPlatformAdmin(req)) return void res.status(403).json({ error: "실시간 퀴즈는 교수자 계정으로 진행해 주세요." });
+    return void viaUser(req, res.status(status), (a) => work(liveSessionOps(a.client, toUserError)));
+  };
+  /* JSON 모드 권한 */
+  const canHostSection = (req: Authed, sectionId: string) => {
+    const section = db.data.sections[sectionId];
+    return (
+      !isPlatformAdmin(req) && isStaff(req) && !!section && section.status === "active" &&
+      db.data.courses[section.courseId]?.status === "active" &&
+      instructorSections(req.user!.email, true).some((s) => s.id === sectionId)
+    );
+  };
+  const isLiveLearner = (req: Authed, s: StoredLiveSession) =>
+    !!req.user && !isStaff(req) && isApproved(req) && db.data.courses[s.courseId]?.status === "active" &&
+    enrollmentsForUser(db.data.enrollments, req.user.id).some((e) => e.sectionId === s.sectionId);
+  const newJoinCode = () => {
+    for (let i = 0; i < 50; i++) {
+      const code = Array.from(randomUUID().replace(/-/g, "").slice(0, 6), (h) => JOIN_CODE_ALPHABET[parseInt(h, 16) % 32]).join("");
+      if (!Object.values(db.data.liveSessions).some((s) => s.status === "active" && s.joinCode === code)) return code;
+    }
+    throw new Error("참여 코드를 만들지 못했어요.");
+  };
+  const touchLive = (s: StoredLiveSession) => {
+    s.version += 1;
+    s.updatedAt = nowIso();
+  };
+
+  /** 세션 시작. body: { setId, sectionId } */
+  api.post("/live/sessions", requireLogin, (req: Authed, res) => {
+    const setId = typeof req.body?.setId === "string" ? req.body.setId : "";
+    const sectionId = typeof req.body?.sectionId === "string" ? req.body.sectionId : "";
+    if (!setId || !sectionId) return res.status(400).json({ error: "문제 세트와 분반을 골라 주세요." });
+    if (useSupabase) return viaLive(req, res, 201, async (ops) => {
+      const st = await ops.start(setId, sectionId);
+      await signalLive(st.id, st.version);
+      return st;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    if (isPlatformAdmin(req)) return res.status(403).json({ error: "실시간 퀴즈는 교수자 계정으로 진행해 주세요." });
+    const set = db.data.liveQuizSets[setId];
+    if (!set) return res.status(404).json({ error: "문제 세트를 찾을 수 없어요." });
+    const section = db.data.sections[sectionId];
+    if (!section || section.courseId !== set.courseId) return res.status(400).json({ error: "이 문제 세트의 과목 분반을 골라 주세요." });
+    if (!canHostSection(req, sectionId) || !canManageCourse(req, set.courseId)) {
+      return res.status(403).json({ error: "운영 중인 담당 분반에서만 실시간 퀴즈를 시작할 수 있어요." });
+    }
+    if (set.status !== "ready") return res.status(400).json({ error: "준비 완료로 저장한 문제 세트만 시작할 수 있어요." });
+    if (Object.values(db.data.liveSessions).some((s) => s.sectionId === sectionId && s.status === "active")) {
+      return res.status(409).json({ error: "이 분반에 진행 중인 실시간 퀴즈가 있어요. 그 세션을 이어서 진행하거나 종료해 주세요." });
+    }
+    const now = nowIso();
+    let id = "";
+    do id = `lqs-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    while (db.data.liveSessions[id]);
+    const session: StoredLiveSession = {
+      id,
+      courseId: set.courseId,
+      sectionId,
+      setId: set.id,
+      title: set.title,
+      questions: set.questions.map((q) => ({ id: q.id, question: q.question, options: [...q.options], answer: q.answer, explanation: q.explanation })),
+      joinCode: newJoinCode(),
+      status: "active",
+      currentIndex: null,
+      phase: "waiting",
+      version: 1,
+      createdByLabel: materialActor(req),
+      createdAt: now,
+      updatedAt: now,
+      endedAt: null,
+      participants: {},
+      responses: {},
+    };
+    db.data.liveSessions[id] = session;
+    db.save();
+    res.status(201).json(liveHostState(session));
+  });
+
+  /** 진행 제어. body: { action: next|close|reveal|end, version(지금 화면의 버전) } */
+  api.post("/live/sessions/:id/control", requireLogin, (req: Authed, res) => {
+    const action = req.body?.action as LiveAction;
+    const version = req.body?.version;
+    if (!LIVE_ACTIONS.includes(action) || typeof version !== "number" || !Number.isInteger(version)) {
+      return res.status(400).json({ error: "진행 동작과 버전을 확인해 주세요." });
+    }
+    if (useSupabase) return viaLive(req, res, 200, async (ops) => {
+      const st = await ops.control(req.params.id, action, version);
+      await signalLive(st.id, st.version);
+      return st;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    const s = db.data.liveSessions[req.params.id];
+    if (!s || !canHostSection(req, s.sectionId)) return res.status(404).json({ error: "세션을 찾을 수 없어요." });
+    if (s.status !== "active") return res.status(400).json({ error: "이미 종료된 세션이에요." });
+    if (version !== s.version) return res.status(409).json({ error: "다른 화면에서 진행 상태가 먼저 바뀌었어요. 화면을 새로 불러왔어요." });
+    const next = nextLiveState(s, action);
+    if (!next.ok) return res.status(400).json({ error: next.error });
+    s.phase = next.phase;
+    s.currentIndex = next.currentIndex;
+    if (next.status === "ended") {
+      s.status = "ended";
+      s.endedAt = nowIso();
+    }
+    touchLive(s);
+    db.save();
+    res.json(liveHostState(s));
+  });
+
+  /** 교수자 화면 상태 (새로고침 복구·폴링) */
+  api.get("/live/sessions/:id/host", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.hostState(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    const s = db.data.liveSessions[req.params.id];
+    if (!s || !canHostSection(req, s.sectionId)) return res.status(404).json({ error: "세션을 찾을 수 없어요." });
+    res.json(liveHostState(s));
+  });
+
+  /** 이 과목에서 내가 진행 중인 세션 (새로고침 뒤 이어서 진행) */
+  api.get("/courses/:id/live/sessions", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.hostSessions(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    res.json(
+      Object.values(db.data.liveSessions)
+        .filter((s) => s.courseId === req.params.id && s.status === "active" && canHostSection(req, s.sectionId))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .map((s) => ({ id: s.id, sectionId: s.sectionId, title: s.title, joinCode: s.joinCode, phase: s.phase, currentIndex: s.currentIndex, total: s.questions.length, createdAt: s.createdAt })),
+    );
+  });
+
+  /** 학생 참여. body: { code } — 코드가 없거나 수강생이 아니면 똑같이 404 (세션이 있는지 알리지 않는다) */
+  api.post("/live/join", requireLogin, (req: Authed, res) => {
+    const code = normalizeJoinCode(req.body?.code);
+    const NOT_FOUND = "참여 코드를 찾을 수 없어요. 코드와 수강 중인 분반을 확인해 주세요.";
+    if (!isJoinCode(code)) return res.status(404).json({ error: NOT_FOUND });
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.join(code));
+    res.setHeader("Cache-Control", "no-store");
+    const s = Object.values(db.data.liveSessions).find((x) => x.status === "active" && x.joinCode === code);
+    if (!s || !isLiveLearner(req, s)) return res.status(404).json({ error: NOT_FOUND });
+    s.participants[req.user!.id] ??= nowIso();
+    db.save();
+    res.json(liveStudentState(s, req.user!.id));
+  });
+
+  /** 학생 화면 상태 (참여한 수강생만) */
+  api.get("/live/sessions/:id/state", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.studentState(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    const s = db.data.liveSessions[req.params.id];
+    if (!s || !s.participants[req.user!.id] || !isLiveLearner(req, s)) {
+      return res.status(404).json({ error: "세션을 찾을 수 없어요. 참여 코드로 다시 참여해 주세요." });
+    }
+    res.json(liveStudentState(s, req.user!.id));
+  });
+
+  /** 답 제출. body: { questionIndex, choice } — 문제당 1회, 응답 접수(open) 중인 지금 문제만 */
+  api.post("/live/sessions/:id/answers", requireLogin, (req: Authed, res) => {
+    const questionIndex = req.body?.questionIndex;
+    const choice = req.body?.choice;
+    if (!Number.isInteger(questionIndex) || !Number.isInteger(choice)) return res.status(400).json({ error: "보기를 골라 주세요." });
+    if (useSupabase) return viaLive(req, res, 200, async (ops) => {
+      const st = await ops.submit(req.params.id, questionIndex, choice);
+      await signalLive(req.params.id, st.version);
+      return st;
+    });
+    res.setHeader("Cache-Control", "no-store");
+    const s = db.data.liveSessions[req.params.id];
+    if (!s || !s.participants[req.user!.id] || !isLiveLearner(req, s)) {
+      return res.status(404).json({ error: "세션을 찾을 수 없어요. 참여 코드로 다시 참여해 주세요." });
+    }
+    if (s.status !== "active" || s.phase !== "open" || s.currentIndex !== questionIndex) {
+      return res.status(409).json({ error: "지금은 이 문제에 답할 수 없어요. (응답이 마감됐거나 다음 문제로 넘어갔어요)" });
+    }
+    if (choice < 0 || choice >= s.questions[questionIndex].options.length) return res.status(400).json({ error: "보기를 골라 주세요." });
+    const key = `${questionIndex}:${req.user!.id}`;
+    if (s.responses[key]) return res.status(409).json({ error: "이미 답했어요. 문제당 한 번만 제출할 수 있어요." });
+    s.responses[key] = { choice, at: nowIso() };
+    db.save();
+    res.json(liveStudentState(s, req.user!.id));
   });
 
   /* ───────── 파일 자료 (3-C): 업로드 시작 → 저장소에 직접 업로드 → 완료(검사 후 자료 행) · 짧은 열기 주소 · 고아 정리 ───────── */

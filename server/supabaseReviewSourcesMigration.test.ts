@@ -36,7 +36,7 @@ test("5-B: 마지막 마이그레이션, begin … commit 한 트랜잭션, 사�
   assert.ok(B5_FILE);
   // 5-B 뒤에는 6-A(실시간 퀴즈)만 올 수 있다
   const after = migFiles.slice(migFiles.indexOf(B5_FILE!) + 1);
-  assert.ok(after.every((f) => f.endsWith("_phase_6a_live_quiz_sets.sql")), after.join(","));
+  assert.ok(after.every((f) => /_phase_6[ab]_live_quiz_(sets|sessions)\.sql$/.test(f)), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

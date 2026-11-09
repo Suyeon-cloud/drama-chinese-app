@@ -35,7 +35,7 @@ const NEW_FUNCS = ["_material_html_ok", "_save_week_material_html", "save_week_m
 test("4단계: 3-C 뒤 마이그레이션(그 뒤는 5-B 출처 연결만), begin … commit 한 트랜잭션, 사전 확인이 먼저, 기존 행·함수를 바꾸지 않는다", () => {
   assert.ok(H4_FILE);
   const after = migFiles.slice(migFiles.indexOf(H4_FILE!) + 1);
-  assert.ok(after.every((f) => /_phase_(5b_review_sources|6a_live_quiz_sets)\.sql$/.test(f)), after.join(","));
+  assert.ok(after.every((f) => /_phase_(5b_review_sources|6a_live_quiz_sets|6b_live_quiz_sessions)\.sql$/.test(f)), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

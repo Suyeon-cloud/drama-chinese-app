@@ -48,9 +48,14 @@ export const LiveQuizEntry: React.FC<{ courseId: string }> = ({ courseId }) => (
         수업 중 학생이 바로 답하는 퀴즈 문제를 만들고 저장해요. 학습 퀴즈·복습 자료와는 따로 관리돼요.
       </p>
     </div>
-    <button className="btn btn-primary btn-sm" onClick={() => navigate("live-quiz", { course: courseId })}>
-      문제 세트 관리
-    </button>
+    <span className="row-start" style={{ gap: 6 }}>
+      <button className="btn btn-soft btn-sm" onClick={() => navigate("live-quiz", { course: courseId })}>
+        문제 세트 관리
+      </button>
+      <button className="btn btn-primary btn-sm" onClick={() => navigate("live-host", { course: courseId })}>
+        실시간 진행
+      </button>
+    </span>
   </section>
 );
 

@@ -34,6 +34,7 @@ import { materialStore } from "../store";
 import { useLessons } from "../store/hooks";
 import type { WeekMaterial } from "../store/models";
 import { HtmlMaterialFrame } from "./HtmlMaterialView";
+import { navigate } from "../router";
 
 /**
  * #/present?lesson={id} — 교수자 발표 모드 (5단계).
@@ -253,6 +254,17 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
               }}
             >
               복습 HTML
+            </button>
+            <button
+              className="btn btn-soft btn-sm"
+              onMouseDown={noFocus}
+              onClick={() => {
+                void stage.exit();
+                navigate("live-host", { course: deck.courseId });
+              }}
+              title="저장한 실시간 퀴즈 문제 세트로 진행"
+            >
+              실시간 퀴즈
             </button>
             {!stage.active ? (
               <button className="btn btn-quiet btn-sm" onMouseDown={noFocus} onClick={() => window.history.back()}>

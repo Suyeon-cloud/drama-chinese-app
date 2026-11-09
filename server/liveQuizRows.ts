@@ -4,6 +4,7 @@
 // - 테이블 직접 권한은 없다. RPC는 화면 형태(camelCase) JSON을 돌려준다.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LiveQuizSet, LiveQuizSetInput } from "../src/content/liveQuiz";
+import type { LiveAction, LiveHostState, LiveHostSummary, LiveStudentState } from "../src/content/liveSession";
 
 type PgError = { code?: string; message: string };
 
@@ -28,5 +29,25 @@ export const liveQuizOps = (client: SupabaseClient, admin: boolean, toError: (e:
       ok(await client.rpc(admin ? "admin_delete_live_quiz_set" : "delete_live_quiz_set", { p_set_id: setId }));
       return { ok: true };
     },
+  };
+};
+
+/** 6-B: 실시간 퀴즈 세션 — 교수자·학생 모두 사용자 token client로 RPC (권한·수강·상태는 DB 함수가 최종 확인) */
+export const liveSessionOps = (client: SupabaseClient, toError: (e: PgError) => Error) => {
+  const call = async <T>(fn: string, args: Record<string, unknown>): Promise<T> => {
+    const r = await client.rpc(fn, args);
+    if (r.error) throw toError(r.error);
+    return r.data as T;
+  };
+  return {
+    start: (setId: string, sectionId: string) => call<LiveHostState>("start_live_session", { p_set_id: setId, p_section_id: sectionId }),
+    control: (sessionId: string, action: LiveAction, version: number) =>
+      call<LiveHostState>("live_session_control", { p_session_id: sessionId, p_action: action, p_expected_version: version }),
+    hostState: (sessionId: string) => call<LiveHostState>("live_session_host_state", { p_session_id: sessionId }),
+    hostSessions: (courseId: string) => call<LiveHostSummary[]>("my_live_host_sessions", { p_course_id: courseId }),
+    join: (code: string) => call<LiveStudentState>("join_live_session", { p_code: code }),
+    studentState: (sessionId: string) => call<LiveStudentState>("live_session_student_state", { p_session_id: sessionId }),
+    submit: (sessionId: string, questionIndex: number, choice: number) =>
+      call<LiveStudentState>("submit_live_answer", { p_session_id: sessionId, p_question_index: questionIndex, p_choice: choice }),
   };
 };

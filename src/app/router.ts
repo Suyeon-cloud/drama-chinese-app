@@ -14,6 +14,9 @@ export type ViewKey =
   | "present"
   // 6-A: 실시간 퀴즈 문제 세트 #/live-quiz?course={courseId}
   | "live-quiz"
+  // 6-B: 교수자 실시간 퀴즈 진행 #/live-host?course=…&session=… · 학생 참여 #/live?code=…|session=…
+  | "live-host"
+  | "live"
   | "situations"
   | "culture"
   | "mine"
@@ -48,6 +51,8 @@ export const VIEWS: ViewDef[] = [
   { key: "material", ko: "학습자료", requiresLogin: true },
   { key: "present", ko: "발표 모드", access: "staff" },
   { key: "live-quiz", ko: "실시간 퀴즈 문제", access: "staff" },
+  { key: "live-host", ko: "실시간 퀴즈 진행", access: "staff" },
+  { key: "live", ko: "실시간 퀴즈", requiresLogin: true },
   // 상황별 장면은 ‘내 강의’ 화면의 탭으로 합쳐졌다. (이전 링크 호환용)
   { key: "situations", ko: "내 강의" },
   { key: "culture", ko: "한중문화", requiresLogin: true },

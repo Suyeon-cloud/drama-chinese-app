@@ -20,6 +20,7 @@ import { DramaLearningView } from "./views/DramaLearningView";
 import { HtmlMaterialView } from "./views/HtmlMaterialView";
 import { PresentationView } from "./views/PresentationView";
 import { LiveQuizEditorView } from "./views/LiveQuizEditorView";
+import { LiveHostView, LiveJoinView } from "./views/LiveSessionViews";
 import { HomeView } from "./views/HomeView";
 import { JoinView } from "./views/JoinView";
 import { LandingView } from "./views/LandingView";
@@ -104,6 +105,8 @@ const Shell: React.FC = () => {
               {view === "material" && <HtmlMaterialView params={params} />}
               {view === "present" && <PresentationView params={params} />}
               {view === "live-quiz" && <LiveQuizEditorView params={params} />}
+              {view === "live-host" && <LiveHostView params={params} />}
+              {view === "live" && <LiveJoinView params={params} />}
               {view === "culture" && <CultureView />}
               {view === "mine" && <MyLearningView />}
               {view === "join" && <JoinView params={params} />}

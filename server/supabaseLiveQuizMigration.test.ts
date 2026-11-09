@@ -31,7 +31,9 @@ const FUNCS = ["_live_quiz_norm", "_live_quiz_sets_json", "_save_live_quiz_set",
 
 test("6-A: 마지막 마이그레이션, 한 트랜잭션, 사전 확인이 먼저, 새 테이블만 (기존 테이블·함수 변경 없음)", () => {
   assert.ok(A6_FILE);
-  assert.equal(migFiles[migFiles.length - 1], A6_FILE);
+  // 6-A 뒤에는 6-B(세션)만 올 수 있다
+  const after = migFiles.slice(migFiles.indexOf(A6_FILE!) + 1);
+  assert.ok(after.every((f) => f.endsWith("_phase_6b_live_quiz_sessions.sql")), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);
