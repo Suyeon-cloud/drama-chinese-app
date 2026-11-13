@@ -8,9 +8,11 @@ import {
   lineSlideAt,
   presentKeyOf,
   presentReducer,
+  reviewFormulaOf,
   reviewTitle,
   slideRange,
   type DeckInput,
+  type LessonDeck,
 } from "../src/content/lessonDeck";
 import { MATERIAL_HTML_MAX_BYTES, htmlByteLength, materialHtmlDocument, materialHtmlExternalCount, materialHtmlProblem } from "../src/content/materialHtml";
 import { SEED_LESSONS, resolveLessonContent } from "../src/content/lessons";
@@ -133,10 +135,10 @@ test("복습 HTML: 4단계 검사 통과·외부 리소스 없음·2MB 이하, �
     }
     const without = deckToReviewHtml(deck, { includeAnswers: false });
     const withAns = deckToReviewHtml(deck, { includeAnswers: true });
-    assert.ok(!without.includes("<details>"), "기본: 정답·해설 없음");
-    assert.equal([...withAns.matchAll(/<details>/g)].length, deck.quiz.length);
-    assert.ok(!without.includes("<p>정답: "), "기본: 정답 문구 없음");
-    assert.equal([...withAns.matchAll(/<p>정답: /g)].length, deck.quiz.length);
+    assert.ok(!without.includes('class="answer-toggle"'), "기본: 정답·해설 없음");
+    assert.equal([...withAns.matchAll(/<details class="answer-toggle">/g)].length, deck.quiz.length);
+    assert.ok(!without.includes("<b>정답 "), "기본: 정답 문구 없음");
+    assert.equal([...withAns.matchAll(/<b>정답 /g)].length, deck.quiz.length);
   }
   // 학습 데이터에 태그·스크립트 같은 글자가 있어도 태그가 되지 않고 4단계 검사도 통과한다
   const evil: Lesson = {
@@ -152,6 +154,111 @@ test("복습 HTML: 4단계 검사 통과·외부 리소스 없음·2MB 이하, �
   assert.ok(html.includes("&lt;script&gt;"));
   assert.match(reviewTitle(deck), /^\[복습\] 1주차 /);
   assert.ok(reviewTitle({ ...deck, heading: "가".repeat(200) }).length <= 100);
+});
+
+/* ───────── 복습 HTML 새 디자인 ───────── */
+
+/** 태그를 빼고 문자 참조를 되돌린 글 (공백·예문 괄호는 비교에서 무시) */
+const plainOf = (html: string) =>
+  html
+    .replace(/<style>[\s\S]*?<\/style>/, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/[\s()（）]+/g, "");
+const deckTexts = (d: LessonDeck) =>
+  [
+    d.title,
+    d.description,
+    ...d.lines.flatMap((l) => [l.zh, l.pinyin, l.ko]),
+    ...d.points.flatMap((p) => [p.text, p.pinyin, ...p.note.split("예문:")]),
+    ...d.culture.flatMap((c) => [c.title, c.subtitle, ...c.paragraphs]),
+    ...d.dialogues.flatMap((x) => [x.title, x.situation, ...x.lines.flatMap((l) => [l.role, l.zh, l.pinyin, l.ko])]),
+    ...d.quiz.flatMap((q) => [q.question, ...q.options, q.explanation]),
+  ]
+    .map((s) => (s ?? "").replace(/[\s()（）]+/g, ""))
+    .filter(Boolean);
+
+test("복습 HTML 새 디자인: 학습 데이터 글자 보존(중국어·병음·한국어·설명·보기·해설), 섹션 순서, 전체 대사 접기 + 인쇄 사본, 머리말·Footer", () => {
+  for (const lesson of [EP3, W1]) {
+    const deck = buildLessonDeck(input(lesson));
+    const html = deckToReviewHtml(deck, { includeAnswers: true });
+    const flat = plainOf(html);
+    const missing = deckTexts(deck).filter((s) => !flat.includes(s));
+    assert.deepEqual(missing, [], `${lesson.id}: 빠진 글자 없음`);
+    // 섹션 순서: 요약 → 표현 → 문법 → 문화 → 퀴즈 → 회화 → 전체 대사 (빈 섹션은 없음)
+    const order = [...html.matchAll(/<section id="(\w+)"/g)].map((m) => m[1]);
+    const want = ["summary", "expressions", "grammar", "culture", "quiz", "dialogues", "lines"];
+    assert.deepEqual(order, want.filter((id) => order.includes(id)), `${lesson.id}: ${order}`);
+    if (deck.lines.length) {
+      assert.match(html, new RegExp(`<details class="script-toggle"><summary><span class="when-closed">전체 대사 ${deck.lines.length}줄 펼쳐보기`));
+      assert.equal([...html.matchAll(/<ol class="script">/g)].length, 2, "접기 안 목록 + 인쇄 전용 사본");
+      assert.match(html, /\.print-only\{display:none\}/);
+      assert.match(html, /@media print\{body\{[^}]*\}[^{}]*\.script-toggle\{display:none\}\.print-only\{display:block\}/);
+    }
+    // 중국어는 중국어로 표시 (글꼴·줄바꿈)
+    assert.ok(html.includes('<span class="zh zh-xl" lang="zh-CN">') || !deck.points.some((p) => p.kind === "expression"));
+    assert.match(html, /드라마 영상·대사·이미지의 저작권은 각 권리자에게 있습니다\./);
+    assert.ok(!html.includes("교육 목적의 인용"));
+    assert.ok(html.includes('<span class="brand">追剧学汉语'));
+  }
+});
+
+test("복습 HTML 문형 다이어그램: 설명에 따옴표로 적힌 공식만, 불확실하면 일반 카드", () => {
+  assert.deepEqual(reviewFormulaOf("'동사1 + 着 + 동사2'는 '~한 채로 ~하다'라는 뜻"), { tokens: ["동사1", "着", "동사2"], plus: true });
+  assert.deepEqual(reviewFormulaOf("'A + 被 + B + 동사'는 피동문"), { tokens: ["A", "被", "B", "동사"], plus: true });
+  assert.deepEqual(reviewFormulaOf("'得(děi)'는 ~해야 한다. '동사 + 一下'는 한번 ~해 보다"), { tokens: ["동사", "一下"], plus: true });
+  assert.deepEqual(reviewFormulaOf("'又A又B'는 A하기도 하고 B하기도 하다"), { tokens: ["又", "A", "又", "B"], plus: false });
+  // 공식 모양이 아니면 만들지 않는다
+  for (const note of ["'有没有'처럼 긍정형과 부정형을 이어 붙이면 정반의문문", "'A + B'처럼 한자가 없는 공식", "설명에 따옴표가 없어요", "'走着淋雨'는 '걸으면서 비를 맞다'라는 뜻", ""]) {
+    assert.equal(reviewFormulaOf(note), null, note);
+  }
+  const deck = buildLessonDeck(input(W1));
+  const base = { id: "g", kind: "grammar" as const, pinyin: "", at: null };
+  const html = deckToReviewHtml(
+    {
+      ...deck,
+      points: [
+        { ...base, id: "g1", text: "他笑着说", note: "'동사1 + 着 + 동사2'는 방식을 나타내요. 예문: 他笑着说。(그는 웃으면서 말했어요.)" },
+        { ...base, id: "g2", text: "你有没有时间", note: "'有没有'처럼 긍정형과 부정형을 이어 붙여요. 예문: 你有没有时间？(너 시간 있어, 없어?)" },
+      ],
+    },
+    { includeAnswers: false },
+  );
+  assert.equal([...html.matchAll(/class="formula"/g)].length, 1, "공식이 있는 문항만 다이어그램");
+  assert.match(html, /<span class="slot fixed" lang="zh-CN">着<\/span>/);
+  assert.match(html, /<span class="zh zh-lg" lang="zh-CN">他笑<mark>着<\/mark>说<\/span>/, "장면 문장의 고정 글자 표시(글자는 그대로)");
+  assert.match(html, /<span class="kind">문법 포인트<\/span>/, "공식 없는 문항은 일반 카드");
+  assert.equal([...html.matchAll(/class="ex-zh"/g)].length, 2, "예문: 중국어 줄과 뜻 줄");
+  assert.match(html, /<p class="ex-ko">그는 웃으면서 말했어요\.<\/p>/);
+});
+
+test("복습 HTML 문화렌즈: 긴 한 문단만 문장 목록으로, 여러 문단·짧은 문단은 그대로 / 위험한 글자는 이스케이프", () => {
+  const deck = buildLessonDeck(input(W1));
+  const long = "첫 문장이에요. 두 번째 문장이에요. 세 번째 문장이에요. 그래서 장면에서 웃음이 나요.";
+  const one = deckToReviewHtml({ ...deck, culture: [{ id: "c1", title: "제목", subtitle: "", paragraphs: [long], at: null }] }, { includeAnswers: false });
+  assert.equal([...one.matchAll(/<ol class="detail">/g)].length, 1);
+  assert.equal([...one.matchAll(/<ol class="detail">[\s\S]*?<\/ol>/g)][0][0].match(/<li/g)!.length, 4);
+  assert.match(one, /<li class="scene">그래서 장면에서 웃음이 나요\.<\/li>/);
+  const many = deckToReviewHtml({ ...deck, culture: [{ id: "c1", title: "제목", subtitle: "", paragraphs: ["짧은 문단이에요.", long], at: null }] }, { includeAnswers: false });
+  assert.ok(!many.includes('<ol class="detail">'), "여러 문단은 문단 그대로");
+  const short = deckToReviewHtml({ ...deck, culture: [{ id: "c1", title: "제목", subtitle: "", paragraphs: ["한 문장. 두 문장."], at: null }] }, { includeAnswers: false });
+  assert.ok(!short.includes('<ol class="detail">'), "문장이 적으면 문단 그대로");
+  const evil = deckToReviewHtml(
+    {
+      ...deck,
+      culture: [{ id: "c1", title: "<img src=x onerror=alert(1)>", subtitle: "javascript:alert(1)", paragraphs: ["<script>x</script>. 둘. 셋. 그래서 넷."], at: null }],
+      points: [{ id: "g", kind: "grammar", text: "<b>着</b>", pinyin: "", note: "'动词 + <i>着</i>' 예문: <svg onload=x>(뜻)", at: null }],
+    },
+    { includeAnswers: true },
+  );
+  assert.equal(materialHtmlProblem(evil), null);
+  // 문서 자체가 쓰는 <b>(번호·정답 표시)는 있지만, 학습 데이터에서 온 태그는 하나도 없다
+  assert.ok(!/<img|<script|<svg|<i>|<b>着|<mark><b>/.test(evil.replace(/<style>[\s\S]*?<\/style>/, "")));
+  assert.ok(evil.includes("&lt;img src&#61;x onerror&#61;alert&#40;1)&gt;") && evil.includes("&lt;b&gt;"));
 });
 
 test("섹션 빠른 이동: 데이터가 있는 섹션만, 섹션마다 한 덩어리(표현→문법), 숫자 키 1~9", async () => {

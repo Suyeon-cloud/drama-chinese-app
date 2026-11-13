@@ -651,7 +651,7 @@ const ReviewPanel: React.FC<{ deck: LessonDeck; onClose: () => void }> = ({ deck
           </a>
         ) : null}
       </div>
-      <HtmlMaterialFrame title={(linked ? linked.title : title) || "복습 자료"} html={html} height="60vh" />
+      <HtmlMaterialFrame title={(linked ? linked.title : title) || "복습 자료"} html={html} height="60vh" expandable />
     </section>
   );
 };

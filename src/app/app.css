@@ -1688,3 +1688,25 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .live-option.is-wrong { border-color: #cf222e; background: #ffebe9; }
 .live-option:disabled { cursor: default; }
 @media (max-width: 560px) { .live-bars li { grid-template-columns: 1fr; } }
+/* ───────── HTML 학습자료 틀: 화면 높이 맞춤 + 앱 안 전체 화면 (sandbox·CSP는 그대로) ───────── */
+.html-frame-wrap { display: flex; flex-direction: column; gap: 8px; }
+.html-frame-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.html-frame-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.html-frame-trap { width: 0; height: 0; overflow: hidden; }
+.html-material-frame { display: block; width: 100%; border: 1px solid var(--line, #d0d7de); border-radius: 8px; background: #fff; }
+/* 상단 바(고정)·여백을 뺀 높이. dvh를 모르는 브라우저는 앞의 vh 값을 쓴다 */
+.html-material-frame.is-fill { height: calc(100vh - 120px); height: calc(100dvh - 120px); min-height: 360px; }
+.html-frame-wrap.is-full {
+  position: fixed; inset: 0; z-index: 110; gap: 0; background: #fff;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+.html-frame-wrap.is-full .html-frame-bar { padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--sky-50); }
+.html-frame-wrap.is-full .html-material-frame { flex: 1; height: auto; min-height: 0; border: 0; border-radius: 0; }
+@media (max-width: 900px) {
+  /* 모바일: 상단 바 + 하단 탭 바(안전 영역 포함)를 뺀다 */
+  .html-material-frame.is-fill {
+    height: calc(100vh - 170px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 170px - env(safe-area-inset-bottom, 0px));
+    min-height: 320px;
+  }
+}
