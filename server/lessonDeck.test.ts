@@ -207,6 +207,15 @@ test("복습 HTML 새 디자인: 학습 데이터 글자 보존(중국어·병�
   }
 });
 
+test("복습 HTML 언어 표시: 중국어 → 한국어 과목의 표현은 zh-CN, 한국어 → 중국어 과목의 원문(한국어)은 한자 구간만 zh-CN", () => {
+  const deck = buildLessonDeck(input(W1));
+  const point = { id: "e", kind: "expression" as const, text: "비가 와요 下雨了", pinyin: "", note: "", at: null };
+  const zhko = deckToReviewHtml({ ...deck, direction: "zh-ko", points: [point] }, { includeAnswers: false });
+  assert.match(zhko, /<span class="zh zh-xl" lang="zh-CN">비가 와요 下雨了<\/span>/);
+  const kozh = deckToReviewHtml({ ...deck, direction: "ko-zh", points: [point] }, { includeAnswers: false });
+  assert.match(kozh, /<span class="zh zh-xl">비가 와요 <span class="hz" lang="zh-CN">下雨了<\/span><\/span>/);
+});
+
 test("복습 HTML 문형 다이어그램: 설명에 따옴표로 적힌 공식만, 불확실하면 일반 카드", () => {
   assert.deepEqual(reviewFormulaOf("'동사1 + 着 + 동사2'는 '~한 채로 ~하다'라는 뜻"), { tokens: ["동사1", "着", "동사2"], plus: true });
   assert.deepEqual(reviewFormulaOf("'A + 被 + B + 동사'는 피동문"), { tokens: ["A", "被", "B", "동사"], plus: true });

@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { LoginPromptProvider, LoginRequired } from "./auth/LoginPrompt";
 import { MemberGate, isBlockedMember } from "./auth/MemberGate";
 import { completeSupabaseRedirect } from "./auth/supabaseAuth";
-import { MobileNav, Sidebar, Topbar } from "./components/Layout";
+import { AppFooter, MAIN_ID, MobileNav, Sidebar, SkipLink, Topbar } from "./components/Layout";
 import { ToastProvider } from "./components/Toast";
 import { canAccessView, getView, navigate, useRoute, type ViewAccess } from "./router";
 import { AdminDashboardView } from "./views/admin/AdminDashboardView";
@@ -87,11 +87,12 @@ const Shell: React.FC = () => {
 
   return (
     <>
+    <SkipLink />
     <div className="app" inert={blocked}>
       <Sidebar active={view} />
       <div className="main">
         <Topbar active={view} />
-        <main className="content" key={view + params.toString()}>
+        <main className="content" id={MAIN_ID} tabIndex={-1} key={view + params.toString()}>
           {!ready ? null : denied ? (
             <AdminGate access={def.access ?? "staff"} />
           ) : needsLogin ? (
@@ -121,6 +122,8 @@ const Shell: React.FC = () => {
             </>
           )}
         </main>
+        {/* 공통 Footer: 발표 모드에서는 숨긴다 (HTML 자료 크게 보기는 전체 화면 레이어가 덮는다) */}
+        {view === "present" ? null : <AppFooter />}
       </div>
       <MobileNav active={view} />
     </div>

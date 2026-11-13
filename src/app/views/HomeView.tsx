@@ -1,5 +1,6 @@
 import React from "react";
 import { useAuth } from "../auth/AuthContext";
+import { LearningFlow } from "../components/LearningFlow";
 import { navigate } from "../router";
 import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
 import { LandingContent } from "./LandingView";
@@ -43,6 +44,8 @@ const StudentHome: React.FC<{ userId: string; name: string }> = ({ userId, name 
           </button>
         </section>
       ) : null}
+
+      <LearningFlow compact />
 
       <h3 className="section-title home-section-title">내 강의</h3>
       <MyCoursesSection />

@@ -231,7 +231,7 @@ const DialogueRun: React.FC<{
       <article className={`practice-line ${mine ? "mine" : "other"}`}>
         <span className="practice-turn">{mine ? "내 차례" : "상대방 차례"}</span>
         <small className="practice-speaker">{speaker}</small>
-        <p className="practice-zh zh">{line.zh}</p>
+        <p className="practice-zh zh" lang="zh-CN">{line.zh}</p>
         {showPinyin && pinyin ? <p className="practice-py">{pinyin}</p> : null}
         {showKo && line.ko ? <p className="practice-ko">{line.ko}</p> : null}
         <div className="practice-actions">

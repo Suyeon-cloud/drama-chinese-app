@@ -1,17 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { AdminLoginButton } from "../auth/AdminLogin";
 import { GoogleSignInButton } from "../auth/AuthControls";
-import { Logo } from "../components/Layout";
+import { AppFooter, Logo, MAIN_ID, SkipLink } from "../components/Layout";
 import { ApiError } from "../lib/api";
 import { courseStore } from "../store";
 import type { PublicCourse } from "../store/models";
-import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
-
-const STEPS = [
-  { title: "장면 보기", text: "드라마 장면을 보며 중국어 대사와 병음, 한국어 번역을 함께 확인해요." },
-  { title: "표현 익히기", text: "대사에 나온 핵심 표현과 어휘·문법을 하나씩 짚어요." },
-  { title: "퀴즈로 확인", text: "배운 내용을 퀴즈로 확인하고 학습 진도를 이어 가요." },
-];
+import { LearningFlow } from "../components/LearningFlow";
 
 type PublicState = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ok"; courses: PublicCourse[] };
 
@@ -58,13 +52,11 @@ const PublicCourseList: React.FC = () => {
   return (
     <ul className="journey">
       {state.courses.map((c) => {
-        const v = COURSE_VISUALS[c.id];
         return (
           <li key={c.id} className="card journey-card">
-            <CourseImage courseId={c.id} drama={c.drama || c.title} />
+            <span className="course-band" aria-hidden />
             <div className="journey-body">
-              {v ? <span className="journey-stage">{v.stage}</span> : null}
-              <h3>{c.drama ? `《${c.drama}》` : c.title}</h3>
+              <h3 lang={c.drama ? "zh-CN" : undefined}>{c.drama ? `《${c.drama}》` : c.title}</h3>
               {c.drama ? <p className="journey-title">{c.title}</p> : null}
               {c.description ? <p className="journey-desc">{c.description}</p> : null}
               <small className="muted">{c.weekCount}주 과정</small>
@@ -86,26 +78,15 @@ export const LandingContent: React.FC<{ cta: React.ReactNode; closing?: React.Re
       <div className="landing-cta">{cta}</div>
     </section>
 
+    {/* 학습 과정 인포그래픽: 강의 목록 위에 짧게 */}
+    <section className="landing-section" aria-labelledby="steps-title">
+      <h2 id="steps-title">이렇게 배워요</h2>
+      <LearningFlow labelledBy="steps-title" />
+    </section>
+
     <section className="landing-section" aria-labelledby="journey-title">
       <h2 id="journey-title">다양한 장면에서 만나는 중국어</h2>
       <PublicCourseList />
-    </section>
-
-    <section className="landing-section" aria-labelledby="steps-title">
-      <h2 id="steps-title">이렇게 배워요</h2>
-      <ol className="landing-steps">
-        {STEPS.map((s, i) => (
-          <li key={s.title}>
-            <span className="step" aria-hidden>
-              {i + 1}
-            </span>
-            <div>
-              <b>{s.title}</b>
-              <p>{s.text}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
     </section>
 
     {closing}
@@ -115,6 +96,7 @@ export const LandingContent: React.FC<{ cta: React.ReactNode; closing?: React.Re
 /** 로그인 전 첫 화면: 앱 메뉴 없이 서비스 소개와 Google 로그인만 보여준다. */
 export const LandingView: React.FC = () => (
   <div className="landing">
+    <SkipLink />
     <header className="landing-nav">
       <Logo compact />
       <div className="landing-nav-actions">
@@ -122,7 +104,7 @@ export const LandingView: React.FC = () => (
         <GoogleSignInButton />
       </div>
     </header>
-    <main className="landing-main">
+    <main className="landing-main" id={MAIN_ID} tabIndex={-1}>
       <LandingContent
         cta={<GoogleSignInButton label="Google로 시작하기" />}
         closing={
@@ -136,5 +118,6 @@ export const LandingView: React.FC = () => (
         }
       />
     </main>
+    <AppFooter />
   </div>
 );

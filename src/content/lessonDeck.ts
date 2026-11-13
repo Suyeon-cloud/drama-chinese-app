@@ -547,6 +547,9 @@ export const deckToReviewHtml = (deck: LessonDeck, { includeAnswers }: ReviewOpt
   const add = (id: string, label: string, tone: string, html: string) => {
     if (html) sections.push({ id, label, tone, html });
   };
+  // 표현·문법 원문: 중국어 → 한국어 과목만 중국어. 한국어 → 중국어 과목의 원문은 한국어라 한자 구간에만 중국어 글꼴
+  const srcText = (text: string, cls = "zh", fixed: string[] = []) =>
+    deck.direction === "ko-zh" ? `<span class="${cls}">${hz(text)}</span>` : zhText(text, cls, fixed);
   const time = (sec: number | null | undefined) => (sec === null || sec === undefined ? "" : `<span class="time">▶ ${esc(formatTime(sec))}</span>`);
 
   // 학습 요약: 숫자 타일 + 이번 주 표현 + 정리 카드
@@ -567,8 +570,8 @@ export const deckToReviewHtml = (deck: LessonDeck, { includeAnswers }: ReviewOpt
     [
       deck.description ? `<p class="desc">${hz(deck.description)}</p>` : "",
       stats.length ? `<ul class="stats">${stats.map(([l, n, c]) => `<li class="tone-${c}"><b>${n}</b><span>${l}</span></li>`).join("")}</ul>` : "",
-      expr.length ? `<div class="chips"><span class="chips-label">이번 주 표현</span>${expr.map((p, i) => `<a href="#expr-${i + 1}" class="chip">${zhText(p.text)}</a>`).join("")}</div>` : "",
-      sum.map((p) => `<div class="card tone-sky">${zhText(p.text, "zh zh-md")}${pyText(p.pinyin)}<div class="note">${noteHtml(p.note)}</div></div>`).join(""),
+      expr.length ? `<div class="chips"><span class="chips-label">이번 주 표현</span>${expr.map((p, i) => `<a href="#expr-${i + 1}" class="chip">${srcText(p.text)}</a>`).join("")}</div>` : "",
+      sum.map((p) => `<div class="card tone-sky">${srcText(p.text, "zh zh-md")}${pyText(p.pinyin)}<div class="note">${noteHtml(p.note)}</div></div>`).join(""),
     ].join(""),
   );
 
@@ -579,7 +582,7 @@ export const deckToReviewHtml = (deck: LessonDeck, { includeAnswers }: ReviewOpt
     expr
       .map(
         (p, i) =>
-          `<article class="card tone-sky" id="expr-${i + 1}"><header><span class="num">${pad2(i + 1)}</span>${time(p.at)}</header><div class="headword">${zhText(p.text, "zh zh-xl")}${pyText(p.pinyin)}</div><div class="note">${noteHtml(p.note)}</div></article>`,
+          `<article class="card tone-sky" id="expr-${i + 1}"><header><span class="num">${pad2(i + 1)}</span>${time(p.at)}</header><div class="headword">${srcText(p.text, "zh zh-xl")}${pyText(p.pinyin)}</div><div class="note">${noteHtml(p.note)}</div></article>`,
       )
       .join(""),
   );
@@ -592,7 +595,7 @@ export const deckToReviewHtml = (deck: LessonDeck, { includeAnswers }: ReviewOpt
       .map((p, i) => {
         const f = reviewFormulaOf(p.note);
         const fixed = f ? f.tokens.filter((x) => REVIEW_HAN_ONLY.test(x)) : [];
-        return `<article class="card tone-lav"><header><span class="num">${pad2(i + 1)}</span><span class="kind">${f ? "문형" : "문법 포인트"}</span>${time(p.at)}</header>${f ? formulaHtml(f) : ""}<div class="pattern">${f ? '<span class="cap">이 장면의 문장</span>' : ""}${zhText(p.text, "zh zh-lg", fixed)}${pyText(p.pinyin)}</div><div class="note">${noteHtml(p.note, fixed)}</div></article>`;
+        return `<article class="card tone-lav"><header><span class="num">${pad2(i + 1)}</span><span class="kind">${f ? "문형" : "문법 포인트"}</span>${time(p.at)}</header>${f ? formulaHtml(f) : ""}<div class="pattern">${f ? '<span class="cap">이 장면의 문장</span>' : ""}${srcText(p.text, "zh zh-lg", fixed)}${pyText(p.pinyin)}</div><div class="note">${noteHtml(p.note, fixed)}</div></article>`;
       })
       .join(""),
   );

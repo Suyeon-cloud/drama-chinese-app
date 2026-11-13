@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { QuizQuestion } from "../../content/types";
+import { MixedText } from "../components/Zh";
 
 /** 복습 퀴즈. 오답이어도 정답과 설명을 보여주고 다음 문제로 넘어갈 수 있다. */
 export const QuizCard: React.FC<{
@@ -55,7 +56,9 @@ export const QuizCard: React.FC<{
           ))}
         </div>
       </div>
-      <h4 className="quiz-q">{q.question}</h4>
+      <h4 className="quiz-q">
+        <MixedText text={q.question} />
+      </h4>
       <div className="quiz-options">
         {q.options.map((opt, i) => {
           let state = "";
@@ -75,7 +78,9 @@ export const QuizCard: React.FC<{
               }}
             >
               <span className="num">{i + 1}</span>
-              {opt}
+              <span>
+                <MixedText text={opt} />
+              </span>
             </button>
           );
         })}
@@ -83,7 +88,9 @@ export const QuizCard: React.FC<{
       {answered ? (
         <div className={`quiz-feedback ${picked === q.answer ? "ok" : "no"}`}>
           <b>{picked === q.answer ? "정답이에요! 🎉" : `아쉬워요. 정답은 ${q.answer + 1}번이에요.`}</b>
-          <p>{q.explanation}</p>
+          <p>
+            <MixedText text={q.explanation} />
+          </p>
           <button
             className="btn btn-primary btn-sm"
             onClick={() => {

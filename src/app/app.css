@@ -58,10 +58,17 @@ body {
 }
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; }
 button:disabled { cursor: not-allowed; opacity: 0.6; }
-button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 3px solid var(--sky-300);
+/* 키보드 포커스: 진한 하늘색(밝은 배경 대비 약 5:1) — 비텍스트 대비 3:1 이상 */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--sky-700);
   outline-offset: 2px;
 }
+/* 중국어: lang="zh-CN"이 붙은 글은 중국어 글꼴(간체)로. 한국어 문장 속 한자(.hz)도 같은 글꼴 */
+[lang="zh-CN"], .hz { font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", var(--font); }
+/* 본문으로 건너뛰기: 키보드 포커스를 받을 때만 보인다 */
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 300; padding: 10px 16px; border-radius: 12px; background: var(--sky-700); color: #fff; font-weight: 700; text-decoration: none; }
+.skip-link:focus, .skip-link:focus-visible { top: 12px; outline: 3px solid var(--ink); outline-offset: 2px; }
+main:focus { outline: none; }
 h1, h2, h3, h4, p { margin: 0; }
 img { max-width: 100%; display: block; }
 .muted { color: var(--muted); }
@@ -781,7 +788,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 }
 .field textarea, .srt-input { resize: vertical; }
 .srt-input { font-family: ui-monospace, "Noto Sans SC", monospace; font-size: 13px; }
-.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .srt-input:focus-visible { outline: 3px solid var(--sky-300); outline-offset: 1px; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .srt-input:focus-visible { outline: 3px solid var(--sky-700); outline-offset: 1px; }
 .span-2 { grid-column: span 2; }
 .field-error { color: var(--pink-ink); }
 .seg { display: inline-flex; padding: 4px; gap: 4px; background: var(--sky-50); border: 1px solid var(--line); border-radius: 999px; flex-wrap: wrap; }
@@ -930,7 +937,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .script-import.highlight { padding: 12px; border-radius: 16px; border: 2px dashed var(--pink-ink); background: #fff8fb; transition: background 0.3s; }
 .cue-input { width: 100%; min-width: 120px; font: inherit; font-size: 13.5px; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; }
 .cue-input:hover { border-color: var(--line); }
-.cue-input:focus { background: #fff; border-color: var(--sky-300); outline: none; }
+.cue-input:focus { background: #fff; border-color: var(--sky-700); outline: 2px solid var(--sky-700); outline-offset: 0; }
 .study-span { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .study-span dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .study-span dl > div { padding: 8px 12px; border-radius: 14px; background: var(--sky-50); border: 1px solid var(--line); min-width: 0; }
@@ -1285,7 +1292,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   font-size: 17px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
 }
 .code-input::placeholder { letter-spacing: normal; font-weight: 500; font-size: 14.5px; }
-.code-input:focus-visible { outline: 3px solid var(--sky-300); outline-offset: 1px; }
+.code-input:focus-visible { outline: 3px solid var(--sky-700); outline-offset: 1px; }
 .code-input[aria-invalid="true"] { border-color: var(--pink-ink); }
 .back-link { display: inline-block; margin-bottom: 10px; }
 .course-hero { display: grid; grid-template-columns: minmax(220px, 340px) minmax(0, 1fr); gap: 22px; align-items: center; padding: 16px; }
@@ -1709,4 +1716,97 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
     height: calc(100dvh - 170px - env(safe-area-inset-bottom, 0px));
     min-height: 320px;
   }
+}
+
+/* ───────── 공통 Footer (복습 HTML Footer와 같은 구성: 위 구분선 · 가운데 정렬 · 흰 바탕 · 12.5px · 줄간격 1.8) ───────── */
+.app-footer { margin: 40px -24px -40px; padding: 22px 32px 28px; border-top: 1px solid var(--line); background: #fff; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.8; word-break: keep-all; }
+.app-footer-name { font-size: 13px; color: var(--ink-2); }
+.app-footer-name b { font-weight: 700; color: var(--sky-700); }
+.landing .app-footer { margin: 0; }
+
+/* ───────── 모바일 터치 영역: 주요 버튼 44px ───────── */
+@media (max-width: 900px) {
+  .btn, .btn-sm { height: auto; min-height: 44px; }
+  .back-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .app-footer { margin: 32px -16px 0; padding: 20px 16px 24px; }
+}
+
+/* ───────── 메인 화면 인포그래픽: 학습 과정 (아이콘 · 단계 번호 · 연결선 · 카드) ───────── */
+.flow { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.flow-step { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.flow-step:not(:last-child)::after { content: ""; position: absolute; top: 50%; right: -29px; width: 30px; height: 2px; background: var(--sky-300); }
+.flow-num { position: absolute; top: -10px; left: -10px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--sky-700); color: #fff; font-size: 13px; font-weight: 800; }
+.flow-icon { flex: none; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--flow-bg); color: var(--flow-ink); }
+.flow-tone-1 { --flow-bg: var(--sky-100); --flow-ink: var(--sky-700); }
+.flow-tone-2 { --flow-bg: var(--lavender); --flow-ink: var(--lavender-ink); }
+.flow-tone-3 { --flow-bg: var(--mint); --flow-ink: var(--mint-ink); }
+.flow-text { min-width: 0; }
+.flow-text b { font-size: 16px; }
+.flow-zh { margin-left: 2px; font-weight: 800; color: var(--flow-ink); }
+.flow-text p { margin-top: 4px; color: var(--ink-2); font-size: 14px; line-height: 1.55; word-break: keep-all; }
+.flow.compact { margin: 0; gap: 18px; }
+.flow.compact .flow-step { align-items: center; padding: 10px 14px; box-shadow: none; }
+.flow.compact .flow-step:not(:last-child)::after { right: -19px; width: 20px; }
+.flow.compact .flow-icon { width: 36px; height: 36px; border-radius: 10px; }
+.flow.compact .flow-num { top: -8px; left: -8px; width: 22px; height: 22px; font-size: 12px; }
+.flow.compact .flow-text b { font-size: 14.5px; }
+/* 과목 카드: 장식용 일러스트 대신 얇은 색 띠 */
+.course-band { display: block; height: 6px; background: linear-gradient(90deg, var(--sky-300), var(--lavender-line)); }
+@media (max-width: 700px) {
+  /* 모바일: 강의 목록이 밀리지 않게 세 단계를 한 줄(아이콘·제목)로. 설명 문장은 숨긴다 */
+  .flow, .flow.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+  .flow.compact { margin-top: 0; }
+  .flow-step, .flow.compact .flow-step { flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 10px; text-align: center; box-shadow: none; }
+  .flow-step:not(:last-child)::after, .flow.compact .flow-step:not(:last-child)::after { top: 50%; right: -13px; width: 14px; height: 2px; }
+  .flow-icon { width: 36px; height: 36px; border-radius: 10px; }
+  .flow-num { top: -8px; left: -8px; width: 22px; height: 22px; font-size: 12px; }
+  .flow-text b, .flow.compact .flow-text b { font-size: 13px; }
+  .flow-text p { display: none; }
+}
+
+/* ───────── UI 1단계 보완: 과목 헤더(일러스트 없음) · 섹션 간격 · 긴 제목 · 이어서 학습하기 강조 ───────── */
+/* 섹션 제목: 위 큰 간격(페이지 gap 18px 포함 약 48px), 아래는 카드와 붙게 */
+.page > .section-title, .page > .home-section-title { margin: 30px 0 -6px; }
+.landing-hero { padding: 48px 0 32px; }
+.landing-section { margin-top: 56px; }
+.journey { margin-top: 20px; }
+/* 과목 상세 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반 | 학습 진행 */
+.course-hero { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 18px 28px; align-items: center; padding: 0 24px 22px; overflow: hidden; }
+.course-hero > .course-band { grid-column: 1 / -1; margin: 0 -24px; }
+.course-hero-body { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
+.course-hero .course-drama { font-size: 28px; line-height: 1.3; }
+.course-hero .course-name { font-size: 17px; }
+.course-hero .course-desc { margin-top: 2px; }
+.course-hero .section-line { margin-top: 4px; }
+.course-hero-stats { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sky-50); }
+.course-hero-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.course-hero-stat b { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.course-hero-stat b small { font-size: 14px; font-weight: 600; color: var(--muted); }
+.course-hero-stat > span { font-size: 13px; font-weight: 700; color: var(--muted); }
+.course-hero-stats .row-start { flex-wrap: wrap; gap: 6px; }
+/* 긴 과목명·주차명: 카드 폭 안에서 줄바꿈 */
+.course-drama, .course-name, .journey-body h3, .journey-title, .continue-body h3, .week-title { overflow-wrap: anywhere; }
+.course-body, .journey-body, .week-row-main { min-width: 0; }
+/* 이어서 학습하기: 내 강의 카드(흰 바탕)와 구분되는 강조 카드 */
+.continue-card { background: linear-gradient(135deg, var(--sky-100), #fff 72%); border: 1px solid var(--sky-200); }
+.continue-body > small { font-weight: 800; color: var(--sky-700); }
+@media (max-width: 900px) {
+  .page > .section-title, .page > .home-section-title { margin: 16px 0 -6px; }
+  .landing-hero { padding: 28px 0 20px; }
+  .landing-section { margin-top: 36px; }
+}
+@media (max-width: 700px) {
+  .course-hero { grid-template-columns: minmax(0, 1fr); padding: 0 16px 16px; }
+  .course-hero > .course-band { margin: 0 -16px; }
+  .course-hero .course-drama { font-size: 24px; }
+  .continue-card { flex-direction: column; align-items: stretch; }
+  .continue-card > .btn { align-self: flex-start; }
+}
+@media (max-width: 700px) {
+  /* 모바일 진행 패널: 완료 수치와 진행 막대를 한 줄로, 주차 정보 배지는 그 아래 한 줄로 */
+  .course-hero-stats { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; padding: 10px 12px; }
+  .course-hero-stat { gap: 6px; }
+  .course-hero-stat b { font-size: 20px; }
+  .course-hero-stats .row-start { grid-column: 1 / -1; }
+  .course-hero-stats .pill { font-size: 12px; }
 }

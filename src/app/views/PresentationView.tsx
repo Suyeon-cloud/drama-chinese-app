@@ -404,7 +404,7 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
           <div className="present-section">
             {SECTION_LABEL.line} {slide.index + 1}/{slide.total} · {formatTime(slide.line.start)}
           </div>
-          {slide.line.zh ? <div className="present-zh">{slide.line.zh}</div> : null}
+          {slide.line.zh ? <div className="present-zh" lang="zh-CN">{slide.line.zh}</div> : null}
           <PinyinLine show={showPinyin} text={slide.line.pinyin} />
           {showKo && slide.line.ko ? <div className="present-ko">{slide.line.ko}</div> : null}
         </div>
@@ -416,7 +416,7 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
             {slide.section}
             {slide.point.at !== null ? ` · ${formatTime(slide.point.at)}` : ""}
           </div>
-          <div className="present-zh">{slide.point.text}</div>
+          <div className="present-zh" lang={deck.direction === "zh-ko" ? "zh-CN" : undefined}>{slide.point.text}</div>
           <PinyinLine show={showPinyin} text={slide.point.pinyin} />
           {showKo && slide.point.note ? <div className="present-ko">{slide.point.note}</div> : null}
         </div>
@@ -444,7 +444,7 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
             {slide.dialogue.lines.map((l, i) => (
               <li key={i}>
                 {l.role ? <b className="present-role">{l.role}</b> : null}
-                <span className="present-text">{l.zh}</span>
+                <span className="present-text" lang="zh-CN">{l.zh}</span>
                 {showPinyin && l.pinyin ? <span className="present-py"> {l.pinyin}</span> : null}
                 {showKo && l.ko ? <div className="muted">{l.ko}</div> : null}
               </li>

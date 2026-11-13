@@ -9,7 +9,6 @@ import { navigate } from "../router";
 import { enrollmentStore } from "../store";
 import { useLessons, useMyCourses, useUserProgress } from "../store/hooks";
 import type { CourseSummary, LessonProgress } from "../store/models";
-import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 
 /** 과목 카드 색: 기존 3과목은 순서대로 하늘·분홍·민트, 새 과목은 과목마다 정해진 색 */
 export const courseTone = courseToneFor;
@@ -41,19 +40,18 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
   lessons,
   progress,
 }) => {
-  const v = COURSE_VISUALS[course.id];
   const { open, completed, started, next, nextStarted } = courseStats(course.id, lessons, progress);
   const allDone = open.length > 0 && !next;
   const state = allDone ? "공개 주차 완료" : started ? "학습 중" : "학습 전";
   const openCourse = () => navigate("course", { id: course.id });
   return (
     <article className="card course-card">
-      <button className="course-cover" onClick={openCourse} aria-label={`《${course.drama}》 과목 들어가기`}>
-        <CourseImage courseId={course.id} drama={course.drama} />
-      </button>
+      {/* 메인 화면 간결화: 장식용 일러스트 대신 색 띠 (과목 정보·들어가기 버튼은 아래 본문에) */}
+      <span className="course-band" aria-hidden />
       <div className="course-body">
-        {v ? <span className="journey-stage">{v.stage}</span> : null}
-        <h3 className="course-drama">《{course.drama}》</h3>
+        <h3 className="course-drama" lang="zh-CN">
+          《{course.drama}》
+        </h3>
         <p className="course-name">
           {course.title}{" "}
           {course.status === "inactive" ? <span className="pill pill-cream" title="이미 수강 중인 학습은 계속할 수 있어요">신규 수강 마감</span> : null}

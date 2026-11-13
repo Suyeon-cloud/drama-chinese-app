@@ -52,6 +52,33 @@ export const Logo: React.FC<{ compact?: boolean }> = ({ compact }) => (
   </div>
 );
 
+/** 본문으로 건너뛰기 (키보드 사용자용). 해시 주소를 쓰는 라우터라 링크 대신 본문에 포커스를 옮긴다 */
+export const MAIN_ID = "main-content";
+export const SkipLink: React.FC = () => (
+  <button
+    type="button"
+    className="skip-link"
+    onClick={() => {
+      const main = document.getElementById(MAIN_ID);
+      main?.focus();
+      main?.scrollIntoView({ block: "start" });
+    }}
+  >
+    본문으로 건너뛰기
+  </button>
+);
+
+/** 공통 Footer (복습 HTML Footer와 같은 구성·스타일). 문구는 확정본 그대로 */
+export const AppFooter: React.FC = () => (
+  <footer className="app-footer">
+    <div className="app-footer-name">
+      <b lang="zh-CN">追剧学汉语</b> · 드라마 기반 중국어 학습 플랫폼
+    </div>
+    <div>© 2026 이수연 · 한국외국어대학교 일반대학원 한중문화학과</div>
+    <div>본 웹앱은 중국어 교육 및 학습을 목적으로 제작되었습니다.</div>
+  </footer>
+);
+
 export const Sidebar: React.FC<{ active: ViewKey }> = ({ active }) => {
   const { menu, current, homeKey, go } = useMenu(active);
   return (

@@ -7,6 +7,7 @@ import { recommendedLevelLabel } from "../../content/levels";
 import type { CultureLensCue, Lesson, MotionCue } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { MixedText, ZH_LANG } from "../components/Zh";
 import { CaptionMaskBox } from "../learning/CaptionMask";
 import { CultureLensLayer } from "../learning/CultureLensLayer";
 import { DialoguePractice, type DialoguePlayer } from "../learning/DialoguePractice";
@@ -438,11 +439,11 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
             {currentCue ? (
               <>
                 <span className="pill pill-lavender">{TYPE_LABEL[currentCue.learningType]}</span>
-                <p className="now-zh">{currentCue.dialogue.zh}</p>
+                <p className="now-zh" lang={ZH_LANG}>{currentCue.dialogue.zh}</p>
                 {currentCue.dialogue.pinyin ? (
                   <p className="now-py">{currentCue.dialogue.pinyin}</p>
                 ) : null}
-                {currentCue.dialogue.ko ? <p className="now-ko">{currentCue.dialogue.ko}</p> : null}
+                {currentCue.dialogue.ko ? <p className="now-ko"><MixedText text={currentCue.dialogue.ko} /></p> : null}
               </>
             ) : (
               <p className="muted">
@@ -501,9 +502,11 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               {content.summary.map((s) => (
                 <div key={s.zh} className="summary-item">
                   <span className="summary-type">{s.type}</span>
-                  <b>{s.zh}</b>
+                  <b lang={ZH_LANG}>{s.zh}</b>
                   <small>{s.pinyin}</small>
-                  <p>{s.ko}</p>
+                  <p>
+                    <MixedText text={s.ko} />
+                  </p>
                 </div>
               ))}
             </div>

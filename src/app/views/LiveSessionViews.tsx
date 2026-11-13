@@ -3,6 +3,7 @@ import type { LiveQuizSet } from "../../content/liveQuiz";
 import { liveJoinHash, normalizeJoinCode, type LiveAction, type LiveHostState, type LiveHostSummary } from "../../content/liveSession";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { MixedText } from "../components/Zh";
 import { ApiError } from "../lib/api";
 import { navigate } from "../router";
 import { useStaffCourses } from "../store/hooks";
@@ -21,7 +22,7 @@ const Bars: React.FC<{ options: string[]; counts: number[]; answer: number | nul
       {options.map((o, i) => (
         <li key={i} className={answer === i ? "is-answer" : ""}>
           <span className="live-bar-label">
-            {i + 1}. {o}
+            {i + 1}. <MixedText text={o} />
             {answer === i ? " ✓" : ""}
           </span>
           <span className="live-bar-track">
@@ -230,14 +231,14 @@ const HostSession: React.FC<{ sessionId: string; courseId: string }> = ({ sessio
           {s.question ? (
             <section className="card live-question">
               <h3 className="live-q-text">
-                {s.currentIndex! + 1}. {s.question.question}
+                {s.currentIndex! + 1}. <MixedText text={s.question.question} />
               </h3>
               <p className="muted small">
                 응답 {responded}명 / 참여 {s.participants}명
               </p>
               <Bars options={s.question.options} counts={s.counts} answer={s.phase === "revealed" || s.phase === "closed" ? s.question.answer : null} />
               {s.phase === "closed" ? <p className="muted small">✓ 표시는 교수자 화면에만 보여요. ‘정답 공개’를 누르면 학생에게도 보여요.</p> : null}
-              {s.phase === "revealed" && s.question.explanation ? <p className="live-explain">{s.question.explanation}</p> : null}
+              {s.phase === "revealed" && s.question.explanation ? <p className="live-explain"><MixedText text={s.question.explanation} /></p> : null}
             </section>
           ) : (
             <section className="card">
@@ -400,7 +401,9 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
         </section>
       ) : (
         <section className="card live-question">
-          <h3 className="live-q-text">{s.question.question}</h3>
+          <h3 className="live-q-text">
+            <MixedText text={s.question.question} />
+          </h3>
           <div className="live-options">
             {s.question.options.map((o, i) => {
               const mine = s.myChoice === i;
@@ -413,7 +416,7 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
                   disabled={answered || s.phase !== "open" || busy}
                   onClick={() => setPicked(i)}
                 >
-                  {i + 1}. {o}
+                  {i + 1}. <MixedText text={o} />
                   {correct ? " ✓" : ""}
                 </button>
               );
@@ -431,7 +434,11 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
               <p>
                 <b>{answered ? (s.myChoice === s.answer ? "정답이에요! 🎉" : "아쉬워요. 정답을 확인해 보세요.") : "이번 문제는 답하지 않았어요."}</b>
               </p>
-              {s.explanation ? <p className="live-explain">{s.explanation}</p> : null}
+              {s.explanation ? (
+                <p className="live-explain">
+                  <MixedText text={s.explanation} />
+                </p>
+              ) : null}
               {s.counts ? <Bars options={s.question.options} counts={s.counts} answer={s.answer} /> : null}
             </div>
           ) : null}

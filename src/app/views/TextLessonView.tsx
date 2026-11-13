@@ -110,7 +110,7 @@ export const TextLessonView: React.FC<{ lesson: Lesson }> = ({ lesson }) => {
                     const pinyin = draftNotePinyin(x, lesson.direction, pinyinReady ? toPinyin : undefined);
                     return (
                       <li key={x.id}>
-                        <b>{x.source}</b>
+                        <b lang={zhSource ? "zh-CN" : undefined}>{x.source}</b>
                         {pinyin && zhSource ? <small>{pinyin}</small> : null}
                         <span>{x.note}</span>
                         {pinyin && !zhSource ? <small>{pinyin}</small> : null}

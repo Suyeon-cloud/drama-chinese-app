@@ -11,6 +11,7 @@ import { draftNotePinyin } from "../../content/lessons";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
 import { navigate } from "../router";
 import { cuePinyin } from "./SubtitleLayer";
+import { MixedText, ZH_LANG, zhLang } from "../components/Zh";
 import type { LessonProgress } from "../store/models";
 import { RelationDiagram } from "./CultureLensLayer";
 
@@ -48,10 +49,14 @@ const ScriptRow = React.memo<{
       <button onClick={() => onSeek(cue.start)}>
         <span className="point-time">{formatTime(cue.start)}</span>
         <span className="script-text">
-          {source ? <b className={direction === "zh-ko" ? "zh" : ""}>{source}</b> : null}
+          {source ? (
+            <b className={direction === "zh-ko" ? "zh" : ""} lang={zhLang(direction === "zh-ko")}>
+              {source}
+            </b>
+          ) : null}
           {pinyin && source && direction === "zh-ko" ? <small className="script-py">{pinyin}</small> : null}
           {target ? (
-            <span className={`script-target ${showTarget ? "" : "veiled"} ${direction === "ko-zh" ? "zh" : ""}`}>
+            <span className={`script-target ${showTarget ? "" : "veiled"} ${direction === "ko-zh" ? "zh" : ""}`} lang={zhLang(direction === "ko-zh")}>
               {target}
             </span>
           ) : null}
@@ -77,7 +82,7 @@ const UntimedScript: React.FC<{ lines: string[]; direction: LearningDirection; s
     <ol>
       {lines.map((l, i) => (
         <li key={i} className={direction === "zh-ko" ? "zh" : ""}>
-          {l}
+          <span lang={zhLang(direction === "zh-ko")}>{l}</span>
           {showPinyin && direction === "zh-ko" && toPinyin(l) ? (
             <small className="script-py">{toPinyin(l)}</small>
           ) : null}
@@ -261,9 +266,15 @@ export const LessonStudyPanel: React.FC<{
                         const py = showPinyin ? draftNotePinyin(x, direction, toPinyin) : "";
                         return (
                           <li key={x.id}>
-                            <b className={sourceClass}>{x.source}</b>
+                            <b className={sourceClass} lang={zhLang(direction === "zh-ko")}>
+                              {x.source}
+                            </b>
                             {py && direction === "zh-ko" ? <small>{py}</small> : null}
-                            {x.note.trim() ? <span>{x.note}</span> : null}
+                            {x.note.trim() ? (
+                              <span>
+                                <MixedText text={x.note} />
+                              </span>
+                            ) : null}
                             {py && direction === "ko-zh" ? <small>{py}</small> : null}
                             {t !== undefined ? (
                               <button className="link-btn" onClick={() => jump(t)}>
@@ -284,9 +295,11 @@ export const LessonStudyPanel: React.FC<{
                     {content.summary.map((s) => (
                       <li key={s.zh}>
                         <span className="summary-type">{s.type}</span>
-                        <b>{s.zh}</b>
+                        <b lang={ZH_LANG}>{s.zh}</b>
                         <small>{s.pinyin}</small>
-                        <span>{s.ko}</span>
+                        <span>
+                          <MixedText text={s.ko} />
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -304,14 +317,22 @@ export const LessonStudyPanel: React.FC<{
             {draftLenses.map((l) => (
               <article key={l.id} className="study-lens">
                 <span className="lens-kicker">🔍 文化镜头 · 문화 렌즈</span>
-                {l.title.trim() ? <h3>{l.title}</h3> : null}
-                {l.source.trim() ? <p className={`lens-quote ${sourceClass}`}>“{l.source}”</p> : null}
+                {l.title.trim() ? (
+                  <h3>
+                    <MixedText text={l.title} />
+                  </h3>
+                ) : null}
+                {l.source.trim() ? (
+                  <p className={`lens-quote ${sourceClass}`} lang={zhLang(direction === "zh-ko")}>
+                    “{l.source}”
+                  </p>
+                ) : null}
                 {l.text
                   .split(/\n+/)
                   .filter((p) => p.trim())
                   .map((p, i) => (
                     <p key={i} className="lens-text">
-                      {p}
+                      <MixedText text={p} />
                     </p>
                   ))}
                 {draftTime(l.id) !== undefined ? (
@@ -330,12 +351,16 @@ export const LessonStudyPanel: React.FC<{
               return (
                 <article key={cue.id} className="study-lens">
                   <span className="lens-kicker">🔍 文化镜头 · 문화 렌즈</span>
-                  <h3>{lens.title}</h3>
-                  <p className="lens-sub">{lens.subtitle}</p>
+                  <h3>
+                    <MixedText text={lens.title} />
+                  </h3>
+                  <p className="lens-sub">
+                    <MixedText text={lens.subtitle} />
+                  </p>
                   <RelationDiagram adults={lens.adults} kids={lens.children} />
                   {lens.paragraphs.map((p) => (
                     <p key={p} className="lens-text">
-                      {p}
+                      <MixedText text={p} />
                     </p>
                   ))}
                   <div className="compare-cols">

@@ -7,7 +7,6 @@ import { navigate } from "../router";
 import { useCurriculum, useLessons, useUserProgress, useWeekMaterials } from "../store/hooks";
 import type { CurriculumWeek, LessonProgress, WeekMaterial } from "../store/models";
 import { WeekMaterialList } from "./admin/WeekMaterialsPanel";
-import { COURSE_VISUALS, CourseImage } from "./courseVisuals";
 import { SectionLine } from "./MyCoursesView";
 import { LiveJoinEntry } from "./LiveSessionViews";
 
@@ -54,7 +53,6 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
   const weekNumbers = courseWeeks(course.weekCount);
   const openCount = weeks.filter((w) => w.status === "published").length;
   const completed = weeks.filter((w) => progress?.find((p) => p.lessonId === w.lessonId)?.completedAt).length;
-  const v = COURSE_VISUALS[course.id];
   const materialsOf = (week: number): WeekMaterial[] =>
     materials.state === "ready" ? materials.list.filter((m) => m.week === week && m.status === "published") : [];
 
@@ -66,24 +64,37 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
         </button>
         <LiveJoinEntry />
       </div>
+      {/* 정보 중심 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반, 오른쪽에 학습 진행 (일러스트 없음) */}
       <section className="card course-hero">
-        <CourseImage courseId={course.id} drama={course.drama} />
+        <span className="course-band" aria-hidden />
         <div className="course-hero-body">
-          {v ? <span className="journey-stage">{v.stage}</span> : null}
-          <h2 className="course-drama">《{course.drama}》</h2>
-          <p className="course-name">{course.title}</p>
+          <h2 className="course-drama" lang="zh-CN">
+            《{course.drama}》
+          </h2>
+          {course.title ? <p className="course-name">{course.title}</p> : null}
+          {course.description ? <p className="course-desc">{course.description}</p> : null}
           {course.section ? <SectionLine section={course.section} /> : null}
-          <p className="course-desc">{course.description}</p>
+        </div>
+        <div className="course-hero-stats" aria-label="학습 진행">
+          {user?.role === "learner" ? (
+            <>
+              <span className="course-hero-stat">
+                <b>
+                  {completed}
+                  <small> / {course.weekCount}주</small>
+                </b>
+                <span>완료</span>
+              </span>
+              <span className="mini-bar" role="img" aria-label={`${course.weekCount}주 중 ${completed}주 완료`}>
+                <span style={{ width: `${course.weekCount ? (completed / course.weekCount) * 100 : 0}%` }} />
+              </span>
+            </>
+          ) : null}
           <span className="row-start">
-            <span className="pill pill-cream">{course.weekCount}주 과정</span>
             <span className="pill pill-sky">
               학습 가능 {openCount} / {course.weekCount}주
             </span>
-            {user?.role === "learner" ? (
-              <span className="pill pill-mint">
-                완료 {completed} / {course.weekCount}주
-              </span>
-            ) : null}
+            <span className="pill pill-cream">{course.weekCount}주 과정</span>
           </span>
         </div>
       </section>
