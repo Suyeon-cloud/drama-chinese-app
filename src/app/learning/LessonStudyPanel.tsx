@@ -253,13 +253,13 @@ export const LessonStudyPanel: React.FC<{
                 </>
               ) : null}
               {[
-                { title: "핵심 표현", items: expressions },
-                { title: "어휘·문법", items: grammar },
+                { title: "핵심 표현", items: expressions, tone: "" },
+                { title: "어휘·문법", items: grammar, tone: " tone-grammar" },
               ].map((sec) =>
                 sec.items.length > 0 ? (
                   <React.Fragment key={sec.title}>
                     <h3 className="card-title">{sec.title}</h3>
-                    <ul className="expr-list">
+                    <ul className={`expr-list${sec.tone}`}>
                       {sec.items.map((x) => {
                         const t = draftTime(x.id);
                         // 중국어 표현 → 병음 → 설명 (한국어 → 중국어는 설명 속 중국어 표현 다음에 병음)
@@ -291,7 +291,7 @@ export const LessonStudyPanel: React.FC<{
               {content.summary.length > 0 ? (
                 <>
                   <h3 className="card-title">핵심 표현 정리</h3>
-                  <ul className="expr-list">
+                  <ul className="expr-list tone-summary">
                     {content.summary.map((s) => (
                       <li key={s.zh}>
                         <span className="summary-type">{s.type}</span>

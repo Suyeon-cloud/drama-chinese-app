@@ -95,6 +95,8 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
   const { progress, markCompleted, recordQuiz } = useLessonProgress(lesson, clock, recordFor, endTime, segment.practice);
 
   const [completed, setCompleted] = useState(false);
+  // 학습 설명: 모바일 좁은 화면에서만 2줄로 간추리고, 눌러서 전체를 볼 수 있게 한다 (PC는 전체를 그대로 보여준다)
+  const [showFullDesc, setShowFullDesc] = useState(false);
   const [showSubs, setShowSubs] = useState(true);
   const [tab, setTab] = useState<StudyTab>("script");
   const completionRef = useRef<HTMLDivElement>(null);
@@ -269,7 +271,14 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               </span>
               <h2>{lessonHeading(lesson)}</h2>
               {lesson.source ? <p className="muted small">{lesson.title}</p> : null}
-              {lesson.description ? <p className="lesson-desc">{lesson.description}</p> : null}
+              {lesson.description ? (
+                <div className="lesson-desc-wrap">
+                  <p className={`lesson-desc${showFullDesc ? "" : " clamped"}`}>{lesson.description}</p>
+                  <button type="button" className="lesson-desc-toggle" onClick={() => setShowFullDesc((v) => !v)}>
+                    {showFullDesc ? "설명 접기" : "설명 더보기"}
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="video-head-meta">
               학습 구간 <b>{formatTime(video.startTime)}</b> – <b>{endLabel}</b>
