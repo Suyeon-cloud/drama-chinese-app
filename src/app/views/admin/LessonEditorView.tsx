@@ -62,6 +62,8 @@ type FormState = {
   description: string;
   dramaTitle: string;
   episode: string;
+  /** 원본 영상(유튜브 등)의 실제 제목. 비워 두면 주차 목록에서 《드라마명》 회차로 대신 보여준다. */
+  videoTitle: string;
   youtubeUrl: string;
   start: string;
   end: string;
@@ -88,6 +90,7 @@ const fromLesson = (l: Lesson): FormState => ({
   description: l.description,
   dramaTitle: l.source?.dramaTitle ?? "",
   episode: l.source?.episode ?? "",
+  videoTitle: l.source?.videoTitle ?? "",
   youtubeUrl: l.video.youtubeUrl,
   start: formatTime(l.video.startTime),
   end: l.video.endTime > 0 ? formatTime(l.video.endTime) : "",
@@ -111,6 +114,7 @@ const blankForm = (courseId: string, week: number): FormState => ({
   description: "",
   dramaTitle: "",
   episode: "",
+  videoTitle: "",
   youtubeUrl: "",
   start: "00:00",
   end: "",
@@ -537,12 +541,12 @@ const LessonEditor: React.FC<{
         endTime: endSec ?? 0,
       },
       source:
-        form.dramaTitle.trim() || form.episode.trim()
+        form.dramaTitle.trim() || form.episode.trim() || form.videoTitle.trim()
           ? {
               dramaTitle: form.dramaTitle.trim(),
               episode: form.episode.trim(),
-              // 원본 영상 제목은 이 화면에서 고치지 않으므로 저장된 값을 그대로 둔다.
-              ...(base?.source?.videoTitle ? { videoTitle: base.source.videoTitle } : {}),
+              // 비워 두면 주차 목록이 《드라마명》 회차로 대신 보여준다.
+              ...(form.videoTitle.trim() ? { videoTitle: form.videoTitle.trim() } : {}),
             }
           : undefined,
       script: {
@@ -745,6 +749,15 @@ const LessonEditor: React.FC<{
             <label className="field">
               <span>회차 (선택)</span>
               <input value={form.episode} onChange={(e) => set("episode", e.target.value)} placeholder="예: 第3集" />
+            </label>
+            <label className="field">
+              <span>원본 영상 제목 (선택)</span>
+              <input
+                value={form.videoTitle}
+                onChange={(e) => set("videoTitle", e.target.value)}
+                placeholder="예: 苏在在雨中邂逅张陆让"
+              />
+              <small className="muted">비워 두면 주차 목록에 《작품명》 회차로 대신 표시돼요.</small>
             </label>
             <label className="field span-all">
               <span>설명</span>
