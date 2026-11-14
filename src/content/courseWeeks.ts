@@ -75,10 +75,14 @@ export const sortCourses = <T extends CourseLike>(courses: T[]): T[] =>
 /** 기존 3과목의 카드 색 (순서대로 하늘·분홍·민트). 과목 id로 정하므로 정렬이 바뀌어도 그대로다. */
 export const SEED_COURSE_TONES = ["sky", "pink", "mint"] as const;
 /**
- * 새 과목의 카드 파스텔 색 (app.css의 .tone-*). 기존 3과목 색(하늘·분홍·민트)과 겹치지 않는 색만 쓴다.
- * 새 과목끼리는 같은 색이 나올 수 있다.
+ * 새 과목의 카드 파스텔 색 (app.css의 .tone-*). 기존 3과목과 같은 색도 포함한 5색 팔레트에서 고른다.
+ * 새 과목끼리, 또는 비활성 기존 과목과 색이 겹칠 수 있다(허용).
  */
-export const NEW_COURSE_TONES = ["lavender", "peach", "butter", "lilac", "aqua"] as const;
+export const NEW_COURSE_TONES = ["sky", "pink", "mint", "lavender", "peach"] as const;
+/** 특정 과목을 지정한 색으로 고정한다(기존 3과목 외 추가 고정). 활성·비활성과 무관하게 항상 이 색을 쓴다. */
+const PINNED_COURSE_TONES: Record<string, (typeof NEW_COURSE_TONES)[number]> = {
+  "course-r7i60a": "sky", // 偷偷藏不住
+};
 
 /** 과목 id → 숫자 (FNV-1a). 같은 id는 언제나 같은 값 */
 const hashId = (id: string) => {
@@ -93,6 +97,7 @@ const hashId = (id: string) => {
 export const courseToneFor = (courseId: string): string => {
   const i = seedIndex(courseId);
   if (i >= 0) return SEED_COURSE_TONES[i % SEED_COURSE_TONES.length];
+  if (PINNED_COURSE_TONES[courseId]) return PINNED_COURSE_TONES[courseId];
   // 기존 동작: 기존 자료 과목·id 없음은 첫 색. 새 과목은 id로 파스텔 팔레트에서 고른다.
   if (courseId === LEGACY_COURSE_ID || !courseId) return SEED_COURSE_TONES[0];
   return NEW_COURSE_TONES[hashId(courseId) % NEW_COURSE_TONES.length];

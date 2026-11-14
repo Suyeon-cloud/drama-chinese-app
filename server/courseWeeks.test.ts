@@ -207,23 +207,24 @@ test("기존 3과목 순서는 그대로, 새 과목은 그 뒤에 생성일 순
   assert.deepEqual(twins.map((c) => c.id), ["course-aa", "course-zz"]);
 });
 
-test("기존 과목의 카드 색은 그대로, 새 과목은 항상 같은 기본 색을 받는다", () => {
+test("기존 과목의 카드 색은 그대로, 지정한 과목은 고정색, 그 외 새 과목은 항상 같은 기본 색을 받는다", () => {
   assert.equal(courseToneFor("course-campus"), "sky");
   assert.equal(courseToneFor("course-university"), "pink");
   assert.equal(courseToneFor("course-workplace"), "mint");
   assert.equal(courseToneFor(LEGACY_COURSE_ID), "sky");
+  // 偷偷藏不住: 하늘색으로 고정 (비활성화해도 바뀌지 않음, 5색 팔레트 포함 색도 고정이 우선한다)
+  assert.equal(courseToneFor("course-r7i60a"), "sky");
   for (const c of [NEW_8, NEW_20]) {
     assert.ok((NEW_COURSE_TONES as readonly string[]).includes(courseToneFor(c.id)));
     assert.equal(courseToneFor(c.id), courseToneFor(c.id));
   }
 });
 
-test("새 과목 여러 개는 기존 3과목 색과 겹치지 않는 파스텔 팔레트에서 색을 받는다", () => {
+test("새 과목 여러 개는 5색 팔레트(기존 3과목 색 포함)에서 색을 받는다", () => {
   const ids = Array.from({ length: 40 }, (_, i) => `course-n${i.toString(36)}${(i * 7919).toString(36)}`);
   const tones = ids.map(courseToneFor);
   for (const t of tones) {
     assert.ok((NEW_COURSE_TONES as readonly string[]).includes(t), t);
-    assert.ok(!(SEED_COURSE_TONES as readonly string[]).includes(t as never), t);
   }
   // 40개면 팔레트의 여러 색이 쓰인다 (모두 같은 색으로 몰리지 않는다). 겹치는 색은 허용한다.
   assert.ok(new Set(tones).size >= 4, [...new Set(tones)].join(","));
