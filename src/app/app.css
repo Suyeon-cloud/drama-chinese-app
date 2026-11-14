@@ -1454,12 +1454,8 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 /* ───────── 교강사·관리자 공통 (3차) ───────── */
 .admin-back { align-self: flex-start; margin-bottom: 0; }
 .scope-note.info { background: var(--sky-50); border: 1px solid var(--line); }
-/* 분반 카드: 작은 대표 이미지 + 핵심 정보 */
-.section-card { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 16px; align-items: start; padding: 16px; border-color: var(--tone-line, var(--line)); }
-.section-card > img, .section-card > .course-fallback { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-sm); padding: 0; }
-.section-card > .course-fallback svg { width: 22px; height: 22px; }
-.section-card > .course-fallback b { font-size: 11px; }
-.section-card-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* 분반 카드: 일러스트 없이 텍스트 중심(관리자 과목 카드와 같은 tone 배경) + 핵심 정보 */
+.section-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); border-color: var(--tone-line, var(--line)); }
 .section-card .course-drama { font-size: 18px; }
 .section-card .course-name { font-size: 14px; }
 .section-card-stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 0; }
@@ -1477,8 +1473,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .scope-panel.section { border-left-color: var(--mint-ink); }
 .scope-panel.course { border-left-color: var(--sky-400); }
 @media (max-width: 520px) {
-  .section-card { grid-template-columns: minmax(0, 1fr); }
-  .section-card > img, .section-card > .course-fallback { display: none; }
   .scope-panel { padding-left: 8px; }
 }
 
@@ -1776,8 +1770,8 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .flow.compact .flow-icon { width: 36px; height: 36px; border-radius: 10px; }
 .flow.compact .flow-num { top: -8px; left: -8px; width: 22px; height: 22px; font-size: 12px; }
 .flow.compact .flow-text b { font-size: 14.5px; }
-/* 과목 카드: 장식용 일러스트 대신 얇은 색 띠 */
-.course-band { display: block; height: 6px; background: linear-gradient(90deg, var(--sky-300), var(--lavender-line)); }
+/* 과목 카드: 장식용 일러스트 대신 얇은 색 띠. 관리자 과목 카드와 같은 tone-* 색(과목마다 다름)을 쓴다 */
+.course-band { display: block; height: 6px; background: var(--tone-ink, var(--sky-400)); }
 @media (max-width: 700px) {
   /* 모바일: 강의 목록이 밀리지 않게 세 단계를 한 줄(아이콘·제목)로. 설명 문장은 숨긴다 */
   .flow, .flow.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }

@@ -1,5 +1,5 @@
 import React from "react";
-import { courseWeeks } from "../../content/courseWeeks";
+import { courseToneFor, courseWeeks } from "../../content/courseWeeks";
 import { recommendedLevelLabel } from "../../content/levels";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
@@ -64,8 +64,8 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
         </button>
         <LiveJoinEntry />
       </div>
-      {/* 정보 중심 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반, 오른쪽에 학습 진행 (일러스트 없음) */}
-      <section className="card course-hero">
+      {/* 정보 중심 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반, 오른쪽에 학습 진행 (일러스트 없음, 과목별 색 띠) */}
+      <section className={`card course-hero tone-${courseToneFor(course.id)}`}>
         <span className="course-band" aria-hidden />
         <div className="course-hero-body">
           <h2 className="course-drama" lang="zh-CN">

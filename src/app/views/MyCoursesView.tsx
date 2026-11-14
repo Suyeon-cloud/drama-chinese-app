@@ -45,8 +45,8 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
   const state = allDone ? "공개 주차 완료" : started ? "학습 중" : "학습 전";
   const openCourse = () => navigate("course", { id: course.id });
   return (
-    <article className="card course-card">
-      {/* 메인 화면 간결화: 장식용 일러스트 대신 색 띠 (과목 정보·들어가기 버튼은 아래 본문에) */}
+    <article className={`card course-card tone-${courseTone(course.id)}`}>
+      {/* 메인 화면 간결화: 장식용 일러스트 대신 과목별 색 띠 (과목 정보·들어가기 버튼은 아래 본문에) */}
       <span className="course-band" aria-hidden />
       <div className="course-body">
         <h3 className="course-drama" lang="zh-CN">

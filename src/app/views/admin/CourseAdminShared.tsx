@@ -15,7 +15,6 @@ import { lessonStore } from "../../store";
 import { useCourseStudents } from "../../store/hooks";
 import { refreshAllStores } from "../../store/remote";
 import type { CourseOverview, LessonProgress, SectionOverview, SectionTeacher } from "../../store/models";
-import { CourseImage } from "../courseVisuals";
 import { courseTone } from "../MyCoursesView";
 import { LevelBadge, StatusBadge } from "./AdminShared";
 import { StudentFeedback } from "./StudentFeedback";
@@ -92,45 +91,42 @@ export const CourseOverviewCard: React.FC<{
   );
 };
 
-/** 분반 카드 (교수자): 과목 · 분반 · 강의코드 · 수강생 · 학습자료 현황 */
+/** 분반 카드 (교수자): 과목 · 분반 · 강의코드 · 수강생 · 학습자료 현황 (일러스트 없이 텍스트 중심, 관리자 과목 카드와 같은 색 체계) */
 export const SectionCard: React.FC<{
   course: CourseOverview;
   section: SectionOverview;
   children?: React.ReactNode;
 }> = ({ course, section, children }) => (
   <section className={`card section-card tone-${courseTone(course.id)}`}>
-    <CourseImage courseId={course.id} drama={course.drama} decorative />
-    <div className="section-card-body">
-      <div className="course-admin-head">
-        <span className="course-drama">《{course.drama}》</span>
-        <span className="course-name">
-          {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}{" "}
-          {course.status === "inactive" ? <CourseStatusPill status="inactive" /> : null}
-        </span>
-      </div>
-      <dl className="section-card-stats">
-        <div>
-          <dt>강의코드</dt>
-          <dd className="code-chip">{section.code}</dd>
-        </div>
-        <div>
-          <dt>수강생</dt>
-          <dd>{section.enrolledCount}명</dd>
-        </div>
-        <div>
-          <dt>공개 학습자료</dt>
-          <dd>
-            {course.publishedCount} / {course.lessonCount}
-          </dd>
-        </div>
-      </dl>
-      {section.instructors.length ? (
-        <p className="small course-admin-teachers">
-          <b>담당 교강사</b> {section.instructors.map((t) => t.name || t.email).join(", ")}
-        </p>
-      ) : null}
-      {children ? <div className="row-start">{children}</div> : null}
+    <div className="course-admin-head">
+      <span className="course-drama">《{course.drama}》</span>
+      <span className="course-name">
+        {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}{" "}
+        {course.status === "inactive" ? <CourseStatusPill status="inactive" /> : null}
+      </span>
     </div>
+    <dl className="section-card-stats">
+      <div>
+        <dt>강의코드</dt>
+        <dd className="code-chip">{section.code}</dd>
+      </div>
+      <div>
+        <dt>수강생</dt>
+        <dd>{section.enrolledCount}명</dd>
+      </div>
+      <div>
+        <dt>공개 학습자료</dt>
+        <dd>
+          {course.publishedCount} / {course.lessonCount}
+        </dd>
+      </div>
+    </dl>
+    {section.instructors.length ? (
+      <p className="small course-admin-teachers">
+        <b>담당 교강사</b> {section.instructors.map((t) => t.name || t.email).join(", ")}
+      </p>
+    ) : null}
+    {children ? <div className="row-start">{children}</div> : null}
   </section>
 );
 

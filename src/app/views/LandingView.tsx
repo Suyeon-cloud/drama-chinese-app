@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AdminLoginButton } from "../auth/AdminLogin";
 import { GoogleSignInButton } from "../auth/AuthControls";
 import { AppFooter, Logo, MAIN_ID, SkipLink } from "../components/Layout";
+import { courseToneFor } from "../../content/courseWeeks";
 import { ApiError } from "../lib/api";
 import { courseStore } from "../store";
 import type { PublicCourse } from "../store/models";
@@ -53,7 +54,7 @@ const PublicCourseList: React.FC = () => {
     <ul className="journey">
       {state.courses.map((c) => {
         return (
-          <li key={c.id} className="card journey-card">
+          <li key={c.id} className={`card journey-card tone-${courseToneFor(c.id)}`}>
             <span className="course-band" aria-hidden />
             <div className="journey-body">
               <h3 lang={c.drama ? "zh-CN" : undefined}>{c.drama ? `《${c.drama}》` : c.title}</h3>
