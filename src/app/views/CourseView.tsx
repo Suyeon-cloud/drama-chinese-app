@@ -64,9 +64,8 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
         </button>
         <LiveJoinEntry />
       </div>
-      {/* 정보 중심 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반, 오른쪽에 학습 진행 (일러스트 없음, 과목별 색 띠) */}
+      {/* 정보 중심 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반, 오른쪽에 학습 진행 (일러스트·색 띠 없이 과목별 은은한 그라데이션 배경) */}
       <section className={`card course-hero tone-${courseToneFor(course.id)}`}>
-        <span className="course-band" aria-hidden />
         <div className="course-hero-body">
           <h2 className="course-drama" lang="zh-CN">
             《{course.drama}》

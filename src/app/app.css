@@ -1219,7 +1219,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 
 /* ───────── 내 강의 · 과목 커리큘럼 ───────── */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 18px; }
-.course-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; text-align: left; transition: box-shadow 0.2s; }
+.course-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; text-align: left; transition: box-shadow 0.2s; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); }
 .course-card:hover { box-shadow: var(--shadow-hover); }
 .course-cover { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--sky-100); }
 .course-cover:focus-visible { outline-offset: -3px; }
@@ -1247,7 +1247,7 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
 .landing-section h2 { font-size: clamp(21px, 2.4vw, 27px); font-weight: 800; text-align: center; word-break: keep-all; }
 /* 과목 수에 맞춰 칸을 나누고, 한 줄에 들어가지 않으면 다음 줄로 넘어간다. */
 .journey { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
-.journey-card { position: relative; padding: 0; display: flex; flex-direction: column; }
+.journey-card { position: relative; padding: 0; display: flex; flex-direction: column; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); }
 .journey-card > img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; background: var(--sky-100); }
 .journey-card > .course-fallback { border-radius: var(--radius) var(--radius) 0 0; }
 /* 대표 이미지가 아직 없는 과목: 이미지와 같은 비율의 기본 그림 */
@@ -1770,8 +1770,7 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .flow.compact .flow-icon { width: 36px; height: 36px; border-radius: 10px; }
 .flow.compact .flow-num { top: -8px; left: -8px; width: 22px; height: 22px; font-size: 12px; }
 .flow.compact .flow-text b { font-size: 14.5px; }
-/* 과목 카드: 장식용 일러스트 대신 얇은 색 띠. 관리자 과목 카드와 같은 tone-* 색(과목마다 다름)을 쓴다 */
-.course-band { display: block; height: 6px; background: var(--tone-ink, var(--sky-400)); }
+/* 과목 카드: 장식용 일러스트·진한 색 띠 대신, 관리자·교수자 카드와 같은 은은한 tone-* 그라데이션 배경을 쓴다 */
 @media (max-width: 700px) {
   /* 모바일: 강의 목록이 밀리지 않게 세 단계를 한 줄(아이콘·제목)로. 설명 문장은 숨긴다 */
   .flow, .flow.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
@@ -1790,9 +1789,8 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .landing-hero { padding: 48px 0 32px; }
 .landing-section { margin-top: 56px; }
 .journey { margin-top: 20px; }
-/* 과목 상세 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반 | 학습 진행 */
-.course-hero { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 18px 28px; align-items: center; padding: 0 24px 22px; overflow: hidden; }
-.course-hero > .course-band { grid-column: 1 / -1; margin: 0 -24px; }
+/* 과목 상세 헤더: 드라마 제목 → 과목 주제 → 설명 → 분반 | 학습 진행. 관리자·교수자 카드와 같은 tone 그라데이션 배경 */
+.course-hero { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 18px 28px; align-items: center; background: linear-gradient(160deg, var(--tone-bg), #fff 55%); }
 .course-hero-body { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
 .course-hero .course-drama { font-size: 28px; line-height: 1.3; }
 .course-hero .course-name { font-size: 17px; }
@@ -1816,8 +1814,7 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
   .landing-section { margin-top: 36px; }
 }
 @media (max-width: 700px) {
-  .course-hero { grid-template-columns: minmax(0, 1fr); padding: 0 16px 16px; }
-  .course-hero > .course-band { margin: 0 -16px; }
+  .course-hero { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .course-hero .course-drama { font-size: 24px; }
   .continue-card { flex-direction: column; align-items: stretch; }
   .continue-card > .btn { align-self: flex-start; }

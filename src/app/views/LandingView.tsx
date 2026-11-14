@@ -55,7 +55,6 @@ const PublicCourseList: React.FC = () => {
       {state.courses.map((c) => {
         return (
           <li key={c.id} className={`card journey-card tone-${courseToneFor(c.id)}`}>
-            <span className="course-band" aria-hidden />
             <div className="journey-body">
               <h3 lang={c.drama ? "zh-CN" : undefined}>{c.drama ? `《${c.drama}》` : c.title}</h3>
               {c.drama ? <p className="journey-title">{c.title}</p> : null}
