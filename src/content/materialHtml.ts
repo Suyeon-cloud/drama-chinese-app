@@ -107,3 +107,77 @@ export const materialShareHash = (materialId: string) => `#/material?id=${encode
  */
 export const srcdocAnchors = (html: string) =>
   html.replace(/<[a-zA-Z][^>]*>/g, (tag) => tag.replace(/(\shref\s*=\s*)(["']?)#/gi, "$1$2about:srcdoc#"));
+
+/* ───────── ⑦ 앱 안 표시용: 외부 링크 새 탭 · YouTube 영상 ───────── */
+
+/** 속성 값의 HTML 문자 참조를 푼다 (&#58; &#x3a; &amp; 등). 링크 판별·영상 주소 추출에만 쓴다. */
+const NAMED_REFS: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", colon: ":", equals: "=", sol: "/", quest: "?", num: "#" };
+const codePoint = (n: number) => (Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : "");
+const decodeAttr = (v: string) =>
+  v
+    .replace(/&#x([0-9a-f]{1,6});?/gi, (_, h: string) => codePoint(parseInt(h, 16)))
+    .replace(/&#(\d{1,7});?/g, (_, d: string) => codePoint(Number(d)))
+    .replace(/&(amp|quot|apos|lt|gt|colon|equals|sol|quest|num);/gi, (_, n: string) => NAMED_REFS[n.toLowerCase()] ?? "");
+
+/** <a …> 태그의 href 값 (따옴표 있음·없음 모두) */
+const anchorHref = (tag: string) => /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag)?.slice(1).find((x) => x !== undefined);
+
+/**
+ * 앱 안 srcDoc iframe 표시용: 외부(http·https) 링크를 새 탭에서 열게 한다 (target="_blank", rel="noopener noreferrer").
+ * iframe 안에서 이동하면 YouTube처럼 다른 사이트 안에 표시를 막는 곳은 빈 화면이 되고 학습자료도 사라진다.
+ * 문서 안 앵커(#…)·mailto 등은 그대로 둔다. 저장·내려받기 문서에는 쓰지 않는다.
+ */
+export const srcdocExternalLinks = (html: string) =>
+  html.replace(/<a\b[^>]*>/gi, (tag) => {
+    const href = anchorHref(tag);
+    if (!href || !/^\s*https?:\/\//i.test(decodeAttr(href))) return tag;
+    const rest = tag.replace(/\s(?:target|rel)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+    return rest.replace(/\s*\/?>$/, (end) => ` target="_blank" rel="noopener noreferrer"${end.trim() === "/>" ? " />" : ">"}`);
+  });
+
+export type MaterialVideo = { id: string; start: number };
+
+/** "90", "1m30s", "1h2m3s" → 초 (형식이 다르면 0) */
+const parseStart = (v: string | null) => {
+  if (!v) return 0;
+  if (/^\d{1,6}$/.test(v)) return Number(v);
+  const m = /^(?:(\d{1,2})h)?(?:(\d{1,3})m)?(?:(\d{1,5})s)?$/.exec(v);
+  return m && (m[1] || m[2] || m[3]) ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
+};
+
+/** YouTube 주소 → 영상 id·시작 초. youtu.be/ID · youtube.com/watch?v=ID · /shorts/ID · /embed/ID · /live/ID만 인정한다. */
+export const youtubeVideoFromUrl = (raw: string): MaterialVideo | null => {
+  let url: URL;
+  try {
+    url = new URL(decodeAttr(raw).trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  const host = url.hostname.toLowerCase();
+  let id: string | null = null;
+  if (host === "youtu.be") id = url.pathname.split("/")[1] ?? null;
+  else if (/^(?:www\.|m\.)?youtube(?:-nocookie)?\.com$/.test(host)) {
+    const parts = url.pathname.split("/").filter(Boolean);
+    id = parts[0] === "watch" ? url.searchParams.get("v") : ["shorts", "embed", "live"].includes(parts[0] ?? "") ? (parts[1] ?? null) : null;
+  }
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  return { id, start: Math.min(parseStart(url.searchParams.get("t") ?? url.searchParams.get("start")), 24 * 3600) };
+};
+
+/** 자료 HTML의 <a href> 가운데 YouTube 영상 링크 (같은 영상·같은 시작은 한 번, 최대 10개) */
+export const materialYouTubeVideos = (html: string): MaterialVideo[] => {
+  const out: MaterialVideo[] = [];
+  for (const [tag] of html.matchAll(/<a\b[^>]*>/gi)) {
+    const href = anchorHref(tag);
+    const v = href ? youtubeVideoFromUrl(href) : null;
+    if (v && !out.some((x) => x.id === v.id && x.start === v.start)) out.push(v);
+    if (out.length >= 10) break;
+  }
+  return out;
+};
+
+/** 임베드 주소 (개인정보 보호 모드) · YouTube에서 직접 보기 주소 */
+export const youtubeEmbedUrl = ({ id, start }: MaterialVideo) =>
+  `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1${start ? `&start=${start}` : ""}`;
+export const youtubeWatchUrl = ({ id, start }: MaterialVideo) => `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` : ""}`;

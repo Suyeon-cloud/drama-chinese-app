@@ -2080,3 +2080,12 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .member-section { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .member-teachers { font-size: var(--fs-xs); color: var(--ink-2); padding-left: 4px; }
 .member-teachers.muted { color: var(--muted); }
+
+/* ───────── ⑦ HTML 학습자료 공유 화면: 자료 위 YouTube 플레이어 ───────── */
+.material-video { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.material-video-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 모서리 둥글게 자르기(border-radius + overflow: hidden)는 하지 않는다 — QA에서 잘린 YouTube iframe 안 클릭(재생 버튼)이 전달되지 않았다. */
+.material-video-frame { width: min(100%, 760px); aspect-ratio: 16 / 9; background: #13263a; }
+.material-video-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.material-video-note { margin: 0; }
+.material-video-note a { color: var(--sky-700); font-weight: 600; }

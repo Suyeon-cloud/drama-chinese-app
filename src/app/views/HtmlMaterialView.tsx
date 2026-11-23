@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { materialHtmlDocument, materialHtmlFileName, materialShareHash, srcdocAnchors } from "../../content/materialHtml";
+import {
+  materialHtmlDocument,
+  materialHtmlFileName,
+  materialShareHash,
+  materialYouTubeVideos,
+  srcdocAnchors,
+  srcdocExternalLinks,
+  youtubeEmbedUrl,
+  youtubeWatchUrl,
+  type MaterialVideo,
+} from "../../content/materialHtml";
+import { formatTime } from "../../content";
 import { useToast } from "../components/Toast";
 import { ApiError } from "../lib/api";
 import { materialStore } from "../store";
@@ -7,8 +18,11 @@ import type { WeekMaterialHtml } from "../store/models";
 
 /**
  * HTML 학습자료를 그리는 틀 (학생 화면·교수자 미리보기·5단계 발표 화면이 함께 쓴다).
- * sandbox="" — 스크립트·같은 출처 권한·팝업·양식·상위 창 이동 모두 없음. 문서 맨 앞의 CSP가 외부 리소스·스크립트를 한 번 더 막는다.
+ * sandbox — 스크립트·같은 출처 권한·양식·상위 창 이동 모두 없음. 문서 맨 앞의 CSP가 외부 리소스·스크립트를 한 번 더 막는다.
+ * 새 탭만 허용한다(allow-popups): 스크립트가 없으므로 사용자가 누른 외부(http·https) 링크만 새 탭으로 열린다.
+ * 새 탭은 sandbox를 물려받지 않는다(allow-popups-to-escape-sandbox) — 그래야 YouTube 같은 사이트가 새 탭에서 정상 동작한다.
  */
+const FRAME_SANDBOX = "allow-popups allow-popups-to-escape-sandbox";
 export const HtmlMaterialFrame: React.FC<{
   title: string;
   html: string;
@@ -19,8 +33,8 @@ export const HtmlMaterialFrame: React.FC<{
   /** '크게 보기': 같은 iframe을 앱 안 전체 화면 레이어로 키운다 (다시 불러오지 않아 스크롤 위치가 그대로) */
   expandable?: boolean;
 }> = ({ title, html, height = "70vh", fill = false, expandable = false }) => {
-  // 목차 등 문서 안 앵커가 앱 주소로 이동하지 않게 (표시용 문서에만 적용)
-  const doc = useMemo(() => srcdocAnchors(materialHtmlDocument(title, html)), [title, html]);
+  // 목차 등 문서 안 앵커가 앱 주소로 이동하지 않게, 외부 링크는 새 탭으로 (표시용 문서에만 적용)
+  const doc = useMemo(() => srcdocExternalLinks(srcdocAnchors(materialHtmlDocument(title, html))), [title, html]);
   const [full, setFull] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -79,7 +93,7 @@ export const HtmlMaterialFrame: React.FC<{
         ref={frameRef}
         className={`html-material-frame${fill ? " is-fill" : ""}`}
         title={`${title} (HTML 학습자료)`}
-        sandbox=""
+        sandbox={FRAME_SANDBOX}
         referrerPolicy="no-referrer"
         srcDoc={doc}
         style={fill || full ? undefined : { height }}
@@ -124,6 +138,58 @@ export const downloadHtmlMaterial = async (materialId: string, title: string): P
   }
 };
 
+/**
+ * 자료 위 YouTube 플레이어: 자료 HTML 안의 YouTube 링크(엄격한 형식)에서 영상을 골라 앱이 직접 그린다.
+ * 자료 HTML의 sandbox·CSP는 그대로 둔다 — 플레이어는 자료 바깥의 별도 iframe(YouTube 개인정보 보호 모드)이다.
+ * 삭제·임베드 제한 영상은 플레이어 안에 YouTube 오류가 보이므로 항상 'YouTube에서 직접 보기'를 함께 둔다.
+ */
+export const MaterialVideoPlayer: React.FC<{ videos: MaterialVideo[]; title: string }> = ({ videos, title }) => {
+  const [index, setIndex] = useState(0);
+  const video = videos[Math.min(index, videos.length - 1)];
+  if (!video) return null;
+  const label = (v: MaterialVideo, i: number) => `영상 ${i + 1}${v.start ? ` · ${formatTime(v.start)}부터` : ""}`;
+  return (
+    <div className="material-video">
+      {videos.length > 1 ? (
+        <div className="material-video-tabs" role="group" aria-label="자료에 연결된 영상 선택">
+          {videos.map((v, i) => (
+            <button
+              key={`${v.id}-${v.start}`}
+              type="button"
+              className={`tag tag-sm${i === index ? " active" : ""}`}
+              aria-pressed={i === index}
+              onClick={() => setIndex(i)}
+            >
+              {label(v, i)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="material-video-frame">
+        {/* 같은 영상이라도 시작 시각이 다르면 다시 불러온다 */}
+        {/* eslint-disable-next-line @remotion/warn-native-media-tag -- web app UI, not rendered by Remotion */}
+        <iframe
+          key={`${video.id}-${video.start}`}
+          src={youtubeEmbedUrl(video)}
+          title={`${title} · ${label(video, videos.indexOf(video))} (YouTube)`}
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
+          allow="encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+      <p className="material-video-note muted small">
+        재생되지 않으면{" "}
+        <a href={youtubeWatchUrl(video)} target="_blank" rel="noopener noreferrer">
+          YouTube에서 직접 보기 ↗
+        </a>{" "}
+        (영상이 삭제되었거나 다른 사이트에서의 재생이 제한된 경우)
+      </p>
+    </div>
+  );
+};
+
 type State = { s: "loading" } | { s: "ready"; doc: WeekMaterialHtml } | { s: "error"; status: number; message: string };
 
 /** #/material?id=… — 공유 링크로 여는 HTML 학습자료 화면 (로그인 필요, 서버가 수강·공개 여부를 확인한다) */
@@ -132,6 +198,7 @@ export const HtmlMaterialView: React.FC<{ params: URLSearchParams }> = ({ params
   const toast = useToast();
   const [state, setState] = useState<State>({ s: "loading" });
   const [busy, setBusy] = useState(false);
+  const videos = useMemo(() => (state.s === "ready" ? materialYouTubeVideos(state.doc.html) : []), [state]);
   useEffect(() => {
     let alive = true;
     setState({ s: "loading" });
@@ -190,7 +257,11 @@ export const HtmlMaterialView: React.FC<{ params: URLSearchParams }> = ({ params
           </button>
         </span>
       </div>
-      <p className="muted small">스크립트와 외부 이미지·글꼴은 보안을 위해 실행·표시되지 않아요. 내려받은 파일은 인터넷 없이도 열 수 있어요.</p>
+      <p className="muted small">
+        스크립트와 외부 이미지·글꼴은 보안을 위해 실행·표시되지 않아요. 자료 안의 외부 링크는 새 탭에서 열려요. 내려받은 파일은 인터넷 없이도 열 수
+        있지만 영상은 재생되지 않으니, 영상은 이 링크 화면에서 봐 주세요.
+      </p>
+      {videos.length > 0 ? <MaterialVideoPlayer videos={videos} title={doc.title} /> : null}
       <HtmlMaterialFrame title={doc.title} html={doc.html} fill expandable />
     </section>
   );

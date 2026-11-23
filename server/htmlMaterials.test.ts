@@ -18,7 +18,12 @@ import {
   materialHtmlFileName,
   materialHtmlProblem,
   materialShareHash,
+  materialYouTubeVideos,
   srcdocAnchors,
+  srcdocExternalLinks,
+  youtubeEmbedUrl,
+  youtubeVideoFromUrl,
+  youtubeWatchUrl,
 } from "../src/content/materialHtml";
 import { buildLessonDeck, deckToReviewHtml, reviewTitle } from "../src/content/lessonDeck";
 import { SEED_LESSONS, resolveLessonContent } from "../src/content/lessons";
@@ -94,6 +99,68 @@ test("HTML 문서: 맨 앞에 charset·CSP, 원본 head는 CSP 뒤·body는 body
   assert.equal(materialHtmlFileName("关于中韩龙虎俗语的对比研究 (1)"), "关于中韩龙虎俗语的对比研究 (1).html");
   assert.equal(materialHtmlFileName("..."), "학습자료.html");
   assert.equal(materialShareHash("material-abc123"), "#/material?id=material-abc123");
+});
+
+test("⑦ 외부 링크 새 탭: http·https <a>만 target=_blank·rel=noopener noreferrer, 문서 안 앵커·mailto·본문 글자는 그대로", () => {
+  assert.equal(
+    srcdocExternalLinks('<a href="https://youtu.be/HDRFx2rtQ8o?t=3">영상</a>'),
+    '<a href="https://youtu.be/HDRFx2rtQ8o?t=3" target="_blank" rel="noopener noreferrer">영상</a>',
+  );
+  // 문자 참조로 쓴 주소(자동 생성 복습 HTML)·기존 target/rel은 바꿔 쓴다
+  assert.equal(
+    srcdocExternalLinks('<a href="https&#58;//youtu.be/x" target="_self" rel="opener">x</a>'),
+    '<a href="https&#58;//youtu.be/x" target="_blank" rel="noopener noreferrer">x</a>',
+  );
+  assert.equal(srcdocExternalLinks("<A HREF=http://example.com>e</A>"), '<A HREF=http://example.com target="_blank" rel="noopener noreferrer">e</A>');
+  for (const keep of [
+    '<a href="about:srcdoc#lines">대사</a>',
+    '<a href="#top">위로</a>',
+    '<a href="mailto:a@b.c">메일</a>',
+    "<a name=\"x\">이름만</a>",
+    "<p>https://youtu.be/HDRFx2rtQ8o 글자</p>",
+    '<img src="data:image/png;base64,AA">',
+  ]) {
+    assert.equal(srcdocExternalLinks(keep), keep);
+  }
+});
+
+test("⑦ 자료 속 YouTube 링크: 정해진 주소 형식의 11자리 id·시작 초만, 중복 없이 최대 10개", () => {
+  assert.deepEqual(youtubeVideoFromUrl("https://youtu.be/HDRFx2rtQ8o?t=3"), { id: "HDRFx2rtQ8o", start: 3 });
+  assert.deepEqual(youtubeVideoFromUrl("https&#58;//youtu.be/HDRFx2rtQ8o?t&#61;45"), { id: "HDRFx2rtQ8o", start: 45 });
+  assert.deepEqual(youtubeVideoFromUrl("https://www.youtube.com/watch?v=HDRFx2rtQ8o&amp;t=1m30s"), { id: "HDRFx2rtQ8o", start: 90 });
+  assert.deepEqual(youtubeVideoFromUrl("https://m.youtube.com/shorts/HDRFx2rtQ8o"), { id: "HDRFx2rtQ8o", start: 0 });
+  assert.deepEqual(youtubeVideoFromUrl("https://www.youtube-nocookie.com/embed/HDRFx2rtQ8o?start=12"), { id: "HDRFx2rtQ8o", start: 12 });
+  for (const bad of [
+    "https://evil.example/youtu.be/HDRFx2rtQ8o",
+    "https://youtube.com.evil.example/watch?v=HDRFx2rtQ8o",
+    "https://youtu.be/short",
+    "https://youtu.be/HDRFx2rtQ8o%22onerror",
+    "javascript:alert(1)//youtu.be/HDRFx2rtQ8o",
+    "https://www.youtube.com/channel/UCabcdefghijk",
+    "not a url",
+  ]) {
+    assert.equal(youtubeVideoFromUrl(bad), null, bad);
+  }
+  assert.equal(youtubeVideoFromUrl("https://youtu.be/HDRFx2rtQ8o?t=abc")?.start, 0);
+  assert.equal(youtubeEmbedUrl({ id: "HDRFx2rtQ8o", start: 3 }), "https://www.youtube-nocookie.com/embed/HDRFx2rtQ8o?rel=0&playsinline=1&start=3");
+  assert.equal(youtubeWatchUrl({ id: "HDRFx2rtQ8o", start: 0 }), "https://www.youtube.com/watch?v=HDRFx2rtQ8o");
+
+  const html =
+    '<p>https://youtu.be/AAAAAAAAAAA 글자는 무시</p>' +
+    '<a href="https://youtu.be/HDRFx2rtQ8o?t=3">1</a><a href="https://youtu.be/HDRFx2rtQ8o?t=3">중복</a>' +
+    '<a href="https://www.youtube.com/watch?v=d0msPNoywS8">2</a><a href="https://example.com">외부</a>';
+  assert.deepEqual(materialYouTubeVideos(html), [
+    { id: "HDRFx2rtQ8o", start: 3 },
+    { id: "d0msPNoywS8", start: 0 },
+  ]);
+  assert.deepEqual(materialYouTubeVideos("<p>영상 없음</p>"), []);
+  const many = Array.from({ length: 15 }, (_, i) => `<a href="https://youtu.be/HDRFx2rtQ8o?t=${i}">${i}</a>`).join("");
+  assert.equal(materialYouTubeVideos(many).length, 10);
+  // 자동 생성 복습 HTML의 "YouTube에서 장면 보기" 링크
+  const seed = SEED_LESSONS[0];
+  const deck = buildLessonDeck({ lesson: seed, content: resolveLessonContent(seed), cues: playbackCues(seed) });
+  const review = deckToReviewHtml(deck, { includeAnswers: false });
+  if (deck.video) assert.deepEqual(materialYouTubeVideos(review)[0], { id: deck.video.youtubeId, start: Math.floor(deck.video.startTime) });
 });
 
 test("srcDoc 앵커: 태그 안 href=#…만 about:srcdoc#…로 (따옴표 유무·대소문자·공백), 외부 링크·본문 글자·data-href·다운로드 문서는 그대로", () => {
