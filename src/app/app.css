@@ -1671,7 +1671,8 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .layout-slide .present-main { grid-template-columns: minmax(0, 1fr); }
 .present-video { display: flex; flex-direction: column; gap: 8px; }
 /* 영상 프레임은 항상 16:9 (높이를 자르지 않고 너비를 줄인다) — 자막·패널의 % 위치가 영상 화면과 일치 */
-.present-video .video-frame.present-frame { width: min(100%, calc((100vh - 230px) * 16 / 9)); margin: 0 auto; }
+/* 260px = 상단바·발표 도구·영상 컨트롤 줄·여백. (230px이면 1920×1080 '영상 크게'에서 컨트롤 줄이 화면 아래로 약 5px 넘쳤다) */
+.present-video .video-frame.present-frame { width: min(100%, calc((100vh - 260px) * 16 / 9)); margin: 0 auto; }
 .present-stage.is-fullscreen .present-video .video-frame.present-frame { width: min(100%, calc((100vh - 170px) * 16 / 9)); }
 .present-video-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .present-slide { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -2083,3 +2084,22 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
 .material-video-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
 .material-video-note { margin: 0; }
 .material-video-note a { color: var(--sky-700); font-weight: 600; }
+
+/* ───────── 발표모드: 영상 숨김 방식 · 작은 영상의 자막 가독성 ───────── */
+/* '슬라이드만': display:none 대신 화면 밖에 그대로 두고 보이지 않게 한다 (크기가 0이 되지 않아 다시 보일 때 YouTube 화면 크기가 맞는다).
+   포커스·보조기기는 inert·aria-hidden으로 뺀다. 레이아웃 흐름에서도 빠진다(position: fixed). */
+.present-video.is-offstage {
+  position: fixed; left: -10000px; top: 0; width: min(960px, 100vw);
+  visibility: hidden; pointer-events: none;
+}
+/* 자막 가리기 패널: 아래쪽 경계는 저장값 그대로 두고, 글자가 커져 넘치면 위로만 늘어난다 (원본 자막 가림 영역은 줄지 않는다).
+   색·불투명도·너비는 그대로. 영상이 클 때(영상 크게·전체 화면)는 저장 크기 그대로라 달라지지 않는다. */
+.present-frame .caption-mask {
+  top: auto !important; bottom: var(--mask-bottom, 10%);
+  height: auto !important; min-height: var(--mask-height, 12%);
+  padding-block: 0.6cqi;
+}
+/* 발표 화면 최소 글자 크기 (영상+슬라이드처럼 영상이 작을 때). 긴 자막은 잘리지 않게 줄마다 2줄까지 */
+.present-frame .ko-subtitle.in-mask span { font-size: max(15px, var(--mask-fs, 2.3cqi)); -webkit-line-clamp: 2; }
+.present-frame .ko-subtitle.in-mask.multi span + span { font-size: max(12.5px, calc(var(--mask-fs, 2.3cqi) * 0.8)); }
+.present-frame .ko-subtitle.in-mask.multi span.sub-py { font-size: max(11.5px, calc(var(--mask-fs, 2.3cqi) * 0.72)); }

@@ -293,7 +293,9 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
 
         <div className="present-main">
           {video ? (
-            <div className="present-video" hidden={!showVideo}>
+            // '슬라이드만'에서도 display:none으로 숨기지 않는다 — 숨겼다 다시 보이면 YouTube 플레이어 안 화면 크기가 갱신되지 않을 때가 있다.
+            // 화면 밖에 두고(is-offstage) 보이지 않게·포커스·보조기기에서 빠지게(inert, aria-hidden) 한다. 재생 상태·시각은 그대로 유지된다.
+            <div className={`present-video${showVideo ? "" : " is-offstage"}`} inert={!showVideo} aria-hidden={!showVideo || undefined}>
               <div className={`video-frame present-frame ${video.simMode ? "sim" : ""}`}>
                 <div ref={video.hostRef} className="yt-host" hidden={video.simMode} />
                 {video.simMode ? (
