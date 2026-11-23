@@ -2074,3 +2074,9 @@ textarea.cue-input { display: block; resize: none; field-sizing: content; max-he
   font-family: var(--font); font-size: 0.72em; font-weight: 600; color: var(--ink-2);
   letter-spacing: 0; word-break: keep-all; overflow-wrap: anywhere; vertical-align: 0.08em;
 }
+
+/* ───────── ⑥ 관리자 회원 목록: 분반별 담당 교수자 ───────── */
+.member-sections { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start; }
+.member-section { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.member-teachers { font-size: var(--fs-xs); color: var(--ink-2); padding-left: 4px; }
+.member-teachers.muted { color: var(--muted); }

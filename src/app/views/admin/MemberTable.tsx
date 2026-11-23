@@ -121,7 +121,7 @@ export const MemberTable: React.FC<{ enrollments: Enrollment[]; courses: CourseO
                 <th>회원</th>
                 <th>대학 · 학과 · 학년</th>
                 <th>휴대폰번호</th>
-                <th>수강 강의 · 분반</th>
+                <th>수강 강의 · 분반 · 담당 교수자</th>
                 <th>가입 · 최종 접속</th>
                 <th>승인</th>
                 <th>관리</th>
@@ -158,16 +158,23 @@ export const MemberTable: React.FC<{ enrollments: Enrollment[]; courses: CourseO
                       {mine.length === 0 ? (
                         <span className="muted">—</span>
                       ) : (
-                        <span className="row-start">
+                        <span className="member-sections">
                           {mine.map(({ c, s }) => (
-                            <button
-                              key={s.id}
-                              className="pill pill-sky pill-btn"
-                              onClick={() => navigate("admin-progress", { course: c.id, section: s.id, learner: m.id })}
-                              title="이 분반의 학습 현황"
-                            >
-                              {c.title} · {s.name}
-                            </button>
+                            <span key={s.id} className="member-section">
+                              <button
+                                className="pill pill-sky pill-btn"
+                                onClick={() => navigate("admin-progress", { course: c.id, section: s.id, learner: m.id })}
+                                title="이 분반의 학습 현황"
+                              >
+                                {c.title} · {s.name}
+                              </button>
+                              {/* 분반 담당 교수자 (관리자 과목 목록에 이미 들어 있는 정보) */}
+                              <small className={`member-teachers${s.instructors.length ? "" : " muted"}`}>
+                                {s.instructors.length
+                                  ? `담당 ${s.instructors.map((t) => t.name?.trim() || "이름 미등록").join(", ")}`
+                                  : "담당 교수자 미배정"}
+                              </small>
+                            </span>
                           ))}
                         </span>
                       )}
