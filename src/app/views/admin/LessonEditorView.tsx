@@ -866,8 +866,6 @@ const LessonEditor: React.FC<{
               setForm((f) => ({ ...f, cues, origin, scriptSource: source ?? f.scriptSource }))
             }
             plain={form.plain}
-            segmentStart={startSec ?? 0}
-            segmentEnd={endSec}
             title={form.title}
             dramaTitle={form.dramaTitle}
             onPlainChange={(plain) =>

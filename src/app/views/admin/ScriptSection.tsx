@@ -15,7 +15,6 @@ import {
 } from "../../lib/captionsApi";
 import type { CaptionLang, CaptionTrackSummary } from "../../lib/captionTypes";
 import { useToast } from "../../components/Toast";
-import { SpeechToSubtitle } from "./SpeechToSubtitle";
 import { createCueId, mergeTrack, parsePlainText, parseSrt, retimeCue, scriptStatus, updateCue, type CueLang } from "../../lib/subtitles";
 import { nowIso } from "../../store/localJson";
 import { TimeInput } from "./ScriptSyncPanel";
@@ -117,9 +116,6 @@ export const ScriptSection: React.FC<{
   onChange: (cues: SubtitleCue[], origin: ScriptOrigin, source?: ScriptSource) => void;
   plain: PlainScript | null;
   onPlainChange: (plain: PlainScript | null) => void;
-  /** 학습 구간 (음성으로 자막 만들기에서 구간만 잘라 인식할 때) */
-  segmentStart: number;
-  segmentEnd: number | null;
   /** AI 번역 프롬프트에 넣을 강의 정보 */
   title: string;
   dramaTitle: string;
@@ -133,8 +129,6 @@ export const ScriptSection: React.FC<{
   onChange,
   plain,
   onPlainChange,
-  segmentStart,
-  segmentEnd,
   title,
   dramaTitle,
 }) => {
@@ -435,25 +429,7 @@ export const ScriptSection: React.FC<{
         ) : null}
       </div>
 
-      {/* 자막이 없는 영상: 파일의 음성을 인식해 원문 자막 만들기 */}
-      <SpeechToSubtitle
-        lang={sourceLang}
-        langLabel={langLabel(sourceLang)}
-        segmentStart={segmentStart}
-        segmentEnd={segmentEnd}
-        onCues={(parsed, fileName) => {
-          onChange(
-            mergeTrack(cues, parsed, sourceLang),
-            { ...origin, [sourceLang]: { provider: "speech", fileName, fetchedAt: nowIso() } },
-            "srt",
-          );
-          setHighlightSrt(false);
-          warnDialogues();
-          onPlainChange(null); // 타임코드 원문 자막이 원문 텍스트를 대체한다.
-        }}
-      />
-
-      {/* SRT 업로드/붙여넣기 (자동 가져오기 실패 시 대체 경로) */}
+      {/* SRT 업로드/붙여넣기 (자동 가져오기 실패 시 대체 경로. Whisper 등 외부 도구로 만든 SRT도 여기서 등록한다) */}
       <div className={`script-import ${highlightSrt ? "highlight" : ""}`} ref={srtRef}>
         <div className="row-start">
           <b className="small">SRT 업로드 / 붙여넣기</b>

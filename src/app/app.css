@@ -1452,12 +1452,6 @@ button.week-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-h
   .topbar:has(.auth-buttons) .mobile-logo .logo-text { display: none; }
 }
 
-/* ───────── 음성으로 자막 만들기 ───────── */
-.stt { padding: 14px; border-radius: 16px; border: 2px dashed var(--lavender-ink); background: var(--lavender); margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
-.stt-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-.stt-field { min-width: 240px; flex: 1; }
-.stt .check { display: flex; gap: 6px; align-items: center; font-size: var(--fs-md); font-weight: 500; }
-
 /* ───────── 생성형 AI로 내용 채우기 ───────── */
 .ai-draft { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--lavender); display: flex; flex-direction: column; gap: 12px; }
 .ai-draft h4 { font-size: var(--fs-base); font-weight: 800; color: var(--lavender-ink); }
