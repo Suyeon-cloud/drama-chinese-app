@@ -48,7 +48,8 @@ export interface AuthService {
   /** 서버 세션의 현재 사용자 */
   getCurrentUser(): Promise<AuthUser | null>;
   signInWithGoogle(): Promise<AuthUser>;
-  signInAsAdmin(id: string, password: string): Promise<AuthUser>;
+  /** 관리자 로그인: 비밀번호만 보낸다. (관리자 계정은 서버가 정한다) */
+  signInAsAdmin(password: string): Promise<AuthUser>;
   signOut(): Promise<void>;
   /** 다른 페이지로 다녀오는 로그인(Supabase)에서 생긴 오류 (한 번 읽으면 지운다) */
   takeSignInError?(): string | null;
@@ -143,9 +144,9 @@ const createGoogleAuthService = (): AuthService => {
         throw toAuthError(err);
       }
     },
-    async signInAsAdmin(id, password) {
+    async signInAsAdmin(password) {
       try {
-        return (await api<{ user: AuthUser }>("/auth/admin", { method: "POST", body: { id, password } })).user;
+        return (await api<{ user: AuthUser }>("/auth/admin", { method: "POST", body: { password } })).user;
       } catch (err) {
         throw toAuthError(err);
       }

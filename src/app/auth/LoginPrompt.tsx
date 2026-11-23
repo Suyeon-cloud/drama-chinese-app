@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { getView, navigate, type ViewKey } from "../router";
 import { useAuth } from "./AuthContext";
-import { GoogleSignInButton } from "./AuthControls";
+import { GoogleMark, GoogleSignInButton } from "./AuthControls";
 
 export const LOGIN_REQUIRED_MESSAGE = "로그인 후 이용하세요.";
 
@@ -72,8 +72,9 @@ export const LoginPromptProvider: React.FC<{ children: React.ReactNode }> = ({ c
             🔒
           </span>
           <b>{LOGIN_REQUIRED_MESSAGE}</b>
-          <button className="btn btn-primary btn-sm" onClick={login} disabled={pending}>
-            {pending ? "로그인 중…" : "Google로 로그인"}
+          <button className="google-btn" onClick={login} disabled={pending}>
+            <GoogleMark />
+            <span>{pending ? "로그인 중…" : "Google로 로그인"}</span>
           </button>
           <button className="login-toast-close" onClick={close} aria-label="닫기">
             ✕

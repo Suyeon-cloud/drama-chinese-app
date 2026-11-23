@@ -28,7 +28,7 @@ type AuthState = {
   /** 성공하면 로그인 사용자, 실패·취소하면 null (안내는 토스트로 표시) */
   signIn: () => Promise<AuthUser | null>;
   /** 관리자 로그인. 실패하면 오류 문구를 돌려준다. */
-  adminSignIn: (id: string, password: string) => Promise<{ user: AuthUser | null; error: string | null }>;
+  adminSignIn: (password: string) => Promise<{ user: AuthUser | null; error: string | null }>;
   signOut: () => Promise<void>;
   /** 서버에서 내 정보를 다시 읽는다. (회원정보 입력·승인 확인) */
   refresh: () => Promise<AuthUser | null>;
@@ -115,10 +115,10 @@ export const AuthProvider: React.FC<{
   }, [service, toast, setUser]);
 
   const adminSignIn = useCallback(
-    async (id: string, password: string) => {
+    async (password: string) => {
       setPending(true);
       try {
-        const u = await service.signInAsAdmin(id, password);
+        const u = await service.signInAsAdmin(password);
         setUser(u);
         toast.show("관리자로 로그인했어요.", "success");
         return { user: u, error: null };

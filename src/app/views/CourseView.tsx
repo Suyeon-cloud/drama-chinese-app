@@ -3,6 +3,7 @@ import { courseToneFor, courseWeeks } from "../../content/courseWeeks";
 import { recommendedLevelLabel } from "../../content/levels";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
+import { DramaKo } from "../components/DramaKo";
 import { navigate } from "../router";
 import { useCurriculum, useLessons, useUserProgress, useWeekMaterials } from "../store/hooks";
 import type { CurriculumWeek, LessonProgress, WeekMaterial } from "../store/models";
@@ -69,6 +70,7 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
         <div className="course-hero-body">
           <h2 className="course-drama" lang="zh-CN">
             《{course.drama}》
+            <DramaKo drama={course.drama} />
           </h2>
           {course.title ? <p className="course-name">{course.title}</p> : null}
           {course.description ? <p className="course-desc">{course.description}</p> : null}

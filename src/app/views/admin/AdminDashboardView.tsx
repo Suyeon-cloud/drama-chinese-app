@@ -56,15 +56,15 @@ export const AdminDashboardView: React.FC = () => {
         ))}
       </dl>
 
-      <h3 className="section-title">운영 강의</h3>
+      <h3 className="section-title">📚 운영 강의</h3>
       <div className="course-admin-grid">
         {[...operating, ...inactive].map((c) => (
           <CourseOverviewCard key={c.id} course={c} showSections>
             <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-course", { course: c.id })}>
-              📚 학습자료
+              📝 학습자료
             </button>
             <button className="btn btn-soft btn-sm" onClick={() => navigate("admin-progress", { course: c.id })}>
-              👥 수강생 현황
+              📊 수강생 현황
             </button>
             <button className="link-btn" onClick={() => navigate("admin-instructors", { course: c.id })}>
               분반·교강사 관리 ›

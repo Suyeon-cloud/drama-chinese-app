@@ -4,16 +4,15 @@ import { Icon } from "../components/Icon";
 import { navigate } from "../router";
 import { useAuth } from "./AuthContext";
 
-/** 관리자 로그인 창 — Google 계정과 별개로 아이디·비밀번호로 로그인한다. */
+/** 관리자 로그인 창 — Google 계정과 별개로 관리자 비밀번호로 로그인한다. (관리자 계정은 서버가 정한다) */
 const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { adminSignIn, adminEnabled, pending } = useAuth();
-  const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { user, error: err } = await adminSignIn(id, password);
+    const { user, error: err } = await adminSignIn(password);
     if (!user) return setError(err);
     onClose();
     navigate("admin");
@@ -36,16 +35,14 @@ const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <Icon name="shield" size={28} />
         </span>
         <h2 id="admin-login-title">관리자 로그인</h2>
-        <p className="muted small">관리자 전용 계정으로 로그인해요. (Google 계정과 별개)</p>
+        <p className="muted small">관리자 비밀번호로 로그인해요. (Google 계정과 별개)</p>
         {!adminEnabled ? (
           <p className="scope-note">
             ℹ️ 서버에 관리자 계정이 아직 설정되지 않았어요. 배포 환경변수 <b>ADMIN_ID</b>, <b>ADMIN_PASSWORD</b>를 넣어 주세요.
           </p>
         ) : null}
-        <label className="field">
-          <span>아이디</span>
-          <input value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" autoFocus required />
-        </label>
+        {/* 브라우저 비밀번호 저장용 고정 사용자 이름 (실제 관리자 ID가 아니며 서버로 보내지 않는다) */}
+        <input type="text" name="username" value="admin" autoComplete="username" readOnly hidden />
         <label className="field">
           <span>비밀번호</span>
           <input
@@ -53,11 +50,16 @@ const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            autoFocus
             required
           />
         </label>
-        {error ? <p className="field-error small">{error}</p> : null}
-        <button className="btn btn-primary btn-block" type="submit" disabled={pending || !id || !password}>
+        {error ? (
+          <p className="field-error small" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button className="btn btn-primary btn-block" type="submit" disabled={pending || !password}>
           {pending ? "로그인 중…" : "관리자로 로그인"}
         </button>
       </form>

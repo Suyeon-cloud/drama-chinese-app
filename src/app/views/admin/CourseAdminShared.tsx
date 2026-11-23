@@ -7,6 +7,7 @@ import { COURSE_STATUS_LABEL, enrollableCourses, visibleCourses } from "../../..
 import { courseWeeks, coursePhases, weekRatio } from "../../../content/courseWeeks";
 import { lessonHeading } from "../../../content/lessons";
 import type { Lesson } from "../../../content/types";
+import { DramaKo } from "../../components/DramaKo";
 import { useToast } from "../../components/Toast";
 import { ApiError, lessonConflictOf } from "../../lib/api";
 import { formatDateTime, formatPercent } from "../../lib/format";
@@ -52,7 +53,10 @@ export const CourseOverviewCard: React.FC<{
   return (
     <section className={`card course-admin-card tone-${courseTone(course.id)}`}>
       <div className="course-admin-head">
-        <span className="course-drama">{course.drama ? `《${course.drama}》` : course.title}</span>
+        <span className="course-drama">
+          {course.drama ? `《${course.drama}》` : course.title}
+          <DramaKo drama={course.drama} />
+        </span>
         <span className="course-name">
           {course.drama ? course.title : null} {showStatus || course.status === "inactive" ? <CourseStatusPill status={course.status} /> : null}
         </span>
@@ -99,7 +103,10 @@ export const SectionCard: React.FC<{
 }> = ({ course, section, children }) => (
   <section className={`card section-card tone-${courseTone(course.id)}`}>
     <div className="course-admin-head">
-      <span className="course-drama">《{course.drama}》</span>
+      <span className="course-drama">
+        《{course.drama}》
+        <DramaKo drama={course.drama} />
+      </span>
       <span className="course-name">
         {course.title} · {section.name} {section.status === "inactive" ? <SectionStatusPill status="inactive" /> : null}{" "}
         {course.status === "inactive" ? <CourseStatusPill status="inactive" /> : null}

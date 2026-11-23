@@ -137,7 +137,7 @@ export const TextLessonView: React.FC<{ lesson: Lesson }> = ({ lesson }) => {
 
       {quiz.length > 0 ? (
         <section>
-          <h3 className="section-title">📝 복습 퀴즈</h3>
+          <h3 className="section-title">🎯 복습 퀴즈</h3>
           <QuizCard questions={quiz} onFinish={onQuizFinish} />
           {done && recordFor ? <p className="muted small center">✅ 학습 완료로 기록했어요. ‘내 대시보드’에서 확인할 수 있어요.</p> : null}
         </section>

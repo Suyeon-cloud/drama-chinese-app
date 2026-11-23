@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { courseToneFor, weekRatio } from "../../content/courseWeeks";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
+import { DramaKo } from "../components/DramaKo";
 import { Icon } from "../components/Icon";
 import { useToast } from "../components/Toast";
 import { ApiError } from "../lib/api";
@@ -50,6 +51,7 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
       <div className="course-body">
         <h3 className="course-drama" lang="zh-CN">
           《{course.drama}》
+          <DramaKo drama={course.drama} />
         </h3>
         <p className="course-name">
           {course.title}{" "}

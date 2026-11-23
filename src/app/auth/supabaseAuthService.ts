@@ -51,10 +51,10 @@ export const supabaseAuthService: AuthService = {
     // 브라우저가 Google 로그인 화면으로 이동한다. 돌아오면 getCurrentUser가 세션을 확인한다.
     return new Promise<AuthUser>(() => undefined);
   },
-  async signInAsAdmin(id, password) {
+  async signInAsAdmin(password) {
     try {
       await signOutSupabase();
-      return (await api<{ user: AuthUser }>("/auth/admin", { method: "POST", body: { id, password } })).user;
+      return (await api<{ user: AuthUser }>("/auth/admin", { method: "POST", body: { password } })).user;
     } catch (err) {
       throw toAuthError(err);
     }

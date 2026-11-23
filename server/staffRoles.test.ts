@@ -26,7 +26,7 @@ import type {
   SectionOverview,
 } from "../src/app/store/models";
 import type { Lesson } from "../src/content/types";
-import { createApi, readApiEnv } from "./api";
+import { ADMIN_LOGIN_LIMIT, createApi, readApiEnv } from "./api";
 import { openDb, type Db } from "./db";
 
 const SECRET = "test-session-secret";
@@ -127,8 +127,8 @@ before(async () => {
       resolve();
     });
   });
-  // 관리자는 기존 아이디·비밀번호 로그인으로 쿠키를 받는다.
-  const login = await call("POST", "/auth/admin", undefined, { id: ADMIN.ADMIN_ID, password: ADMIN.ADMIN_PASSWORD });
+  // 관리자는 비밀번호 로그인으로 쿠키를 받는다. (관리자 계정은 서버가 정한다)
+  const login = await call("POST", "/auth/admin", undefined, { password: ADMIN.ADMIN_PASSWORD });
   assert.equal(login.status, 200);
   adminCookie = (login.headers.get("set-cookie") ?? "").split(";")[0];
 
@@ -151,6 +151,38 @@ before(async () => {
 after(() => {
   close();
   rmSync(dir, { recursive: true, force: true });
+});
+
+test("관리자: 로그인 실패가 잦으면 이 서버 인스턴스에서 잠시 잠그고, 잠긴 동안은 기다리지 않고 바로 거절", async () => {
+  // 다른 테스트가 쓰는 서버와 분리된 새 인스턴스 (실패 횟수는 인스턴스마다 따로 센다)
+  const lockDir = mkdtempSync(path.join(tmpdir(), "zhuiju-admin-lock-"));
+  const app = express();
+  app.use("/api", createApi(openDb(lockDir), readApiEnv({ SESSION_SECRET: SECRET, ...ADMIN })));
+  const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/auth/admin`;
+  const post = async (body: unknown) => {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return { status: res.status, retryAfter: res.headers.get("retry-after"), body: (await res.json()) as { error?: string } };
+  };
+  try {
+    for (let i = 0; i < ADMIN_LOGIN_LIMIT.maxFailures; i++) assert.equal((await post({ password: `wrong-${i}` })).status, 401);
+    // 잠김: 틀린 비밀번호도, 맞는 비밀번호도 비밀번호 확인 없이 바로 429
+    const started = Date.now();
+    const locked = await post({ password: "wrong-again" });
+    assert.equal(locked.status, 429);
+    assert.ok(Number(locked.retryAfter) > 0);
+    assert.ok(Date.now() - started < ADMIN_LOGIN_LIMIT.failDelayMs, "잠긴 동안은 실패 지연 없이 바로 거절한다");
+    assert.equal((await post({ password: ADMIN.ADMIN_PASSWORD })).status, 429);
+    assert.ok(!JSON.stringify(locked.body).includes(ADMIN.ADMIN_PASSWORD));
+    // 다른 인스턴스(공용 테스트 서버)의 관리자 로그인과 Google 로그인 세션은 영향을 받지 않는다
+    assert.equal((await call("POST", "/auth/admin", undefined, { password: ADMIN.ADMIN_PASSWORD })).status, 200);
+    assert.equal((await get<{ user: { provider: string } | null }>("/auth/me", google(A))).body.user?.provider, "google");
+  } finally {
+    server.close();
+    rmSync(lockDir, { recursive: true, force: true });
+  }
 });
 
 /* ───────── 분반 ───────── */
@@ -323,10 +355,30 @@ test("교강사는 자기 분반 학생의 그 과목 기록만: 다른 분반 �
 
 /* ───────── 관리자 ───────── */
 
-test("관리자: 기존 아이디·비밀번호 로그인 유지, 모든 분반·학생 조회", async () => {
+test("관리자: 비밀번호만으로 로그인(12시간 세션)·로그아웃, 모든 분반·학생 조회", async () => {
   assert.equal((await get<{ user: { provider: string } }>("/auth/me", adminCookie)).body.user.provider, "admin");
-  assert.equal((await call("POST", "/auth/admin", undefined, { id: ADMIN.ADMIN_ID, password: "wrong" })).status, 401);
-  assert.equal((await call("POST", "/auth/admin", undefined, { password: ADMIN.ADMIN_PASSWORD })).status, 401);
+  // 틀린 비밀번호: 거부, 오류 문구에 관리자 아이디·비밀번호가 들어가지 않는다
+  const wrong = await call<{ error: string }>("POST", "/auth/admin", undefined, { password: "wrong" });
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.body.error, "비밀번호가 맞지 않아요.");
+  assert.ok(!JSON.stringify(wrong.body).includes(ADMIN.ADMIN_ID) && !JSON.stringify(wrong.body).includes(ADMIN.ADMIN_PASSWORD));
+  assert.equal((await call("POST", "/auth/admin", undefined, {})).status, 401);
+  assert.equal((await call("POST", "/auth/admin", undefined, { id: ADMIN.ADMIN_ID })).status, 401);
+  // 비밀번호만으로 로그인 (보낸 id는 쓰지 않는다)
+  for (const body of [{ password: ADMIN.ADMIN_PASSWORD }, { id: "anything", password: ADMIN.ADMIN_PASSWORD }]) {
+    const ok = await call<{ user: { provider: string } }>("POST", "/auth/admin", undefined, body);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.user.provider, "admin");
+    const setCookie = ok.headers.get("set-cookie") ?? "";
+    assert.match(setCookie, /Max-Age=43200(;|$)/); // 관리자 세션 12시간
+    assert.match(setCookie, /HttpOnly/);
+    const cookie = setCookie.split(";")[0];
+    assert.equal((await get<{ user: { provider: string } }>("/auth/me", cookie)).body.user.provider, "admin");
+    // 로그아웃: 쿠키를 지운다
+    const out = await call("POST", "/auth/logout", cookie);
+    assert.equal(out.status, 200);
+    assert.match(out.headers.get("set-cookie") ?? "", /Max-Age=0/);
+  }
   assert.deepEqual(await studentIds(adminCookie, "course-campus"), ["s1", "s2", "s3", "s4", "s6"]);
   assert.deepEqual(await studentIds(adminCookie, "course-campus", campus2.id), ["s3", "s4"]);
   const open = (await get<CourseOverview[]>("/courses", adminCookie)).body.filter((c) => c.status === "active");

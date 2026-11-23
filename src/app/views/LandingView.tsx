@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { AdminLoginButton } from "../auth/AdminLogin";
 import { GoogleSignInButton } from "../auth/AuthControls";
+import { DramaKo } from "../components/DramaKo";
 import { AppFooter, Logo, MAIN_ID, SkipLink } from "../components/Layout";
 import { courseToneFor } from "../../content/courseWeeks";
 import { ApiError } from "../lib/api";
@@ -56,7 +57,10 @@ const PublicCourseList: React.FC = () => {
         return (
           <li key={c.id} className={`card journey-card tone-${courseToneFor(c.id)}`}>
             <div className="journey-body">
-              <h3 lang={c.drama ? "zh-CN" : undefined}>{c.drama ? `《${c.drama}》` : c.title}</h3>
+              <h3 lang={c.drama ? "zh-CN" : undefined}>
+                {c.drama ? `《${c.drama}》` : c.title}
+                <DramaKo drama={c.drama} />
+              </h3>
               {c.drama ? <p className="journey-title">{c.title}</p> : null}
               {c.description ? <p className="journey-desc">{c.description}</p> : null}
               <small className="muted">{c.weekCount}주 과정</small>

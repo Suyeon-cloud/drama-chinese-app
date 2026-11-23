@@ -410,7 +410,7 @@ export const LessonStudyPanel: React.FC<{
                   <p className="muted small">영상을 끝까지 보면 요약과 함께 퀴즈가 열려요.</p>
                 )}
                 <button className="btn btn-primary btn-sm" onClick={onOpenReview}>
-                  📝 복습 퀴즈 풀기
+                  🎯 복습 퀴즈 풀기
                 </button>
               </>
             )}

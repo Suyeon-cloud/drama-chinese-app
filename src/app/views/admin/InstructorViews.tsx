@@ -48,13 +48,13 @@ export const InstructorHomeView: React.FC = () => {
                 className="btn btn-primary btn-sm"
                 onClick={() => navigate("teach-course", { id: course.id, section: section.id, tab: "students" })}
               >
-                👥 수강생 현황
+                📊 수강생 현황
               </button>
               <button
                 className="btn btn-soft btn-sm"
                 onClick={() => navigate("teach-course", { id: course.id, section: section.id, tab: "lessons" })}
               >
-                📚 주차별 학습자료
+                📝 주차별 학습자료
               </button>
               {course.status === "active" ? <JoinLinkCopy code={section.code} label={`《${course.drama}》 ${section.name}`} /> : null}
             </SectionCard>
@@ -125,8 +125,8 @@ export const InstructorCourseView: React.FC<{ params: URLSearchParams }> = ({ pa
       <div className="learn-tabs sub-tabs scope-tabs" role="tablist" aria-label="담당 분반 관리">
         {(
           [
-            ["students", "이 분반", "👥 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과 · 피드백`, "section"],
-            ["lessons", "강의 공통", "📚 주차별 학습자료", `${weekRangeLabel(course.weekCount) ?? "주차별"} 편집 · 공개 · 모든 분반 공유`, "course"],
+            ["students", "이 분반", "📊 수강생 현황", `${section.name} 학생의 진도 · 퀴즈 결과 · 피드백`, "section"],
+            ["lessons", "강의 공통", "📝 주차별 학습자료", `${weekRangeLabel(course.weekCount) ?? "주차별"} 편집 · 공개 · 모든 분반 공유`, "course"],
           ] as [Tab, string, string, string, string][]
         ).map(([key, scope, label, sub, tone]) => (
           <button

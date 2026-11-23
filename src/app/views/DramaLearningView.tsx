@@ -6,6 +6,7 @@ import { lessonHeading, lessonSubtitlePosition, resolveCaptionMask, resolveLesso
 import { recommendedLevelLabel } from "../../content/levels";
 import type { CultureLensCue, Lesson, MotionCue } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
+import { DramaKo } from "../components/DramaKo";
 import { useToast } from "../components/Toast";
 import { MixedText, ZH_LANG } from "../components/Zh";
 import { CaptionMaskBox } from "../learning/CaptionMask";
@@ -269,7 +270,10 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
                 ) : null}
                 {lesson.status !== "published" ? <span className="pill pill-pink">미리보기 · 비공개</span> : null}
               </span>
-              <h2>{lessonHeading(lesson)}</h2>
+              <h2>
+                {lessonHeading(lesson)}
+                {lesson.source ? <DramaKo drama={lesson.source.dramaTitle} /> : null}
+              </h2>
               {lesson.source ? <p className="muted small">{lesson.title}</p> : null}
               {lesson.description ? (
                 <div className="lesson-desc-wrap">
@@ -428,7 +432,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
           <p className="record-note">
             {recordFor && progress ? (
               <>
-                📈 학습 진행률 <b>{Math.round(progress.progressRatio * 100)}%</b> · 최대 재생 위치{" "}
+                📊 학습 진행률 <b>{Math.round(progress.progressRatio * 100)}%</b> · 최대 재생 위치{" "}
                 <b>{formatTime(progress.maxPosition)}</b>
                 {progress.completedAt ? " · ✅ 학습 완료" : ""}
               </>
@@ -522,7 +526,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
           ) : null}
           {content.quiz.length > 0 ? (
             <>
-              <h3 className="section-title">📝 오늘의 표현을 기억하고 있나요?</h3>
+              <h3 className="section-title">🎯 오늘의 표현을 기억하고 있나요?</h3>
               <QuizCard questions={content.quiz} onFinish={recordFor ? recordQuiz : undefined} />
             </>
           ) : null}

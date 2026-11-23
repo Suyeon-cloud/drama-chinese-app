@@ -43,7 +43,7 @@ export const MyLearningView: React.FC = () => {
     { icon: "✅", label: "완료한 주차", value: s.totalWeeks === null ? `${s.completedCount}주` : `${s.completedCount} / ${s.totalWeeks}주`, tone: "sky" },
     { icon: "▶️", label: "학습을 시작한 주차", value: `${s.startedWeeks.size}주`, tone: "lavender" },
     { icon: "🎬", label: "평균 진행률", value: formatPercent(s.avgProgress), tone: "pink" },
-    { icon: "📝", label: "퀴즈 정답률", value: s.quizRate === null ? "—" : formatPercent(s.quizRate), tone: "cream" },
+    { icon: "🎯", label: "퀴즈 정답률", value: s.quizRate === null ? "—" : formatPercent(s.quizRate), tone: "cream" },
     { icon: "🔥", label: "연속 학습", value: `${s.streak}일째`, tone: "mint" },
   ];
 
@@ -121,7 +121,7 @@ export const MyLearningView: React.FC = () => {
 
       <div className="my-grid two">
         <section className="card">
-          <h3 className="card-title">📈 주차별 학습 기록</h3>
+          <h3 className="card-title">📊 주차별 학습 기록</h3>
           {list.length === 0 ? (
             <p className="muted">
               아직 학습 기록이 없어요. ‘내 강의’에서 강의를 열면 출석과 진행률이 기록돼요.

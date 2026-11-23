@@ -145,6 +145,15 @@ export const readApiEnv = (env: Record<string, string | undefined>): ApiEnv => (
 
 const COOKIE = "zhuiju_sid";
 const SESSION_DAYS = 30;
+/** 관리자 세션은 짧게 둔다. (쿠키가 새어 나가도 피해 기간을 줄인다) 다른 로그인 세션은 SESSION_DAYS 그대로 */
+const ADMIN_SESSION_HOURS = 12;
+
+/**
+ * 관리자 로그인 실패 제한 (서버 인스턴스 안에서만 센다).
+ * Vercel처럼 인스턴스가 여러 개인 환경에서는 인스턴스끼리 공유되지 않아 우회할 수 있다. 강한 ADMIN_PASSWORD를 대신하지 않는 보조 수단이다.
+ * 잠긴 동안은 비밀번호를 확인하지 않고 바로 429로 돌려준다. (대기 없이 끝나 함수 실행 시간을 쓰지 않는다)
+ */
+export const ADMIN_LOGIN_LIMIT = { maxFailures: 10, windowMs: 15 * 60 * 1000, failDelayMs: 400 } as const;
 
 /** name: Google 계정 이름 (교수자 표시용. 회원은 회원정보의 성명을 쓴다) */
 type Session = { k: "admin" } | { k: "google"; id: string; email: string; name?: string };
@@ -249,7 +258,7 @@ export const createApi = (db: Db, env: ApiEnv) => {
       res.setHeader("Set-Cookie", `${COOKIE}=; ${attrs}; Max-Age=0`);
       return;
     }
-    const maxAge = SESSION_DAYS * 24 * 3600;
+    const maxAge = s.k === "admin" ? ADMIN_SESSION_HOURS * 3600 : SESSION_DAYS * 24 * 3600;
     const payload = Buffer.from(JSON.stringify({ ...s, exp: Date.now() + maxAge * 1000 })).toString("base64url");
     res.setHeader("Set-Cookie", `${COOKIE}=${payload}.${sign(payload)}; ${attrs}; Max-Age=${maxAge}`);
   };
@@ -535,16 +544,33 @@ export const createApi = (db: Db, env: ApiEnv) => {
     }
   });
 
-  api.post("/auth/admin", (req, res) => {
+  /** 관리자 로그인 실패 시각 (이 서버 인스턴스 안에서만, ADMIN_LOGIN_LIMIT 참고) */
+  const adminFailures: number[] = [];
+  api.post("/auth/admin", async (req, res) => {
     if (!env.adminId || !env.adminPassword) {
       return res.status(503).json({ error: "관리자 계정이 설정되지 않았어요. (ADMIN_ID, ADMIN_PASSWORD 환경변수)" });
     }
     if (!secret) return res.status(503).json({ error: "관리자 세션 설정이 없어요. (SESSION_SECRET 환경변수)" });
-    const id = typeof req.body?.id === "string" ? req.body.id.trim() : "";
-    const password = typeof req.body?.password === "string" ? req.body.password : "";
-    if (!safeEqual(id, env.adminId) || !safeEqual(password, env.adminPassword)) {
-      return res.status(401).json({ error: "아이디 또는 비밀번호가 맞지 않아요." });
+    // 관리자 계정은 하나(ADMIN_ID)라 서버가 정한다. 화면에서는 비밀번호만 받는다. (보낸 id 값은 쓰지 않는다)
+    const now = Date.now();
+    while (adminFailures.length && now - adminFailures[0] > ADMIN_LOGIN_LIMIT.windowMs) adminFailures.shift();
+    if (adminFailures.length >= ADMIN_LOGIN_LIMIT.maxFailures) {
+      const retryAfter = Math.ceil((adminFailures[0] + ADMIN_LOGIN_LIMIT.windowMs - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      return res.status(429).json({ error: "로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요." });
     }
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!password || !safeEqual(password, env.adminPassword)) {
+      adminFailures.push(now);
+      // 민감정보(비밀번호·쿠키·IP)는 남기지 않고 실패 횟수만 기록한다.
+      console.warn(
+        `[admin-login] 실패 ${adminFailures.length}/${ADMIN_LOGIN_LIMIT.maxFailures} (최근 ${ADMIN_LOGIN_LIMIT.windowMs / 60000}분, 이 서버 인스턴스)`,
+      );
+      // 짧은 지연으로 연속 추측을 늦춘다. (잠긴 뒤에는 지연 없이 바로 거절)
+      await new Promise((r) => setTimeout(r, ADMIN_LOGIN_LIMIT.failDelayMs));
+      return res.status(401).json({ error: "비밀번호가 맞지 않아요." });
+    }
+    adminFailures.length = 0;
     const session: Session = { k: "admin" };
     setSession(req, res, session);
     res.json({ user: sessionUser(session) });
