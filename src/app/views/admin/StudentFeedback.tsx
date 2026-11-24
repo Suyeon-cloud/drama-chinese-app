@@ -172,7 +172,7 @@ export const StudentFeedback: React.FC<{
 
   return (
     <section className="card">
-      <h3 className="card-title">학습 피드백 · {student.name}</h3>
+      <h3 className="card-title">💌 학습 피드백 · {student.name}</h3>
       <div className="feedback-grid">
         <div>
           <b className="small">피드백할 학습 기록</b>

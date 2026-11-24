@@ -100,7 +100,7 @@ export const CourseView: React.FC<{ params: URLSearchParams }> = ({ params }) =>
         </div>
       </section>
 
-      <h3 className="section-title">주차별 학습</h3>
+      <h3 className="section-title">🗓️ 주차별 학습</h3>
       {materials.state === "error" ? (
         <p className="muted small" role="status">
           주차별 추가 자료를 불러오지 못했어요. 잠시 후 새로고침해 주세요.

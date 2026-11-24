@@ -448,7 +448,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
 
         <aside className="drama-side" ref={studyRef}>
           <div className="card now-card">
-            <h3 className="card-title">지금 이 장면</h3>
+            <h3 className="card-title">🎬 지금 이 장면</h3>
             {currentCue ? (
               <>
                 <span className="pill pill-lavender">{TYPE_LABEL[currentCue.learningType]}</span>
@@ -503,7 +503,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
               🎉
             </span>
             <div>
-              <h2>오늘의 학습 완료!</h2>
+              <h2>🎉 오늘의 학습 완료!</h2>
               <p>오늘의 드라마 학습을 완료했어요.</p>
             </div>
             <button className="btn btn-soft" onClick={() => jump(video.startTime)}>

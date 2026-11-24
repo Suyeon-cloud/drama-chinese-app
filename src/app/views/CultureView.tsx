@@ -13,7 +13,7 @@ export const CultureView: React.FC = () => {
   return (
     <div className="page">
       <div className="page-intro">
-        <h2>한중문화 탐색</h2>
+        <h2>🏮 한중문화 탐색</h2>
         <p className="muted">드라마 속 장면이 어떤 문화적 맥락을 재현하는지 함께 읽어봐요.</p>
       </div>
 

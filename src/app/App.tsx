@@ -88,7 +88,8 @@ const Shell: React.FC = () => {
   return (
     <>
     <SkipLink />
-    <div className="app" inert={blocked}>
+    {/* data-area: 학습자 화면(친근·부드럽게)과 교수자·관리자 화면(정돈·효율적) 스타일 구분용 */}
+    <div className="app" data-area={user && user.role !== "learner" ? "staff" : "learner"} inert={blocked}>
       <Sidebar active={view} />
       <div className="main">
         <Topbar active={view} />

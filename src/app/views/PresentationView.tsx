@@ -23,7 +23,7 @@ import type { Lesson, LessonContent, MotionCue } from "../../content/types";
 import { useToast } from "../components/Toast";
 import { CaptionMaskBox } from "../learning/CaptionMask";
 import { MotionOverlayLayer } from "../learning/MotionOverlayLayer";
-import { SubtitleLayer } from "../learning/SubtitleLayer";
+import { SubtitleLayer, SubtitleReserve } from "../learning/SubtitleLayer";
 import { useFullscreen } from "../learning/useFullscreen";
 import { useSegmentPlayback, useSimulatedClock, useYouTubeClock, type VideoClock } from "../learning/useVideoClock";
 import { ApiError } from "../lib/api";
@@ -324,6 +324,8 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
                   {showMotion ? <MotionOverlayLayer cues={motionCues} time={clock.time} playing={clock.playing} /> : null}
                   {mask ? (
                     <CaptionMaskBox mask={mask} lines={subLineCount}>
+                      {/* 박스 높이를 이 강의의 가장 긴 자막에 맞춰 미리 확보한다 (재생 중 크기·위치 고정) */}
+                      {subLangs.length > 0 ? <SubtitleReserve cues={cues} langs={subLangs} pinyin={showPinyin} /> : null}
                       {subLangs.length > 0 ? <SubtitleLayer cues={cues} time={clock.time} langs={subLangs} pinyin={showPinyin} inMask /> : null}
                     </CaptionMaskBox>
                   ) : subLangs.length > 0 ? (

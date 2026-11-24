@@ -440,7 +440,7 @@ export const CourseStudentsPanel: React.FC<{
   return (
     <>
       <section className="card data-table">
-        <h3 className="card-title">수강생 {students.length}명</h3>
+        <h3 className="card-title">👥 수강생 {students.length}명</h3>
         {feedback ? <p className="muted small">학생 이름을 누르면 학습 기록 상세와 학습 피드백 작성이 열려요.</p> : null}
         <table>
           <thead>
@@ -493,7 +493,7 @@ export const CourseStudentsPanel: React.FC<{
       </section>
 
       <section className="card data-table">
-        <h3 className="card-title">주차별 진도</h3>
+        <h3 className="card-title">📅 주차별 진도</h3>
         <table className="week-matrix">
           <thead>
             <tr>
@@ -527,7 +527,7 @@ export const CourseStudentsPanel: React.FC<{
 
       {selected ? (
         <section className="card data-table">
-          <h3 className="card-title">학습 기록 상세 · {students.find((s) => s.userId === selected)?.name}</h3>
+          <h3 className="card-title">🔍 학습 기록 상세 · {students.find((s) => s.userId === selected)?.name}</h3>
           {detail.length === 0 ? (
             <p className="muted">아직 이 강의의 학습 기록이 없어요.</p>
           ) : (

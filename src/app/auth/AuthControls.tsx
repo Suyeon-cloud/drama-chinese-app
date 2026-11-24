@@ -37,20 +37,27 @@ export const Avatar: React.FC<{ name: string; color: string; size?: number; src?
   );
 };
 
-/** Google 로그인 버튼. 어디서 눌러도 같은 useAuth().signIn()을 사용한다. */
-export const GoogleSignInButton: React.FC<{ label?: string; onSignedIn?: () => void }> = ({
+/**
+ * Google 로그인 버튼. 어디서 눌러도 같은 useAuth().signIn()을 사용한다.
+ * iconOnly: 상단 헤더용 — 글자 없이 Google 로고만 (툴팁·aria-label로 이름을 알린다).
+ */
+export const GoogleSignInButton: React.FC<{ label?: string; iconOnly?: boolean; onSignedIn?: () => void }> = ({
   label = "Google로 로그인",
+  iconOnly = false,
   onSignedIn,
 }) => {
   const { signIn, pending } = useAuth();
+  const name = pending ? "로그인 중…" : label;
   return (
     <button
-      className="google-btn"
+      className={`google-btn${iconOnly ? " header-icon-btn" : ""}`}
       onClick={() => void signIn().then((u) => u && onSignedIn?.())}
       disabled={pending}
+      title={iconOnly ? label : undefined}
+      aria-label={iconOnly ? name : undefined}
     >
       <GoogleMark />
-      <span>{pending ? "로그인 중…" : label}</span>
+      {iconOnly ? null : <span>{name}</span>}
     </button>
   );
 };
@@ -70,12 +77,12 @@ export const AuthControls: React.FC = () => {
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  // 로그인 전: 관리자 아이콘(Google과 별개) + Google 로그인
+  // 로그인 전: [관리자 아이콘] [Google 로고] — 둘 다 글자 없는 같은 크기의 아이콘 버튼
   if (!user)
     return (
       <div className="auth-buttons">
         <AdminLoginButton />
-        <GoogleSignInButton />
+        <GoogleSignInButton iconOnly />
       </div>
     );
 

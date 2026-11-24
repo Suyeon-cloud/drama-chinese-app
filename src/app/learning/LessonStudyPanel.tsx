@@ -17,11 +17,11 @@ import { RelationDiagram } from "./CultureLensLayer";
 
 export type StudyTab = "script" | "points" | "culture" | "quiz" | "dialogue";
 
-const TABS: { key: StudyTab; label: string }[] = [
-  { key: "script", label: "스크립트" },
-  { key: "points", label: "표현 학습" },
-  { key: "culture", label: "문화렌즈" },
-  { key: "quiz", label: "퀴즈" },
+const TABS: { key: StudyTab; label: string; emoji?: string }[] = [
+  { key: "script", label: "스크립트", emoji: "📜" },
+  { key: "points", label: "표현 학습", emoji: "💬" },
+  { key: "culture", label: "문화렌즈", emoji: "🏮" },
+  { key: "quiz", label: "퀴즈", emoji: "🎯" },
 ];
 
 export const TYPE_LABEL: Record<string, string> = {
@@ -192,7 +192,7 @@ export const LessonStudyPanel: React.FC<{
   const sourceClass = direction === "zh-ko" ? "zh" : "";
   // 등장 시점이 있는 초안 항목은 학습 cue(draft-{id})로 변환되어 있다.
   const draftTime = (id: string) => content.cues.find((c) => c.id === `draft-${id}`)?.time;
-  const tabs = practice ? [...TABS, { key: "dialogue" as const, label: "회화 연습" }] : TABS;
+  const tabs = practice ? [...TABS, { key: "dialogue" as const, label: "회화 연습", emoji: "🗣️" }] : TABS;
   const tab = requestedTab === "dialogue" && !practice ? "script" : requestedTab;
 
   return (
@@ -206,6 +206,11 @@ export const LessonStudyPanel: React.FC<{
             className={tab === t.key ? "active" : ""}
             onClick={() => onTab(t.key)}
           >
+            {t.emoji ? (
+              <span className="tab-emoji" aria-hidden>
+                {t.emoji}
+              </span>
+            ) : null}
             {t.label}
           </button>
         ))}
@@ -238,7 +243,7 @@ export const LessonStudyPanel: React.FC<{
             <>
               {content.cues.length > 0 ? (
                 <>
-                  <h3 className="card-title">이 회차 학습 포인트</h3>
+                  <h3 className="card-title">📌 이 회차 학습 포인트</h3>
                   <ul className="point-list">
                     {content.cues.map((c) => (
                       <li key={c.id} className={time >= c.time + c.duration ? "done" : ""}>
@@ -290,7 +295,7 @@ export const LessonStudyPanel: React.FC<{
               )}
               {content.summary.length > 0 ? (
                 <>
-                  <h3 className="card-title">핵심 표현 정리</h3>
+                  <h3 className="card-title">💬 핵심 표현 정리</h3>
                   <ul className="expr-list tone-summary">
                     {content.summary.map((s) => (
                       <li key={s.zh}>

@@ -67,14 +67,13 @@ const AdminLoginModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-/** 상단의 관리자 아이콘 (Google 로그인 버튼 왼쪽) */
+/** 상단의 관리자 아이콘 (Google 로고 버튼 왼쪽). 글자 없이 아이콘만 — 툴팁·aria-label로 이름을 알린다. */
 export const AdminLoginButton: React.FC = () => {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="admin-icon-btn" onClick={() => setOpen(true)} title="관리자 로그인" aria-label="관리자 로그인">
-        <Icon name="shield" size={20} />
-        <span>관리자</span>
+      <button className="admin-icon-btn header-icon-btn" onClick={() => setOpen(true)} title="관리자 로그인" aria-label="관리자 로그인">
+        <Icon name="shield" size={19} />
       </button>
       {/* 상단바의 backdrop-filter 안에서는 position: fixed가 화면이 아닌 상단바 기준이 되어 창이 잘린다. body에 띄운다. */}
       {open ? createPortal(<AdminLoginModal onClose={() => setOpen(false)} />, document.body) : null}

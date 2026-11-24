@@ -17,7 +17,7 @@ export const LearnersView: React.FC = () => {
   return (
     <div className="page">
       <PageIntro
-        title="회원 관리"
+        title="👥 회원 관리"
         desc="Google로 가입한 회원을 확인하고 승인해요. 승인된 학생은 강의코드로 분반에 수강 등록해요."
       />
 

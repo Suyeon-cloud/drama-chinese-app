@@ -6,6 +6,18 @@ export const EditorSectionsContext = createContext<{ isOpen: (id: string) => boo
   toggle: () => undefined,
 });
 
+/** 편집 단계별 이모지 (제목 앞, 장식용). 없는 id는 이모지 없이 제목만 */
+const SECTION_EMOJI: Record<string, string> = {
+  basic: "📋",
+  video: "🎬",
+  script: "📝",
+  sync: "⏱️",
+  content: "🧩",
+  review: "🔍",
+  dialogue: "🗣️",
+  publish: "🚀",
+};
+
 /**
  * 학습자료 편집의 접고 펼치는 영역. 접혀도 안의 입력·영상 상태는 그대로 유지된다.
  * 새 제작 단계는 이 컴포넌트로 감싸고 LessonEditorView의 EDITOR_STEPS에 추가하면 된다.
@@ -25,7 +37,14 @@ export const EditorSection: React.FC<{
     <section id={`editor-${id}`} data-section={id} className={`card editor-section ${open ? "open" : ""}`}>
       <button type="button" className="editor-section-head" aria-expanded={open} onClick={() => toggle(id)}>
         {step ? <span className="step">{step}</span> : null}
-        <b>{title}</b>
+        <b>
+          {SECTION_EMOJI[id] ? (
+            <span className="section-emoji" aria-hidden>
+              {SECTION_EMOJI[id]}
+            </span>
+          ) : null}
+          {title}
+        </b>
         {summary ? <span className="editor-section-summary">{summary}</span> : null}
         {status === "done" ? <span className="pill pill-mint">완료</span> : null}
         {status === "later" ? <span className="pill pill-cream">나중에 해도 돼요</span> : null}

@@ -39,7 +39,7 @@ const EditMember: React.FC<{ member: LearnerProfile; onClose: () => void }> = ({
   };
   return (
     <form className="member-edit card" onSubmit={(e) => void save(e)}>
-      <h3 className="card-title">회원정보 수정 · {member.googleEmail}</h3>
+      <h3 className="card-title">✏️ 회원정보 수정 · {member.googleEmail}</h3>
       <ProfileFields value={form} onChange={setForm} />
       <div className="row-end">
         <button type="button" className="btn btn-soft btn-sm" onClick={onClose}>

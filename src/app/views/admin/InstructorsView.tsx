@@ -309,7 +309,7 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
   return (
     <div className="page">
       <PageIntro
-        title="분반·교강사 관리"
+        title="🏫 분반·교강사 관리"
         desc="강의마다 분반을 개설하고 담당 교강사를 배정해요. 학생은 분반 강의코드로 수강 등록하고, 교강사는 담당 분반의 학생만 봐요."
       />
 
@@ -351,7 +351,7 @@ export const InstructorsView: React.FC<{ params: URLSearchParams }> = ({ params 
         </>
       ) : null}
 
-      <h3 className="section-title">교강사 명부</h3>
+      <h3 className="section-title">🧑‍🏫 교강사 명부</h3>
       <section className="card">
         <form className="instructor-form" onSubmit={(e) => void add(e)}>
           <label className="field">

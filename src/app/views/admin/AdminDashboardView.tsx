@@ -33,7 +33,7 @@ export const AdminDashboardView: React.FC = () => {
 
   return (
     <div className="page">
-      <PageIntro title="전체 운영 관리" desc="《追剧学汉语》의 회원·교강사·운영 강의를 한눈에 확인해요." />
+      <PageIntro title="🧭 전체 운영 관리" desc="《追剧学汉语》의 회원·교강사·운영 강의를 한눈에 확인해요." />
 
       <button
         className={`card admin-todo ${pending ? "has-todo" : ""}`}

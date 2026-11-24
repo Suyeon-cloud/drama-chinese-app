@@ -28,7 +28,7 @@ export const WeeksView: React.FC<{ params: URLSearchParams }> = ({ params }) => 
   return (
     <div className="page">
       <div className="page-intro">
-        <h2>내 강의</h2>
+        <h2>📚 내 강의</h2>
         <p className="muted">수강 중인 드라마 과목을 골라 실제 장면과 대사로 중국어를 배워요.</p>
       </div>
 

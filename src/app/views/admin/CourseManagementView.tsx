@@ -156,7 +156,7 @@ export const CourseManagementView: React.FC<{ params: URLSearchParams }> = ({ pa
   return (
     <div className="page">
       <PageIntro
-        title="전체 강의·학습자료"
+        title="🗂️ 전체 강의·학습자료"
         desc="강의를 만들고, 강의별 주차 학습자료를 관리해요. 학습자료는 강의의 모든 분반이 함께 써요. 권장 학습 난이도는 실제 대사를 확인한 뒤 HSK 1~6급으로 정해요."
       >
         <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)} disabled={creating}>

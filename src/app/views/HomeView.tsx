@@ -25,7 +25,7 @@ const StudentHome: React.FC<{ userId: string; name: string }> = ({ userId, name 
   return (
     <div className="page">
       <div className="page-intro">
-        <h2>{name}님, 오늘은 어떤 장면을 볼까요?</h2>
+        <h2>{name}님, 오늘은 어떤 장면을 볼까요?{"\u00a0"}👋</h2>
       </div>
 
       {next?.stats.next ? (
@@ -47,7 +47,7 @@ const StudentHome: React.FC<{ userId: string; name: string }> = ({ userId, name 
 
       <LearningFlow compact />
 
-      <h3 className="section-title home-section-title">내 강의</h3>
+      <h3 className="section-title home-section-title">📚 내 강의</h3>
       <MyCoursesSection />
     </div>
   );

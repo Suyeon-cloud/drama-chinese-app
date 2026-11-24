@@ -31,7 +31,7 @@ export const InstructorHomeView: React.FC = () => {
   return (
     <div className="page">
       <PageIntro
-        title="내 담당 강의"
+        title="📚 내 담당 강의"
         desc={`${user?.name ?? "교강사"}님이 담당하는 분반이에요. 분반 수강생의 학습 진행과 강의 공통 주차별 학습자료를 관리해요.`}
       />
       {mine.length === 0 ? (
