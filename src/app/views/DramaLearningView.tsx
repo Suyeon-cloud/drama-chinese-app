@@ -22,7 +22,7 @@ import { holdsPracticeEnd, reachedLessonEnd, useSegmentPlayback, useSimulatedClo
 import { navigate } from "../router";
 import { useLessons } from "../store/hooks";
 import { CompletionBurst } from "../motion-ui/LearnerMotion";
-import { useMotionEnabled } from "../motion-ui/MotionStage";
+import { useLearningMotionStart, useMotionEnabled } from "../motion-ui/MotionStage";
 import { KineticText, SpeechBubble } from "../motion-ui/StudyMotion";
 import { studentDialogues } from "../lib/dialogues";
 import { isPlainSynced, playbackCues } from "../lib/subtitles";
@@ -239,6 +239,17 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
     setTab(t);
     studyRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
+
+  // '지금 이 장면' → 자세히 학습하기: 표현은 표현 학습, 문화는 문화렌즈 탭의 해당 항목으로 이동해 강조 (스크롤은 학습 패널이)
+  const [studyFocus, setStudyFocus] = useState<{ id: string; n: number } | null>(null);
+  const openCueStudy = async (cue: MotionCue | CultureLensCue) => {
+    await stage.exit();
+    setTab(cue.kind === "culture-lens" ? "culture" : "points");
+    setStudyFocus((f) => ({ id: cue.id, n: (f?.n ?? 0) + 1 }));
+  };
+  // 학습자가 카드 모션·획순을 직접 재생하면 영상은 일시정지한다 (끝나도 자동으로 다시 재생하지 않는다)
+  const { pause } = clock;
+  useLearningMotionStart(() => pause());
 
   const toggle = (on: boolean, flip: () => void, label: string) => (
     <button className={`sub-toggle ${on ? "on" : ""}`} role="switch" aria-checked={on} onClick={flip}>
@@ -461,17 +472,23 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
             <h3 className="card-title">🎬 지금 이 장면</h3>
             {currentCue ? (
               <>
+                {/* 학습 포인트: 설명은 영상 위 카드와 아래 학습 영역에 있으므로 여기서는 표현·병음·유형과 이동 버튼만 */}
                 <span className="pill pill-lavender">{TYPE_LABEL[currentCue.learningType]}</span>
-                <p className="now-zh" lang={ZH_LANG}>{currentCue.dialogue.zh}</p>
-                {currentCue.dialogue.pinyin ? (
+                <p className="now-zh">
+                  <MixedText text={currentCue.title} />
+                </p>
+                {currentCue.kind === "motion" && currentCue.dialogue.pinyin && currentCue.dialogue.zh === currentCue.title ? (
                   <p className="now-py">{currentCue.dialogue.pinyin}</p>
                 ) : null}
-                {currentCue.dialogue.ko ? <p className="now-ko"><MixedText text={currentCue.dialogue.ko} /></p> : null}
+                <button type="button" className="btn btn-soft btn-sm now-more" onClick={() => void openCueStudy(currentCue)}>
+                  📚 자세히 학습하기
+                </button>
               </>
             ) : nowLine ? (
               <SpeechBubble>
                 <KineticText key={nowLine.start} text={nowLine.zh!} phrases={keyPhrases} motion={nowMotion} lang={ZH_LANG} className="now-zh" />
-                {nowLine.ko ? (
+                {/* 한국어는 영상의 한국어 자막이 꺼져 있을 때만 (자막과 겹치지 않게) */}
+                {nowLine.ko && !subLangs.includes("ko") ? (
                   <p className="now-ko">
                     <MixedText text={nowLine.ko} />
                   </p>
@@ -497,6 +514,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
             startTime={video.startTime}
             onSeek={jump}
             progress={progress}
+            focus={studyFocus}
             onOpenReview={() => {
               if (completed) completionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
               else setCompleted(true);

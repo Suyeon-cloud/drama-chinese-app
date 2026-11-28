@@ -2611,3 +2611,31 @@ body {
   .kinetic-text.is-animated mark.kt-mark { animation: none; background-size: 100% 100%; }
   .present-dialogue.is-bubbles li.is-animated { animation: none; }
 }
+
+/* 학습자 직접 재생 모션 (MotionStage manual): 처음에는 전체 내용, '재생'을 누를 때만 순차 등장 */
+.motion-controls.is-manual { flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.motion-pill { height: 28px; padding: 0 12px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; background: #fff; color: var(--sky-700); box-shadow: inset 0 0 0 1px var(--sky-200); white-space: nowrap; }
+.motion-pill:hover { background: var(--sky-50); }
+.motion-pill.is-primary { background: var(--sky-100); box-shadow: none; }
+.motion-pill.is-primary:hover { background: var(--sky-200); }
+.motion-count { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+/* '지금 이 장면' → 자세히 학습하기 */
+.now-card .now-more { align-self: flex-start; margin-top: 8px; }
+.study-panel [data-study-id], .study-panel [data-cue-id] { scroll-margin: 96px 0 24px; }
+.study-panel [data-study-id]:focus, .study-panel [data-cue-id]:focus { outline: none; }
+.study-panel .is-focused { box-shadow: 0 0 0 3px var(--sky-300), var(--shadow-soft); border-radius: var(--radius-sm); animation: studyFocus 2.4s ease-out; }
+.study-panel .is-focused .point-title { white-space: normal; }
+@keyframes studyFocus { 0%, 30% { background-color: var(--sky-100); } 100% { background-color: transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .study-panel .is-focused { animation: none; }
+}
+/* 메인 '다양한 장면에서 만나는 중국어' 과목 카드: 중국어 원제(메인) 바로 아래 한국어 제목(보조), 세 줄(제목·학습 주제·설명) 시작 위치를 같은 줄의 카드끼리 맞춘다 */
+.journey-body h3 .drama-ko { display: block; margin: 2px 0 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; color: var(--ink-2); vertical-align: baseline; }
+@supports (grid-template-rows: subgrid) {
+  .journey-card { display: grid; grid-template-rows: subgrid; grid-row: span 4; row-gap: 0; }
+  .journey-body { grid-row: 1 / span 4; display: grid; grid-template-rows: subgrid; row-gap: 6px; align-content: start; }
+  .journey-body > .journey-kicker { grid-row: 1; }
+  .journey-body > h3 { grid-row: 2; align-self: start; }
+  .journey-body > .journey-title { grid-row: 3; align-self: start; }
+  .journey-body > .journey-desc { grid-row: 4; align-self: start; }
+}

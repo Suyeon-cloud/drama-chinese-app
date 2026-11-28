@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../../content";
+import { DIRECTION_LABEL } from "../../../content/course";
 import type {
   LearningDirection,
   LessonScript,
@@ -351,7 +352,7 @@ export const ScriptSection: React.FC<{
         </span>
       </div>
       <p className="muted small">
-        {direction === "zh-ko" ? "1~8주차형(중국어 → 한국어)" : "9~15주차형(한국어 → 중국어)"} 학습자료는{" "}
+        {DIRECTION_LABEL[direction]} 학습자료는{" "}
         <b>{sourceName} 원문</b>이 있어야 표현·문화렌즈·퀴즈 제작과 공개를 진행할 수 있어요.
       </p>
       {hasDialogues ? <p className="scope-note">자막을 다시 가져오면 연결된 회화 연습의 대사가 변경되거나 자막 연결이 끊길 수 있습니다. 적용 후 회화 연습을 확인해주세요.</p> : null}

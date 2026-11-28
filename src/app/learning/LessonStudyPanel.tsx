@@ -166,6 +166,8 @@ export const LessonStudyPanel: React.FC<{
   onOpenReview: () => void;
   /** 회화 연습 화면. 보여줄 회화 연습이 있을 때만 전달하며, 없으면 탭도 나오지 않는다. */
   practice?: React.ReactNode;
+  /** '지금 이 장면'의 자세히 학습하기: 이 학습 cue의 항목으로 이동해 잠깐 강조한다 (n이 바뀔 때마다) */
+  focus?: { id: string; n: number } | null;
 }> = ({
   tab: requestedTab,
   onTab,
@@ -180,6 +182,7 @@ export const LessonStudyPanel: React.FC<{
   progress,
   onOpenReview,
   practice,
+  focus,
 }) => {
   usePinyinReady(); // 병음 사전이 준비되면 다시 그린다.
   const lensCues = useMemo(
@@ -200,8 +203,36 @@ export const LessonStudyPanel: React.FC<{
   const tabs = practice ? [...TABS, { key: "dialogue" as const, label: "회화 연습", emoji: "🗣️" }] : TABS;
   const tab = requestedTab === "dialogue" && !practice ? "script" : requestedTab;
 
+  // 자세히 학습하기: 탭이 그려진 뒤 해당 항목(초안 항목·문화렌즈 → 학습 포인트 목록 순)으로 스크롤하고 잠깐 강조한다.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = panelRef.current;
+    if (!focus || !root) return;
+    let clear = 0;
+    const t = window.setTimeout(() => {
+      const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(focus.id) : focus.id;
+      const el =
+        root.querySelector<HTMLElement>(`[data-study-id="${esc}"]`) ?? root.querySelector<HTMLElement>(`[data-cue-id="${esc}"]`);
+      if (!el) {
+        root.scrollIntoView({ behavior: motion ? "smooth" : "auto", block: "nearest" });
+        return;
+      }
+      el.scrollIntoView({ behavior: motion ? "smooth" : "auto", block: "center" });
+      el.focus({ preventScroll: true });
+      el.classList.remove("is-focused");
+      void el.offsetWidth; // 같은 항목을 다시 눌러도 강조가 다시 보이게
+      el.classList.add("is-focused");
+      clear = window.setTimeout(() => el.classList.remove("is-focused"), 2600);
+    }, 60);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(clear);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focus(n)가 바뀔 때만
+  }, [focus]);
+
   return (
-    <div className="card study-panel">
+    <div className="card study-panel" ref={panelRef}>
       <div className={`study-tabs ${practice ? "five" : ""}`} role="tablist">
         {tabs.map((t) => (
           <button
@@ -251,7 +282,7 @@ export const LessonStudyPanel: React.FC<{
                   <h3 className="card-title">📌 이 회차 학습 포인트</h3>
                   <ul className="point-list">
                     {content.cues.map((c) => (
-                      <li key={c.id} className={time >= c.time + c.duration ? "done" : ""}>
+                      <li key={c.id} className={time >= c.time + c.duration ? "done" : ""} data-cue-id={c.id} tabIndex={-1}>
                         <button onClick={() => jump(c.time)}>
                           <span className="point-time">{formatTime(c.time)}</span>
                           <span className="point-title">{c.title}</span>
@@ -278,8 +309,8 @@ export const LessonStudyPanel: React.FC<{
                         if (direction === "zh-ko") {
                           const Reveal = sec.grammar ? GrammarReveal : VocabReveal;
                           return (
-                            <li key={x.id} className="is-motion">
-                              <Reveal source={x.source} pinyin={py} note={x.note} zhSource motion={motion} />
+                            <li key={x.id} className="is-motion" data-study-id={`draft-${x.id}`} tabIndex={-1}>
+                              <Reveal source={x.source} pinyin={py} note={x.note} zhSource motion={motion} manual />
                               {t !== undefined ? (
                                 <button className="link-btn" onClick={() => jump(t)}>
                                   ▶ {formatTime(t)} 장면 보기
@@ -289,7 +320,7 @@ export const LessonStudyPanel: React.FC<{
                           );
                         }
                         return (
-                          <li key={x.id}>
+                          <li key={x.id} data-study-id={`draft-${x.id}`} tabIndex={-1}>
                             {/* 한국어 → 중국어 (원문은 한국어, 병음은 설명 뒤) */}
                             <b className={sourceClass}>{x.source}</b>
                             {x.note.trim() ? (
@@ -337,7 +368,7 @@ export const LessonStudyPanel: React.FC<{
           ) : (
             <>
             {draftLenses.map((l) => (
-              <article key={l.id} className="study-lens">
+              <article key={l.id} className="study-lens" data-study-id={`draft-${l.id}`} tabIndex={-1}>
                 <span className="lens-kicker">🔍 文化镜头 · 문화 렌즈</span>
                 {l.title.trim() ? (
                   <h3>
@@ -352,6 +383,7 @@ export const LessonStudyPanel: React.FC<{
                     quoteLang={zhLang(direction === "zh-ko")}
                     paragraphs={cultureSteps(l.text)}
                     motion={motion}
+                    manual
                   />
                 ) : null}
                 {cultureSteps(l.text).length < 2 && l.source.trim() ? (
@@ -382,7 +414,7 @@ export const LessonStudyPanel: React.FC<{
               if (!topic) return null;
               const { lens } = topic;
               return (
-                <article key={cue.id} className="study-lens">
+                <article key={cue.id} className="study-lens" data-study-id={cue.id} tabIndex={-1}>
                   <span className="lens-kicker">🔍 文化镜头 · 문화 렌즈</span>
                   <h3>
                     <MixedText text={lens.title} />
