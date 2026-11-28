@@ -60,12 +60,18 @@ import { materialOps } from "./materialRows";
 import { liveQuizOps, liveSessionOps } from "./liveQuizRows";
 import {
   JOIN_CODE_ALPHABET,
+  buildLiveResults,
   isJoinCode,
+  LIVE_IDENTITY_MISMATCH,
+  LIVE_JOIN_NOT_FOUND,
+  liveIdentityInputError,
+  matchesMemberIdentity,
   liveHostState,
   liveStudentState,
   nextLiveState,
   normalizeJoinCode,
   type LiveAction,
+  type LiveHistoryItem,
   type StoredLiveSession,
 } from "../src/content/liveSession";
 import { isAnthropicKeyShape, parseLiveQuizSetInput, quizKey, type LiveQuizSet, type LiveQuizSetInput } from "../src/content/liveQuiz";
@@ -1815,12 +1821,73 @@ export const createApi = (db: Db, env: ApiEnv) => {
     );
   });
 
-  /** 학생 참여. body: { code } — 코드가 없거나 수강생이 아니면 똑같이 404 (세션이 있는지 알리지 않는다) */
+  /* ───────── 6-C: 결과 조회 (담당 분반 교수자 전용, 종료된 세션) ───────── */
+  // 권한: 그 분반을 맡은 교수자 (운영 중 과목 — 분반이 운영 종료여도 기록은 본다). 관리자 계정은 진행과 같이 제외.
+  // 개인정보: 회원정보의 이름·학번만 결과에 넣는다. 사용자 id·이메일·전화는 보내지 않는다. 결과를 따로 저장하지 않는다.
+  const canViewLiveResults = (req: Authed, sectionId: string) => {
+    const section = db.data.sections[sectionId];
+    return (
+      !isPlatformAdmin(req) && isStaff(req) && !!section && db.data.courses[section.courseId]?.status === "active" &&
+      instructorSections(req.user!.email, false).some((s) => s.id === sectionId)
+    );
+  };
+
+  /** 이 과목에서 내가 볼 수 있는 세션 목록 (진행 중 + 종료, 최근 50개) */
+  api.get("/courses/:id/live/history", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.history(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    if (isPlatformAdmin(req)) return res.status(403).json({ error: "실시간 퀴즈는 교수자 계정으로 진행해 주세요." });
+    const list: LiveHistoryItem[] = Object.values(db.data.liveSessions)
+      .filter((s) => s.courseId === req.params.id && canViewLiveResults(req, s.sectionId))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 50)
+      .map((s) => ({
+        id: s.id,
+        sectionId: s.sectionId,
+        title: s.title,
+        status: s.status,
+        total: s.questions.length,
+        participants: Object.keys(s.participants).length,
+        createdAt: s.createdAt,
+        endedAt: s.endedAt,
+      }));
+    res.json(list);
+  });
+
+  /** 종료된 세션 결과: 학생별 응답·점수, 문항별 정답률·응답 분포, 중복 학번 */
+  api.get("/live/sessions/:id/results", requireLogin, (req: Authed, res) => {
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.results(req.params.id));
+    res.setHeader("Cache-Control", "no-store");
+    if (isPlatformAdmin(req)) return res.status(403).json({ error: "실시간 퀴즈는 교수자 계정으로 진행해 주세요." });
+    const s = db.data.liveSessions[req.params.id];
+    if (!s || !canViewLiveResults(req, s.sectionId)) return res.status(404).json({ error: "세션을 찾을 수 없어요." });
+    if (s.status !== "ended") return res.status(400).json({ error: "세션을 종료한 뒤에 결과를 볼 수 있어요." });
+    res.json(
+      buildLiveResults(s, (userId) => {
+        const m = db.data.members[userId];
+        return m ? { name: m.name, studentId: m.studentId } : null;
+      }),
+    );
+  });
+
+  /**
+   * 학생 참여. body: { code, name, studentId } — 코드가 없거나 수강생이 아니면 똑같이 404 (세션이 있는지 알리지 않는다)
+   * 실명·학번은 학생이 직접 입력하고 서버가 로그인한 회원정보와 대조한다. 입력값은 비교에만 쓰고 저장·기록하지 않는다.
+   * (대조는 세션을 찾기 전에 한다 — 틀린 입력으로 세션 존재 여부를 알 수 없다)
+   */
   api.post("/live/join", requireLogin, (req: Authed, res) => {
     const code = normalizeJoinCode(req.body?.code);
-    const NOT_FOUND = "참여 코드를 찾을 수 없어요. 코드와 수강 중인 분반을 확인해 주세요.";
+    const NOT_FOUND = LIVE_JOIN_NOT_FOUND;
     if (!isJoinCode(code)) return res.status(404).json({ error: NOT_FOUND });
-    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.join(code));
+    const member = req.user?.member;
+    if (!member) return res.status(404).json({ error: NOT_FOUND });
+    const inputError = liveIdentityInputError(req.body ?? {});
+    if (inputError) return res.status(400).json({ error: inputError });
+    if (!matchesMemberIdentity({ name: String(req.body.name), studentId: String(req.body.studentId) }, member)) {
+      return res.status(400).json({ error: LIVE_IDENTITY_MISMATCH });
+    }
+    // Supabase: DB 함수(join_live_session_verified)가 같은 규칙으로 다시 대조한다 (RPC 직접 호출 우회 방지)
+    if (useSupabase) return viaLive(req, res, 200, (ops) => ops.join(code, String(req.body.name), String(req.body.studentId)));
     res.setHeader("Cache-Control", "no-store");
     const s = Object.values(db.data.liveSessions).find((x) => x.status === "active" && x.joinCode === code);
     if (!s || !isLiveLearner(req, s)) return res.status(404).json({ error: NOT_FOUND });

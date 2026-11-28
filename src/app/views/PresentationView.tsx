@@ -35,6 +35,9 @@ import { useLessons } from "../store/hooks";
 import type { WeekMaterial } from "../store/models";
 import { HtmlMaterialFrame } from "./HtmlMaterialView";
 import { navigate } from "../router";
+import { useMotionEnabled } from "../motion-ui/MotionStage";
+import { GoalsSlide, PresentIntro, SectionTransition, SummaryCards } from "../motion-ui/PresentMotion";
+import { CultureInfographic, GrammarReveal, KineticText, SpeechBubble, VocabReveal } from "../motion-ui/StudyMotion";
 
 /**
  * #/present?lesson={id} — 교수자 발표 모드 (5단계).
@@ -122,6 +125,9 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
   const slide = slides[Math.min(state.index, slides.length - 1)];
   const sections = useMemo(() => sectionStarts(slides), [slides]);
   const currentSection = sectionOf(sections, state.index);
+  // 발표 모션그래픽(시작·목표·섹션 전환·정리): '모션' 토글 + 움직임 줄이기 설정을 함께 따른다
+  const slideMotion = useMotionEnabled(showMotion);
+  const isSectionStart = currentSection >= 0 && sections[currentSection]?.index === state.index;
   const [showPinyin, setShowPinyin] = useState(true);
   const [showKo, setShowKo] = useState(true);
   // 자막 따라가기는 기본 꺼짐: 교수자가 S·버튼으로 켤 때만 재생 시점에 맞춰 대사 슬라이드로 옮긴다
@@ -355,7 +361,8 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
           ) : null}
           {showSlide ? (
             <div className="present-slide" aria-live="polite">
-              <SlideBody slide={slide} deck={deck} showPinyin={showPinyin} showKo={showKo} revealed={state.revealed.includes(slide.key)} />
+              {isSectionStart ? <SectionTransition sections={sections} current={currentSection} motion={slideMotion} /> : null}
+              <SlideBody slide={slide} deck={deck} showPinyin={showPinyin} showKo={showKo} revealed={state.revealed.includes(slide.key)} motion={slideMotion} />
               {slide.kind === "quiz" ? (
                 <button className="btn btn-soft btn-sm present-reveal" onMouseDown={noFocus} onClick={() => dispatch({ type: "reveal", key: slide.key })} title="A">
                   {state.revealed.includes(slide.key) ? "정답 가리기" : "정답·해설 공개"}
@@ -388,32 +395,56 @@ const Presenter: React.FC<{ lesson: Lesson; clock: VideoClock; video: VideoSlot 
 const PinyinLine: React.FC<{ show: boolean; text: string }> = ({ show, text }) => (show && text ? <div className="present-py">{text}</div> : null);
 
 /** 슬라이드 한 장 (큰 글씨) */
-const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean; showKo: boolean; revealed: boolean }> = ({ slide, deck, showPinyin, showKo, revealed }) => {
+const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean; showKo: boolean; revealed: boolean; motion: boolean }> = ({
+  slide,
+  deck,
+  showPinyin,
+  showKo,
+  revealed,
+  motion,
+}) => {
   switch (slide.kind) {
     case "title":
-      return (
-        <div className="present-card is-title">
-          <div className="present-section">{deck.week}주차</div>
-          <h1 className="present-h1">{deck.heading}</h1>
-          {deck.heading !== deck.title ? <p className="present-sub">{deck.title}</p> : null}
-          {deck.description ? <p className="present-sub">{deck.description}</p> : null}
-          <p className="muted small">
-            장면 대사 {deck.lines.length} · 표현·문법 {deck.points.filter((p) => p.kind !== "summary").length} · 문화 {deck.culture.length} · 퀴즈 {deck.quiz.length}
-          </p>
-        </div>
-      );
+      return <PresentIntro deck={deck} motion={motion} />;
+    case "goals":
+      return <GoalsSlide goals={slide.goals} motion={motion} />;
     case "line":
       return (
         <div className="present-card">
           <div className="present-section">
             {SECTION_LABEL.line} {slide.index + 1}/{slide.total} · {formatTime(slide.line.start)}
           </div>
-          {slide.line.zh ? <div className="present-zh" lang="zh-CN">{slide.line.zh}</div> : null}
+          {slide.line.zh ? (
+            <div className="present-zh" lang="zh-CN">
+              {/* 강의의 표현·문법 원문과 같은 부분만 강조 (없으면 일반 글자) */}
+              <KineticText key={slide.key} text={slide.line.zh} phrases={deck.points.filter((p) => p.kind !== "summary").map((p) => p.text)} motion={motion} />
+            </div>
+          ) : null}
           <PinyinLine show={showPinyin} text={slide.line.pinyin} />
           {showKo && slide.line.ko ? <div className="present-ko">{slide.line.ko}</div> : null}
         </div>
       );
     case "point":
+      if (slide.point.kind !== "summary" && deck.direction === "zh-ko") {
+        const Reveal = slide.point.kind === "grammar" ? GrammarReveal : VocabReveal;
+        return (
+          <div className="present-card present-point">
+            <div className="present-section">
+              {slide.section}
+              {slide.point.at !== null ? ` · ${formatTime(slide.point.at)}` : ""}
+            </div>
+            <Reveal
+              key={slide.key}
+              source={slide.point.text}
+              pinyin={showPinyin ? slide.point.pinyin : ""}
+              note={showKo ? slide.point.note : ""}
+              zhSource
+              motion={motion}
+              big
+            />
+          </div>
+        );
+      }
       return (
         <div className="present-card">
           <div className="present-section">
@@ -431,11 +462,15 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
           <div className="present-section">{SECTION_LABEL.culture}</div>
           <h2 className="present-h2">{slide.culture.title}</h2>
           {slide.culture.subtitle ? <p className="present-sub">{slide.culture.subtitle}</p> : null}
-          {slide.culture.paragraphs.map((p, i) => (
-            <p key={i} className="present-text">
-              {p}
-            </p>
-          ))}
+          {slide.culture.paragraphs.length >= 2 ? (
+            <CultureInfographic key={slide.key} title={slide.culture.title} paragraphs={slide.culture.paragraphs} motion={motion} big />
+          ) : (
+            slide.culture.paragraphs.map((p, i) => (
+              <p key={i} className="present-text">
+                {p}
+              </p>
+            ))
+          )}
         </div>
       );
     case "dialogue":
@@ -444,15 +479,23 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
           <div className="present-section">{SECTION_LABEL.dialogue}</div>
           <h2 className="present-h2">{slide.dialogue.title || "회화 연습"}</h2>
           {slide.dialogue.situation ? <p className="present-sub">{slide.dialogue.situation}</p> : null}
-          <ol className="present-dialogue">
-            {slide.dialogue.lines.map((l, i) => (
-              <li key={i}>
-                {l.role ? <b className="present-role">{l.role}</b> : null}
-                <span className="present-text" lang="zh-CN">{l.zh}</span>
-                {showPinyin && l.pinyin ? <span className="present-py"> {l.pinyin}</span> : null}
-                {showKo && l.ko ? <div className="muted">{l.ko}</div> : null}
-              </li>
-            ))}
+          <ol className="present-dialogue is-bubbles">
+            {slide.dialogue.lines.map((l, i) => {
+              // 말풍선 방향: 데이터의 역할이 등장한 순서로 번갈아 (역할이 없으면 모두 왼쪽)
+              const roles = [...new Set(slide.dialogue.lines.map((x) => x.role).filter(Boolean))];
+              const side = l.role && roles.indexOf(l.role) % 2 === 1 ? "right" : "left";
+              return (
+                <li key={i} className={motion ? "is-animated" : ""} style={motion ? { animationDelay: `${i * 0.35}s` } : undefined}>
+                  <SpeechBubble role={l.role || undefined} side={side}>
+                    <span className="present-text" lang="zh-CN">
+                      {l.zh}
+                    </span>
+                    {showPinyin && l.pinyin ? <span className="present-py"> {l.pinyin}</span> : null}
+                    {showKo && l.ko ? <div className="muted">{l.ko}</div> : null}
+                  </SpeechBubble>
+                </li>
+              );
+            })}
           </ol>
         </div>
       );
@@ -475,12 +518,7 @@ const SlideBody: React.FC<{ slide: Slide; deck: LessonDeck; showPinyin: boolean;
         </div>
       );
     case "end":
-      return (
-        <div className="present-card is-title">
-          <h1 className="present-h1">수고했어요!</h1>
-          <p className="present-sub">학생용 복습 자료는 ‘복습 HTML’에서 만들어 주차 자료로 등록할 수 있어요.</p>
-        </div>
-      );
+      return <SummaryCards deck={deck} motion={motion} showPinyin={showPinyin} showKo={showKo} />;
   }
 };
 

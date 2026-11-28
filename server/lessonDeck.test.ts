@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildLessonDeck,
   deckToReviewHtml,
+  deckGoals,
   deckToSlides,
   lineSlideAt,
   presentKeyOf,
@@ -79,7 +80,7 @@ test("슬라이드: 순서·구간·자막 따라가기, 퀴즈 정답은 공개
   const kinds = slides.map((s) => s.kind);
   assert.equal(kinds[0], "title");
   assert.equal(kinds[kinds.length - 1], "end");
-  const order = ["title", "line", "point", "culture", "quiz", "point", "end"];
+  const order = ["title", ...(deckGoals(deck).length >= 2 ? ["goals"] : []), "line", "point", "culture", "quiz", "point", "end"];
   const compact = kinds.filter((k, i) => k !== kinds[i - 1]);
   assert.deepEqual(compact, order);
   assert.equal(slides.filter((s) => s.kind === "line").length, deck.lines.length);
@@ -278,7 +279,8 @@ test("섹션 빠른 이동: 데이터가 있는 섹션만, 섹션마다 한 덩�
     const labels = starts.map((s) => s.section);
     assert.equal(new Set(labels).size, labels.length, `${lesson.id}: 섹션이 한 번씩만 (${labels.join(",")})`);
     assert.ok(!labels.includes("시작") && !labels.includes("마무리"));
-    assert.equal(starts.reduce((n, s) => n + s.count, 0), slides.length - 2, "시작·마무리 뺀 모든 슬라이드가 어느 섹션엔가 속한다");
+    const outside = slides.filter((s) => s.kind === "title" || s.kind === "goals" || s.kind === "end").length;
+    assert.equal(starts.reduce((n, s) => n + s.count, 0), slides.length - outside, "시작·학습 목표·마무리 뺀 모든 슬라이드가 어느 섹션엔가 속한다");
     for (const s of starts) {
       assert.equal(slides[s.index].section, s.section);
       assert.equal(sectionOf(starts, s.index), starts.indexOf(s));
@@ -296,4 +298,29 @@ test("섹션 빠른 이동: 데이터가 있는 섹션만, 섹션마다 한 덩�
   assert.equal(presentKeyOf({ key: "m", targetTag: "INPUT" }), null);
   assert.equal(presentKeyOf({ key: "0" }), null);
   assert.equal(presentKeyOf({ key: "1", targetTag: "INPUT" }), null);
+});
+
+test("학습 목표(발표 모션): 강의 데이터에서 만들고, 데이터가 있는 항목만, 2개 미만이면 목표 슬라이드 없음, 섹션 밖", () => {
+  for (const lesson of SEED_LESSONS) {
+    const deck = buildLessonDeck(input(lesson));
+    const goals = deckGoals(deck);
+    const expr = deck.points.filter((p) => p.kind === "expression");
+    // 목표 숫자 = 실제 데이터 수
+    const byIcon = Object.fromEntries(goals.map((g) => [g.icon, g]));
+    assert.equal(!!byIcon["🎬"], deck.lines.length > 0, lesson.id);
+    if (deck.lines.length) assert.match(byIcon["🎬"].text, new RegExp(`${deck.lines.length}개`));
+    if (expr.length) {
+      assert.match(byIcon["💬"].text, new RegExp(`${expr.length}개`));
+      assert.equal(byIcon["💬"].detail, expr.slice(0, 3).map((p) => p.text).filter(Boolean).join(" · "), "구체 예시는 앞의 표현 3개");
+    }
+    assert.equal(!!byIcon["🎯"], deck.quiz.length > 0);
+    const slides = deckToSlides(deck);
+    assert.equal(slides.some((x) => x.kind === "goals"), goals.length >= 2);
+    if (goals.length >= 2) assert.equal(slides[1].kind, "goals", "시작 바로 다음");
+  }
+  const empty = { ...buildLessonDeck(input(SEED_LESSONS[0])), lines: [], points: [], culture: [], dialogues: [], quiz: [] };
+  assert.deepEqual(deckGoals(empty), []);
+  assert.deepEqual(deckToSlides(empty).map((x) => x.kind), ["title", "end"], "데이터가 없으면 일반 표시(시작·마무리만)");
+  const onlyQuiz = { ...empty, quiz: buildLessonDeck(input(SEED_LESSONS[0])).quiz };
+  assert.ok(!deckToSlides(onlyQuiz).some((x) => x.kind === "goals"), "목표 1개뿐이면 목표 슬라이드 없음");
 });

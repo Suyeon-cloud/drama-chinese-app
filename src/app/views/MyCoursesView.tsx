@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ProgressRing } from "../motion-ui/LearnerMotion";
 import { courseToneFor, weekRatio } from "../../content/courseWeeks";
 import type { Lesson } from "../../content/types";
 import { useAuth } from "../auth/AuthContext";
@@ -58,15 +59,14 @@ const CourseCard: React.FC<{ course: CourseSummary; lessons: Lesson[]; progress:
           {course.status === "inactive" ? <span className="pill pill-cream" title="이미 수강 중인 학습은 계속할 수 있어요">신규 수강 마감</span> : null}
         </p>
         {course.section ? <SectionLine section={course.section} /> : null}
-        <div className="course-progress">
+        {/* 진행률: 실제 학습 기록(완료 주차)으로 계산한 값 그대로 (막대 대신 원) */}
+        <div className="course-progress has-ring">
+          <ProgressRing done={weekRatio(completed, course.weekCount)} total={1} size={52} label={`${course.weekCount}주 중 ${completed}주 완료`} />
           <span className="row-between">
             <small>
               완료 {completed} / {course.weekCount}주
             </small>
             <span className={`pill ${started ? "pill-sky" : "pill-cream"}`}>{state}</span>
-          </span>
-          <span className="mini-bar" role="img" aria-label={`${course.weekCount}주 중 ${completed}주 완료`}>
-            <span style={{ width: `${weekRatio(completed, course.weekCount) * 100}%` }} />
           </span>
         </div>
         <div className="course-foot">

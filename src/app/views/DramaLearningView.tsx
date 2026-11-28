@@ -21,6 +21,9 @@ import { useLessonProgress } from "../learning/useLessonProgress";
 import { holdsPracticeEnd, reachedLessonEnd, useSegmentPlayback, useSimulatedClock, useYouTubeClock } from "../learning/useVideoClock";
 import { navigate } from "../router";
 import { useLessons } from "../store/hooks";
+import { CompletionBurst } from "../motion-ui/LearnerMotion";
+import { useMotionEnabled } from "../motion-ui/MotionStage";
+import { KineticText, SpeechBubble } from "../motion-ui/StudyMotion";
 import { studentDialogues } from "../lib/dialogues";
 import { isPlainSynced, playbackCues } from "../lib/subtitles";
 import { toPinyin, usePinyinReady } from "../lib/pinyin";
@@ -146,6 +149,13 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
   const lens = lensId
     ? (cultureTopics.find((t) => t.id === lensId)?.lens ?? content.lenses?.[lensId])
     : undefined;
+  // 지금 대사 (학습 포인트가 없을 때 '지금 이 장면'에 말풍선으로): 강의의 핵심 표현 원문과 같은 부분만 강조
+  const nowMotion = useMotionEnabled();
+  const keyPhrases = useMemo(
+    () => [...(content.draft?.expressions ?? []), ...(content.draft?.grammar ?? [])].map((x) => x.source),
+    [content.draft],
+  );
+  const nowLine = lesson.direction === "zh-ko" ? script.find((c) => clock.time >= c.start && clock.time < c.end && c.zh) : undefined;
   const currentCue = content.cues.find(
     (c) => clock.time >= c.time && clock.time < c.time + c.duration,
   );
@@ -458,6 +468,15 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
                 ) : null}
                 {currentCue.dialogue.ko ? <p className="now-ko"><MixedText text={currentCue.dialogue.ko} /></p> : null}
               </>
+            ) : nowLine ? (
+              <SpeechBubble>
+                <KineticText key={nowLine.start} text={nowLine.zh!} phrases={keyPhrases} motion={nowMotion} lang={ZH_LANG} className="now-zh" />
+                {nowLine.ko ? (
+                  <p className="now-ko">
+                    <MixedText text={nowLine.ko} />
+                  </p>
+                ) : null}
+              </SpeechBubble>
             ) : (
               <p className="muted">
                 영상을 보다가 학습 포인트가 나오면 영상 위에 카드가 잠깐 나타나요. 영상은 멈추지
@@ -499,9 +518,7 @@ const LessonPlayer: React.FC<{ lesson: Lesson; params: URLSearchParams }> = ({ l
       {completed ? (
         <section className="completion" ref={completionRef}>
           <div className="card completion-hero">
-            <span className="confetti" aria-hidden>
-              🎉
-            </span>
+            <CompletionBurst />
             <div>
               <h2>🎉 오늘의 학습 완료!</h2>
               <p>오늘의 드라마 학습을 완료했어요.</p>

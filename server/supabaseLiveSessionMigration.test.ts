@@ -32,7 +32,8 @@ const INTERNAL_FNS = ["_live_join_code", "_live_can_host", "_live_host_json", "_
 
 test("6-B: 마지막 마이그레이션, 한 트랜잭션, 사전 확인이 먼저, 새 테이블 3개만 (기존 테이블·함수 변경 없음)", () => {
   assert.ok(B6_FILE);
-  assert.equal(migFiles[migFiles.length - 1], B6_FILE);
+  // 6-B 뒤에는 6-C(결과 조회 함수만)까지만 온다
+  assert.ok(migFiles.slice(migFiles.indexOf(B6_FILE!) + 1).every((f) => /_phase_(6c_live_quiz_results|6d_live_join_verified|6d2_revoke_legacy_join)\.sql$/.test(f)));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);
@@ -128,10 +129,12 @@ test("Supabase 6-B 경로: 교수자·학생 모두 사용자 token으로 RPC, �
   await ops.control("lqs-x", "close", 3);
   await ops.hostState("lqs-x");
   await ops.hostSessions("course-campus");
-  await ops.join("ABC234");
+  await ops.join("ABC234", "이름", "2024000001");
   await ops.studentState("lqs-x");
   await ops.submit("lqs-x", 0, 2);
-  assert.deepEqual(calls.map((c) => c.rpc), PUBLIC_FNS);
+  // 6-D부터 학생 참여는 본인 확인 함수(join_live_session_verified)로 간다
+  assert.deepEqual(calls.map((c) => c.rpc), PUBLIC_FNS.map((f) => (f === "join_live_session" ? "join_live_session_verified" : f)));
+  assert.deepEqual(calls[4].args, { p_code: "ABC234", p_name: "이름", p_student_id: "2024000001" });
   assert.deepEqual(calls[1].args, { p_session_id: "lqs-x", p_action: "close", p_expected_version: 3 });
   assert.deepEqual(calls[6].args, { p_session_id: "lqs-x", p_question_index: 0, p_choice: 2 });
   const failing = liveSessionOps({ rpc: () => Promise.resolve({ data: null, error: { code: "23505", message: "dup" } }) } as unknown as SupabaseClient, (e) => new Error(`E:${e.code}`));

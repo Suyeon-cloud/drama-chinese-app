@@ -3,45 +3,29 @@ import type { LiveQuizSet } from "../../content/liveQuiz";
 import { liveJoinHash, normalizeJoinCode, type LiveAction, type LiveHostState, type LiveHostSummary } from "../../content/liveSession";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
+import { QrCode } from "../components/QrCode";
 import { MixedText } from "../components/Zh";
+import { AnswerReveal, Countdown, ResponseBars, useQuestionIntro } from "../motion-ui/QuizMotion";
 import { ApiError } from "../lib/api";
 import { navigate } from "../router";
 import { useStaffCourses } from "../store/hooks";
 import { liveQuizStore } from "../store/liveQuizStore";
 import { liveSessionStore, useLiveSync } from "../store/liveSessionStore";
+import { LiveHistoryList, LiveResultsView } from "./LiveResultsPanel";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 const PHASE_LABEL = { waiting: "시작 전", open: "응답 받는 중", closed: "응답 마감", revealed: "정답 공개" } as const;
 const pct = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0);
 
-/** 보기별 응답 막대 (교수자·정답 공개 뒤 학생) */
-const Bars: React.FC<{ options: string[]; counts: number[]; answer: number | null }> = ({ options, counts, answer }) => {
-  const total = counts.reduce((a, b) => a + b, 0);
-  return (
-    <ol className="live-bars">
-      {options.map((o, i) => (
-        <li key={i} className={answer === i ? "is-answer" : ""}>
-          <span className="live-bar-label">
-            {i + 1}. <MixedText text={o} />
-            {answer === i ? " ✓" : ""}
-          </span>
-          <span className="live-bar-track">
-            <span style={{ width: `${pct(counts[i] ?? 0, total)}%` }} />
-          </span>
-          <span className="live-bar-num">
-            {counts[i] ?? 0}명 · {pct(counts[i] ?? 0, total)}%
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-};
+/** 새 문제 카운트다운 길이 (화면 연출만 — 응답 접수 시간은 교수자 진행이 정한다) */
+const INTRO_MS = 3000;
 
-/* ───────── 교수자: #/live-host?course={courseId}[&session={sessionId}] ───────── */
+/* ───────── 교수자: #/live-host?course={courseId}[&session={sessionId} | &results={sessionId}] ───────── */
 
 export const LiveHostView: React.FC<{ params: URLSearchParams }> = ({ params }) => {
   const courseId = params.get("course") ?? "";
   const sessionId = params.get("session");
+  const resultsId = params.get("results");
   const { user } = useAuth();
   const courses = useStaffCourses(user?.id ?? null);
   const course = courses?.find((c) => c.id === courseId);
@@ -53,14 +37,22 @@ export const LiveHostView: React.FC<{ params: URLSearchParams }> = ({ params }) 
       </div>
     );
   }
+  // 결과 화면의 분반 이름: 운영 종료된 분반도 포함 (지난 학기 기록)
+  const sectionName = (id: string) => course.sections.find((s) => s.id === id)?.name ?? id;
+  if (resultsId) return <LiveResultsView key={resultsId} sessionId={resultsId} courseId={course.id} sectionName={sectionName} />;
   return sessionId ? (
     <HostSession key={sessionId} sessionId={sessionId} courseId={course.id} />
   ) : (
-    <HostSetup courseId={course.id} courseTitle={course.title} sections={course.sections.filter((s) => s.status === "active")} />
+    <HostSetup courseId={course.id} courseTitle={course.title} sections={course.sections.filter((s) => s.status === "active")} nameOf={sectionName} />
   );
 };
 
-const HostSetup: React.FC<{ courseId: string; courseTitle: string; sections: { id: string; name: string }[] }> = ({ courseId, courseTitle, sections }) => {
+const HostSetup: React.FC<{ courseId: string; courseTitle: string; sections: { id: string; name: string }[]; nameOf: (id: string) => string }> = ({
+  courseId,
+  courseTitle,
+  sections,
+  nameOf,
+}) => {
   const [sets, setSets] = useState<LiveQuizSet[] | null>(null);
   const [active, setActive] = useState<LiveHostSummary[] | null>(null);
   const [setId, setSetId] = useState("");
@@ -154,6 +146,7 @@ const HostSetup: React.FC<{ courseId: string; courseTitle: string; sections: { i
           {busy ? "시작하는 중…" : "세션 시작 (참여 코드 발급)"}
         </button>
       </section>
+      <LiveHistoryList courseId={courseId} sectionName={nameOf} />
     </div>
   );
 };
@@ -191,20 +184,50 @@ const HostSession: React.FC<{ sessionId: string; courseId: string }> = ({ sessio
   const joinUrl = `${window.location.origin}${window.location.pathname}${liveJoinHash(s.joinCode)}`;
   const isLast = s.currentIndex !== null && s.currentIndex + 1 >= s.total;
   return (
+    <HostSessionBody s={s} joinUrl={joinUrl} responded={responded} isLast={isLast} busy={busy} act={act} courseId={courseId} realtime={sync.realtime} stale={sync.stale} />
+  );
+};
+
+const HostSessionBody: React.FC<{
+  s: LiveHostState;
+  joinUrl: string;
+  responded: number;
+  isLast: boolean;
+  busy: boolean;
+  act: (a: LiveAction) => Promise<void>;
+  courseId: string;
+  realtime: boolean;
+  stale: boolean;
+}> = ({ s, joinUrl, responded, isLast, busy, act, courseId, realtime, stale }) => {
+  const intro = useQuestionIntro(s.currentIndex, s.phase, INTRO_MS);
+  const [bigQr, setBigQr] = useState(false);
+  return (
     <div className="page live-host">
       <div className="row-start" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <h2 className="section-title">⚡ {s.title}</h2>
         <span className="muted small">
-          {sync.realtime ? "실시간 연결됨" : "자동 새로고침"}
-          {sync.stale ? " · 연결 지연 중" : ""}
+          {realtime ? "실시간 연결됨" : "자동 새로고침"}
+          {stale ? " · 연결 지연 중" : ""}
         </span>
       </div>
-      <section className="card live-code">
+      <section className={`card live-code ${s.status === "active" ? "has-qr" : ""}`}>
+        {s.status === "active" ? (
+          <button
+            type="button"
+            className={`live-qr ${bigQr ? "is-big" : ""}`}
+            onClick={() => setBigQr((v) => !v)}
+            aria-pressed={bigQr}
+            title={bigQr ? "QR 작게 보기" : "QR 크게 보기 (프로젝터용)"}
+          >
+            <QrCode value={joinUrl} size={bigQr ? 320 : 132} label={`실시간 퀴즈 참여 QR 코드 (참여 코드 ${s.joinCode})`} />
+          </button>
+        ) : null}
+        <div className="live-code-info">
         <div>
           참여 코드 <b className="live-code-text">{s.joinCode}</b>
         </div>
         <small className="muted">
-          학생: 로그인 → 내 강의 → ‘실시간 퀴즈 참여’에 코드 입력 (또는 {joinUrl})
+          📱 휴대폰 카메라로 QR을 찍거나, 로그인 → 내 강의 → ‘실시간 퀴즈 참여’에 코드를 입력해요. 참여할 때 실명·학번을 입력해요.
         </small>
         <div className="row-start" style={{ gap: 12, marginTop: 6 }}>
           <span>👥 참여 {s.participants}명</span>
@@ -216,18 +239,29 @@ const HostSession: React.FC<{ sessionId: string; courseId: string }> = ({ sessio
                 : `${s.currentIndex + 1} / ${s.total}번 · ${PHASE_LABEL[s.phase]}`}
           </span>
         </div>
+        </div>
       </section>
 
       {s.status === "ended" ? (
         <section className="card">
           <b>세션이 종료됐어요.</b>
           <Summary s={s} />
-          <button className="btn btn-soft btn-sm" onClick={() => navigate("live-host", { course: courseId })}>
-            세션 목록으로
-          </button>
+          <div className="row-start" style={{ gap: 6 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate("live-host", { course: courseId, results: s.id })}>
+              📊 학생별 결과 보기
+            </button>
+            <button className="btn btn-soft btn-sm" onClick={() => navigate("live-host", { course: courseId })}>
+              세션 목록으로
+            </button>
+          </div>
         </section>
       ) : (
         <>
+          {s.question && intro ? (
+            <section className="card live-question">
+              <Countdown label={`${s.currentIndex! + 1}번 문제가 곧 나와요`} />
+            </section>
+          ) : null}
           {s.question ? (
             <section className="card live-question">
               <h3 className="live-q-text">
@@ -236,7 +270,7 @@ const HostSession: React.FC<{ sessionId: string; courseId: string }> = ({ sessio
               <p className="muted small">
                 응답 {responded}명 / 참여 {s.participants}명
               </p>
-              <Bars options={s.question.options} counts={s.counts} answer={s.phase === "revealed" || s.phase === "closed" ? s.question.answer : null} />
+              <ResponseBars options={s.question.options} counts={s.counts} answer={s.phase === "revealed" || s.phase === "closed" ? s.question.answer : null} />
               {s.phase === "closed" ? <p className="muted small">✓ 표시는 교수자 화면에만 보여요. ‘정답 공개’를 누르면 학생에게도 보여요.</p> : null}
               {s.phase === "revealed" && s.question.explanation ? <p className="live-explain"><MixedText text={s.question.explanation} /></p> : null}
             </section>
@@ -303,6 +337,9 @@ export const LiveJoinView: React.FC<{ params: URLSearchParams }> = ({ params }) 
 
 const JoinForm: React.FC<{ initial: string }> = ({ initial }) => {
   const [code, setCode] = useState(normalizeJoinCode(initial));
+  // 실명·학번: 서버가 회원정보와 대조만 한다. 이 화면·브라우저 저장소에 남기지 않는다.
+  const [name, setName] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const join = async (e?: React.FormEvent) => {
@@ -310,7 +347,7 @@ const JoinForm: React.FC<{ initial: string }> = ({ initial }) => {
     setBusy(true);
     setError(null);
     try {
-      const s = await liveSessionStore.join(code);
+      const s = await liveSessionStore.join(code, name.trim(), studentId.trim());
       navigate("live", { session: s.id });
     } catch (err) {
       setError(errorText(err, "참여하지 못했어요."));
@@ -335,12 +372,29 @@ const JoinForm: React.FC<{ initial: string }> = ({ initial }) => {
             placeholder="ABC234"
           />
         </label>
+        <label className="field">
+          <span>실명</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={50} required placeholder="회원정보에 등록한 이름" />
+        </label>
+        <label className="field">
+          <span>학번</span>
+          <input
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={30}
+            required
+            placeholder="회원정보에 등록한 학번"
+          />
+        </label>
+        <p className="muted small">입력한 실명·학번은 회원정보와 맞는지 확인하는 데만 쓰고 따로 저장하지 않아요.</p>
         {error ? (
           <p className="field-error small" role="alert">
             {error}
           </p>
         ) : null}
-        <button className="btn btn-primary" disabled={busy || code.length !== 6}>
+        <button className="btn btn-primary" disabled={busy || code.length !== 6 || !name.trim() || !studentId.trim()}>
           {busy ? "참여하는 중…" : "참여하기"}
         </button>
       </form>
@@ -356,6 +410,7 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
   const s = sync.state;
   // 다음 문제로 넘어가면 고른 보기 초기화
   useEffect(() => setPicked(null), [s?.currentIndex]);
+  const intro = useQuestionIntro(s?.currentIndex ?? null, s?.phase ?? "waiting", INTRO_MS);
   if (sync.error && !s) {
     return (
       <div className="card empty">
@@ -399,8 +454,12 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
         <section className="card">
           <p>곧 첫 문제가 나와요. 이 화면을 열어 두세요.</p>
         </section>
-      ) : (
+      ) : intro && s.phase === "open" && !answered ? (
         <section className="card live-question">
+          <Countdown label={`${s.currentIndex! + 1}번 문제가 곧 나와요`} />
+        </section>
+      ) : (
+        <section className="card live-question qm-enter">
           <h3 className="live-q-text">
             <MixedText text={s.question.question} />
           </h3>
@@ -429,18 +488,15 @@ const StudentSession: React.FC<{ sessionId: string }> = ({ sessionId }) => {
           ) : null}
           {answered && s.phase !== "revealed" ? <p className="small">제출했어요. 정답 공개를 기다려 주세요.</p> : null}
           {!answered && s.phase === "closed" ? <p className="muted small">응답이 마감됐어요.</p> : null}
-          {s.phase === "revealed" ? (
-            <div className="live-reveal">
-              <p>
-                <b>{answered ? (s.myChoice === s.answer ? "정답이에요! 🎉" : "아쉬워요. 정답을 확인해 보세요.") : "이번 문제는 답하지 않았어요."}</b>
-              </p>
+          {s.phase === "revealed" && s.answer !== null ? (
+            <AnswerReveal result={!answered ? "none" : s.myChoice === s.answer ? "correct" : "wrong"}>
               {s.explanation ? (
                 <p className="live-explain">
                   <MixedText text={s.explanation} />
                 </p>
               ) : null}
-              {s.counts ? <Bars options={s.question.options} counts={s.counts} answer={s.answer} /> : null}
-            </div>
+              {s.counts ? <ResponseBars options={s.question.options} counts={s.counts} answer={s.answer} /> : null}
+            </AnswerReveal>
           ) : null}
         </section>
       )}

@@ -4,7 +4,7 @@
 // - 테이블 직접 권한은 없다. RPC는 화면 형태(camelCase) JSON을 돌려준다.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LiveQuizSet, LiveQuizSetInput } from "../src/content/liveQuiz";
-import type { LiveAction, LiveHostState, LiveHostSummary, LiveStudentState } from "../src/content/liveSession";
+import type { LiveAction, LiveHistoryItem, LiveHostState, LiveHostSummary, LiveResults, LiveStudentState } from "../src/content/liveSession";
 
 type PgError = { code?: string; message: string };
 
@@ -45,9 +45,14 @@ export const liveSessionOps = (client: SupabaseClient, toError: (e: PgError) => 
       call<LiveHostState>("live_session_control", { p_session_id: sessionId, p_action: action, p_expected_version: version }),
     hostState: (sessionId: string) => call<LiveHostState>("live_session_host_state", { p_session_id: sessionId }),
     hostSessions: (courseId: string) => call<LiveHostSummary[]>("my_live_host_sessions", { p_course_id: courseId }),
-    join: (code: string) => call<LiveStudentState>("join_live_session", { p_code: code }),
+    // 6-D: 본인 확인(실명·학번 ↔ 회원정보)을 DB에서도 하는 참여 함수. 기존 join_live_session은 6-D2에서 직접 호출 권한을 거둔다
+    join: (code: string, name: string, studentId: string) =>
+      call<LiveStudentState>("join_live_session_verified", { p_code: code, p_name: name, p_student_id: studentId }),
     studentState: (sessionId: string) => call<LiveStudentState>("live_session_student_state", { p_session_id: sessionId }),
     submit: (sessionId: string, questionIndex: number, choice: number) =>
       call<LiveStudentState>("submit_live_answer", { p_session_id: sessionId, p_question_index: questionIndex, p_choice: choice }),
+    // 6-C: 결과 조회 (담당 분반 교수자, 종료된 세션)
+    history: (courseId: string) => call<LiveHistoryItem[]>("my_live_session_history", { p_course_id: courseId }),
+    results: (sessionId: string) => call<LiveResults>("live_session_results", { p_session_id: sessionId }),
   };
 };

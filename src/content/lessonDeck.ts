@@ -168,8 +168,31 @@ export const buildLessonDeck = ({ lesson, content, cues, dialogues = [], pinyinO
 
 /* ───────── 발표 슬라이드 ───────── */
 
+/** 학습 목표 (강의 데이터에서 만든다 — 15주차 어느 강의든 같은 규칙) */
+export type DeckGoal = { icon: string; text: string; detail: string };
+
+const pick = (xs: string[], n: number) => xs.filter(Boolean).slice(0, n).join(" · ");
+
+/**
+ * 학습 목표: 대사·표현·문법·문화·회화·퀴즈 중 데이터가 있는 것만 목표 문장으로 바꾼다.
+ * 2개 미만이면 목표 슬라이드를 만들지 않는다 (일반 표시 — 시작 슬라이드만).
+ */
+export const deckGoals = (deck: LessonDeck): DeckGoal[] => {
+  const goals: DeckGoal[] = [];
+  const expr = deck.points.filter((p) => p.kind === "expression");
+  const gram = deck.points.filter((p) => p.kind === "grammar");
+  if (deck.lines.length) goals.push({ icon: "🎬", text: `장면 대사 ${deck.lines.length}개를 듣고 따라 읽기`, detail: pick(deck.lines.map((l) => l.zh), 1) });
+  if (expr.length) goals.push({ icon: "💬", text: `핵심 표현 ${expr.length}개 익히기`, detail: pick(expr.map((p) => p.text), 3) });
+  if (gram.length) goals.push({ icon: "📖", text: `어휘·문법 ${gram.length}개 이해하기`, detail: pick(gram.map((p) => p.text), 3) });
+  if (deck.culture.length) goals.push({ icon: "🏮", text: "드라마 속 문화 맥락 이해하기", detail: pick(deck.culture.map((c) => c.title), 2) });
+  if (deck.dialogues.length) goals.push({ icon: "🗣️", text: `회화 ${deck.dialogues.length}개로 말하기 연습`, detail: pick(deck.dialogues.map((d) => d.title), 2) });
+  if (deck.quiz.length) goals.push({ icon: "🎯", text: `퀴즈 ${deck.quiz.length}문제로 확인하기`, detail: "" });
+  return goals;
+};
+
 export type Slide =
   | { key: string; kind: "title"; section: string }
+  | { key: string; kind: "goals"; section: string; goals: DeckGoal[] }
   | { key: string; kind: "line"; section: string; line: DeckLine; index: number; total: number }
   | { key: string; kind: "point"; section: string; point: DeckPoint }
   | { key: string; kind: "culture"; section: string; culture: DeckCulture }
@@ -189,9 +212,11 @@ export const SECTION_LABEL = {
   end: "마무리",
 } as const;
 
-/** 발표 순서: 시작 → 장면 대사 → 표현·문법 → 문화 → 회화 → 퀴즈 → 정리 → 마무리 (빈 섹션은 건너뛴다) */
+/** 발표 순서: 시작(+학습 목표) → 장면 대사 → 표현·문법 → 문화 → 회화 → 퀴즈 → 정리 → 마무리 (빈 섹션은 건너뛴다) */
 export const deckToSlides = (deck: LessonDeck): Slide[] => {
   const slides: Slide[] = [{ key: "title", kind: "title", section: SECTION_LABEL.title }];
+  const goals = deckGoals(deck);
+  if (goals.length >= 2) slides.push({ key: "goals", kind: "goals", section: SECTION_LABEL.title, goals });
   deck.lines.forEach((line, index) =>
     slides.push({ key: `line:${line.id}:${index}`, kind: "line", section: SECTION_LABEL.line, line, index, total: deck.lines.length }),
   );
@@ -218,7 +243,7 @@ export type SectionStart = { section: string; index: number; count: number };
 export const sectionStarts = (slides: Slide[]): SectionStart[] => {
   const out: SectionStart[] = [];
   slides.forEach((s, index) => {
-    if (s.kind === "title" || s.kind === "end") return;
+    if (s.kind === "title" || s.kind === "goals" || s.kind === "end") return;
     const last = out[out.length - 1];
     if (last && last.section === s.section) last.count++;
     else out.push({ section: s.section, index, count: 1 });

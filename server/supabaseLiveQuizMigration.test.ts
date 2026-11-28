@@ -33,7 +33,7 @@ test("6-A: 마지막 마이그레이션, 한 트랜잭션, 사전 확인이 먼�
   assert.ok(A6_FILE);
   // 6-A 뒤에는 6-B(세션)만 올 수 있다
   const after = migFiles.slice(migFiles.indexOf(A6_FILE!) + 1);
-  assert.ok(after.every((f) => f.endsWith("_phase_6b_live_quiz_sessions.sql")), after.join(","));
+  assert.ok(after.every((f) => /_phase_6(b_live_quiz_sessions|c_live_quiz_results|d_live_join_verified|d2_revoke_legacy_join)\.sql$/.test(f)), after.join(","));
   assert.match(top, /^begin;\n/);
   assert.match(top, /\ncommit;$/);
   assert.equal([...top.matchAll(/^(begin|commit|rollback);$/gm)].length, 2);

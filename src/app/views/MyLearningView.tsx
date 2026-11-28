@@ -1,4 +1,5 @@
 import React from "react";
+import { ProgressRing } from "../motion-ui/LearnerMotion";
 import { formatTime } from "../../content";
 import { courseWeeks, dashboardWeekCount } from "../../content/courseWeeks";
 import { baseLessonContent, lessonHeading } from "../../content/lessons";
@@ -88,7 +89,12 @@ export const MyLearningView: React.FC = () => {
 
       <section className="card">
         <div className="card-head">
-          <h3 className="card-title">📅 {s.totalWeeks === null ? "주차" : `${s.totalWeeks}주`} 진도</h3>
+          <h3 className="card-title">
+            {s.totalWeeks ? (
+              <ProgressRing done={s.completedCount} total={s.totalWeeks} size={40} label={`${s.totalWeeks}주 중 ${s.completedCount}주 완료`} />
+            ) : null}
+            📅 {s.totalWeeks === null ? "주차" : `${s.totalWeeks}주`} 진도
+          </h3>
           {s.next ? (
             <button className="btn btn-primary btn-sm" onClick={() => navigate("lesson", { lesson: s.next!.id })}>
               다음 학습: {s.next.week}주차 →

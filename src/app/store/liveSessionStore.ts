@@ -1,6 +1,6 @@
 // 6-B: 실시간 퀴즈 세션 API + 동기화 훅 (Realtime Broadcast 신호 + 폴링 fallback)
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LiveAction, LiveHostState, LiveHostSummary, LiveStudentState } from "../../content/liveSession";
+import type { LiveAction, LiveHistoryItem, LiveHostState, LiveHostSummary, LiveResults, LiveStudentState } from "../../content/liveSession";
 import { api, ApiError } from "../lib/api";
 import { getSupabase } from "../lib/supabase";
 
@@ -11,10 +11,15 @@ export const liveSessionStore = {
     api<LiveHostState>(`/live/sessions/${enc(sessionId)}/control`, { method: "POST", body: { action, version } }),
   host: (sessionId: string) => api<LiveHostState>(`/live/sessions/${enc(sessionId)}/host`),
   hostSessions: (courseId: string) => api<LiveHostSummary[]>(`/courses/${enc(courseId)}/live/sessions`),
-  join: (code: string) => api<LiveStudentState>("/live/join", { method: "POST", body: { code } }),
+  /** 참여: 실명·학번은 서버가 회원정보와 대조만 하고 저장하지 않는다 */
+  join: (code: string, name: string, studentId: string) =>
+    api<LiveStudentState>("/live/join", { method: "POST", body: { code, name, studentId } }),
   state: (sessionId: string) => api<LiveStudentState>(`/live/sessions/${enc(sessionId)}/state`),
   submit: (sessionId: string, questionIndex: number, choice: number) =>
     api<LiveStudentState>(`/live/sessions/${enc(sessionId)}/answers`, { method: "POST", body: { questionIndex, choice } }),
+  /** 6-C: 세션 목록(진행 중 + 종료) · 종료된 세션 결과 (담당 분반 교수자) */
+  history: (courseId: string) => api<LiveHistoryItem[]>(`/courses/${enc(courseId)}/live/history`),
+  results: (sessionId: string) => api<LiveResults>(`/live/sessions/${enc(sessionId)}/results`),
 };
 
 export type LiveSync<T> = {

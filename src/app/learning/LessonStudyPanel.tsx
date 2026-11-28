@@ -14,6 +14,9 @@ import { cuePinyin } from "./SubtitleLayer";
 import { MixedText, ZH_LANG, zhLang } from "../components/Zh";
 import type { LessonProgress } from "../store/models";
 import { RelationDiagram } from "./CultureLensLayer";
+import { cultureSteps } from "../../content/learningMotion";
+import { useMotionEnabled } from "../motion-ui/MotionStage";
+import { CultureInfographic, GrammarReveal, VocabReveal } from "../motion-ui/StudyMotion";
 
 export type StudyTab = "script" | "points" | "culture" | "quiz" | "dialogue";
 
@@ -190,6 +193,8 @@ export const LessonStudyPanel: React.FC<{
   const grammar = draft?.grammar.filter((x) => x.source.trim()) ?? [];
   const draftLenses = draft?.lenses.filter((x) => x.title.trim() || x.text.trim()) ?? [];
   const sourceClass = direction === "zh-ko" ? "zh" : "";
+  // 교육용 모션: 학습자 화면은 움직임 줄이기 설정을 따른다
+  const motion = useMotionEnabled();
   // 등장 시점이 있는 초안 항목은 학습 cue(draft-{id})로 변환되어 있다.
   const draftTime = (id: string) => content.cues.find((c) => c.id === `draft-${id}`)?.time;
   const tabs = practice ? [...TABS, { key: "dialogue" as const, label: "회화 연습", emoji: "🗣️" }] : TABS;
@@ -258,8 +263,8 @@ export const LessonStudyPanel: React.FC<{
                 </>
               ) : null}
               {[
-                { title: "핵심 표현", items: expressions, tone: "" },
-                { title: "어휘·문법", items: grammar, tone: " tone-grammar" },
+                { title: "핵심 표현", items: expressions, tone: "", grammar: false },
+                { title: "어휘·문법", items: grammar, tone: " tone-grammar", grammar: true },
               ].map((sec) =>
                 sec.items.length > 0 ? (
                   <React.Fragment key={sec.title}>
@@ -269,12 +274,24 @@ export const LessonStudyPanel: React.FC<{
                         const t = draftTime(x.id);
                         // 중국어 표현 → 병음 → 설명 (한국어 → 중국어는 설명 속 중국어 표현 다음에 병음)
                         const py = showPinyin ? draftNotePinyin(x, direction, toPinyin) : "";
+                        // 중국어 → 한국어: 교육용 모션 (한자 → 병음 → 뜻 → 예문, 문법은 문형 구조). 한국어 → 중국어는 기존 표시
+                        if (direction === "zh-ko") {
+                          const Reveal = sec.grammar ? GrammarReveal : VocabReveal;
+                          return (
+                            <li key={x.id} className="is-motion">
+                              <Reveal source={x.source} pinyin={py} note={x.note} zhSource motion={motion} />
+                              {t !== undefined ? (
+                                <button className="link-btn" onClick={() => jump(t)}>
+                                  ▶ {formatTime(t)} 장면 보기
+                                </button>
+                              ) : null}
+                            </li>
+                          );
+                        }
                         return (
                           <li key={x.id}>
-                            <b className={sourceClass} lang={zhLang(direction === "zh-ko")}>
-                              {x.source}
-                            </b>
-                            {py && direction === "zh-ko" ? <small>{py}</small> : null}
+                            {/* 한국어 → 중국어 (원문은 한국어, 병음은 설명 뒤) */}
+                            <b className={sourceClass}>{x.source}</b>
                             {x.note.trim() ? (
                               <span>
                                 <MixedText text={x.note} />
@@ -327,12 +344,23 @@ export const LessonStudyPanel: React.FC<{
                     <MixedText text={l.title} />
                   </h3>
                 ) : null}
-                {l.source.trim() ? (
+                {/* 문단이 2개 이상이면 장면 원문 → 문단 단계 인포그래픽, 아니면 기존 표시 */}
+                {cultureSteps(l.text).length >= 2 ? (
+                  <CultureInfographic
+                    title={l.title}
+                    quote={l.source.trim() || undefined}
+                    quoteLang={zhLang(direction === "zh-ko")}
+                    paragraphs={cultureSteps(l.text)}
+                    motion={motion}
+                  />
+                ) : null}
+                {cultureSteps(l.text).length < 2 && l.source.trim() ? (
                   <p className={`lens-quote ${sourceClass}`} lang={zhLang(direction === "zh-ko")}>
                     “{l.source}”
                   </p>
                 ) : null}
-                {l.text
+                {cultureSteps(l.text).length < 2 &&
+                  l.text
                   .split(/\n+/)
                   .filter((p) => p.trim())
                   .map((p, i) => (
