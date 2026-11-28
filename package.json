@@ -12,7 +12,7 @@
     "@remotion/tailwind-v4": "4.0.532",
     "@remotion/zod-types": "4.0.532",
     "@supabase/supabase-js": "2.118.0",
-    "express": "4.21.2",
+    "express": "4.22.3",
     "hanzi-writer": "^3.7.3",
     "pinyin-pro": "3.29.5",
     "qrcode": "^1.5.4",
